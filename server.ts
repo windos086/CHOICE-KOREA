@@ -1,13 +1,9 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { WebSocketServer } from "ws";
-import { fileURLToPath } from "url";
 import "dotenv/config";
 import { GoogleGenAI, Type } from "@google/genai";
 import cors from "cors";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Lazy-load Gemini Client to prevent crash on startup
 let aiClient: GoogleGenAI | null = null;
@@ -355,7 +351,8 @@ Return the output in JSON format with KOREAN explanation:
   // Vite middleware setup
   let vite: any;
   if (process.env.NODE_ENV !== "production") {
-    vite = await createViteServer({
+    const { createServer } = await import("vite");
+    vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
