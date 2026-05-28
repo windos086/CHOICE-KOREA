@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true; // In simple app flow, or when user creates their mock account
+    }
+
+    match /predictions/{predictionId} {
+      allow read: if true;
+      allow write: if true; // Allow admin/client automatic AI creation/modification
+    }
+
+    match /bets/{betId} {
+      allow read: if true;
+      allow create, update: if true; // Allow placing bets and updating statuses
+      allow delete: if false;
+    }
+
+    match /chats/{chatId} {
+      allow read: if true;
+      allow create: if true; // Allow anyone to post chat messages
+      allow update, delete: if false;
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.authorId;
+      }
+    }
+
+    match /posts_humor/{postId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if "authorId" in resource.data ? (request.auth.uid == resource.data.authorId) : true;
+      }
+    }
+
+    match /posts_notice/{postId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if "authorId" in resource.data ? (request.auth.uid == resource.data.authorId) : true;
+      }
+    }
+
+    match /app_config/{document=**} {
+      allow read, write: if true;
+    }
+
+    match /subcategory_logos/{logoId} {
+      allow read, write, delete: if true;
+    }
+
+    match /global_subcategories/{document=**} {
+      allow read, write, delete: if true;
+    }
+
+    match /prediction_comments/{commentId} {
+      allow read, write: if true;
+    }
+
+    match /prediction_replies/{replyId} {
+      allow read, write: if true;
+    }
+    
+    match /suggestions/{suggestionId} {
+      allow read, write: if true;
+    }
+  }
+}

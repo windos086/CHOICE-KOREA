@@ -1,0 +1,170 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with points and performance stats.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "nickname": { "type": "string" },
+        "points": { "type": "integer" },
+        "predictsCount": { "type": "integer" },
+        "successCount": { "type": "integer" },
+        "exchangeCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "nickname", "points"]
+    },
+    "Prediction": {
+      "title": "Prediction Event",
+      "description": "Prediction card where members can vote and stake points.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "options": { "type": "array" },
+        "pool": { "type": "object" },
+        "totalPool": { "type": "integer" },
+        "creator": { "type": "string" },
+        "status": { "type": "string" },
+        "winningOption": { "type": "string" },
+        "resolutionMethod": { "type": "string" },
+        "endAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "sourceUrl": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "options", "pool", "totalPool", "status", "endAt"]
+    },
+    "Bet": {
+      "title": "User Bet Entry",
+      "description": "Recorded bet placed by a user on an option of a prediction card.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userNickname": { "type": "string" },
+        "predictionId": { "type": "string" },
+        "option": { "type": "string" },
+        "amount": { "type": "integer" },
+        "status": { "type": "string" },
+        "payout": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "predictionId", "option", "amount", "status"]
+    },
+    "Chat": {
+      "title": "Chat message",
+      "description": "Real-time communication chat history.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userNickname": { "type": "string" },
+        "userColor": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userNickname", "message", "type", "createdAt"]
+    },
+    "Post": {
+      "title": "Community Post",
+      "description": "User generated content in the community board.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "integer" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "author": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "timestamp": { "type": "integer" },
+        "views": { "type": "integer" },
+        "likes": { "type": "integer" },
+        "likedBy": { "type": "array" },
+        "isNotice": { "type": "boolean" },
+        "isRecommended": { "type": "boolean" }
+      },
+      "required": ["id", "number", "title", "content", "author", "createdAt", "views", "likes", "isNotice", "isRecommended"]
+    },
+    "SubcategoryLogo": {
+      "title": "Subcategory Logo",
+      "description": "Logo images for subcategories and leagues.",
+      "type": "object",
+      "properties": {
+        "subCategory": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["subCategory", "imageUrl"]
+    },
+    "PredictionComment": {
+      "title": "Prediction Comment",
+      "description": "Comments and discussion posts under specific prediction events.",
+      "type": "object",
+      "properties": {
+        "predictionId": { "type": "string" },
+        "author": { "type": "string" },
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "likes": { "type": "integer" },
+        "likedBy": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["predictionId", "author", "authorId", "content", "createdAt"]
+    },
+    "PredictionReply": {
+      "title": "Prediction Reply",
+      "description": "Nested replies to a specific prediction comment.",
+      "type": "object",
+      "properties": {
+        "commentId": { "type": "string" },
+        "predictionId": { "type": "string" },
+        "author": { "type": "string" },
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["commentId", "predictionId", "author", "authorId", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user accounts with point ledger."
+    },
+    "/predictions/{predictionId}": {
+      "schema": "Prediction",
+      "description": "All news/sports prediction events."
+    },
+    "/bets/{betId}": {
+      "schema": "Bet",
+      "description": "Individual bet ledger entries."
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Global chat rooms."
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Community board posts."
+    },
+    "/subcategory_logos/{logoId}": {
+      "schema": "SubcategoryLogo",
+      "description": "Logo images for game/sports leagues and specific subcategories."
+    },
+    "/prediction_comments/{commentId}": {
+      "schema": "PredictionComment",
+      "description": "Comments made by users on specific prediction events."
+    },
+    "/prediction_replies/{replyId}": {
+      "schema": "PredictionReply",
+      "description": "Replies made by users to comments on prediction events."
+    }
+  }
+}

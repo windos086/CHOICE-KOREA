@@ -1,0 +1,6 @@
+{
+  "name": "초이스 코리아",
+  "description": "국내 공식 유저참여형 예측시장 커뮤니티",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

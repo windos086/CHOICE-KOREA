@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom Scrollbar for BlackTV Theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f131a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e53e3e;
+}
+
+/* Dynamic background animations */
+@keyframes pulse-neon {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.35; }
+}
+
+.animate-pulse-neon {
+  animation: pulse-neon 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* BlackTV dynamic floating banner animation */
+@keyframes ticker {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+.animate-ticker {
+  display: inline-block;
+  white-space: nowrap;
+  animation: ticker 35s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Choice Korea Premium Light Theme Overrides */
+.light-theme {
+  background-color: #f6f8fa !important;
+  color: #1f2328 !important;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite ease-in-out;
+}
+
+/* Base elements */
+.light-theme h1, 
+.light-theme h2, 
+.light-theme h3, 
+.light-theme h4, 
+.light-theme p, 
+.light-theme span, 
+.light-theme label {
+  color: inherit;
+}
+
+/* Header & navigation component */
+.light-theme header {
+  background-color: #ffffff !important;
+  border-bottom-color: #e1e4e8 !important;
+}
+
+/* General containers & widgets mapping */
+.light-theme .bg-\[\#111111\],
+.light-theme .bg-\[\#111\],
+.light-theme .bg-\[\#0a0d13\],
+.light-theme .bg-\[\#050608\],
+.light-theme .bg-\[\#0f131a\] {
+  background-color: #ffffff !important;
+}
+
+.light-theme .bg-\[\#1a1a1a\],
+.light-theme .bg-\[\#121620\],
+.light-theme .bg-\[\#141824\],
+.light-theme .bg-\[\#1b1b1b\],
+.light-theme .bg-\[\#171e2b\] {
+  background-color: #fcfdfe !important;
+  border-color: #e1e4e8 !important;
+}
+
+/* Specific elements & inputs */
+.light-theme input,
+.light-theme select,
+.light-theme textarea {
+  background-color: #ffffff !important;
+  border-color: #d0d7de !important;
+  color: #1f2328 !important;
+}
+
+/* Borders across modules */
+.light-theme .border-\[\#222222\],
+.light-theme .border-\[\#2b2b2b\],
+.light-theme .border-\[\#2e2e2e\],
+.light-theme .border-gray-800,
+.light-theme .border-neutral-800,
+.light-theme .border-neutral-850 {
+  border-color: #e1e4e8 !important;
+}
+
+/* Specific text conversions */
+.light-theme .text-gray-400,
+.light-theme .text-gray-300,
+.light-theme .text-neutral-400,
+.light-theme .text-neutral-500 {
+  color: #57606a !important;
+}
+
+.light-theme .text-white,
+.light-theme .text-gray-200,
+.light-theme .text-gray-100 {
+  color: #1f2328 !important;
+}
+
+/* Scrollbar tweaks for light mode */
+.light-theme::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+
+.light-theme::-webkit-scrollbar-thumb {
+  background: #ccd0d5;
+}
+
+.light-theme .hover\:bg-neutral-900:hover,
+.light-theme .hover\:bg-gray-800:hover {
+  background-color: #f1f3f5 !important;
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -8 124 116" fill="none">
+  <!-- Rounded White Canvas Background to ensure visibility on dark/light tabs -->
+  <rect x="-12" y="-8" width="124" height="116" rx="24" fill="#ffffff" />
+  
+  <!-- Navy Blue Circle representing 'C' -->
+  <path d="M 53.5 25.5 A 29 29 0 1 0 60.5 42" stroke="#0d2b5c" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 60.5 42 L 57.5 42" stroke="#0d2b5c" stroke-width="11" stroke-linecap="round" />
+  <!-- Red Checkmark -->
+  <path d="M 45.5 42.5 L 51.5 49 L 77 26.5" stroke="#d11822" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
