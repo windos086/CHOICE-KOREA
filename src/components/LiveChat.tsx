@@ -1,5 +1,5 @@
 import React from 'react';
-import { Send, Users, Trophy, MessageSquare, Bell, Settings, BarChart2, ShieldAlert } from 'lucide-react';
+import { Send, Users, Trophy, MessageSquare, Bell, ShieldAlert } from 'lucide-react';
 import { ChatMessage, UserProfile } from '../types';
 import { renderMilitaryBadge } from './MilitaryBadge';
 
@@ -189,10 +189,7 @@ export default function LiveChat({
             {activeUserCount ? activeUserCount.toLocaleString() : "1"}
           </span>
         </div>
-        <div className="flex items-center space-x-2 text-gray-500">
-          <BarChart2 className="h-3.5 w-3.5 hover:text-white cursor-pointer transition-colors" />
-          <Settings className="h-3.5 w-3.5 hover:text-white cursor-pointer transition-colors" />
-        </div>
+
       </div>
 
       {/* DOMAIN RED ALIGNMENT NOTICE */}
