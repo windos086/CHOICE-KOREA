@@ -409,22 +409,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           </p>
           <div className="flex items-center justify-center gap-4.5">
             
-            {/* Kakao (Blinded & Locked for Maintenance) */}
+            {/* Kakao (Active!) */}
             <button
               type="button"
-              onClick={() => {
-                alert("💬 [안내] 카카오 간편 로그인은 현재 상용 배포 심사 및 앱 점검을 위해 일시 대기 중입니다.\n\n조속히 완료 후 활성화 예정이오니, 구글 간편 연동 또는 서비스 내 이메일 회원가입/로그인을 이용해 주세요.");
-              }}
-              className="w-13 h-13 rounded-full bg-[#3a3a3c]/30 text-gray-400 border border-gray-400/20 grayscale pointer-events-auto filter opacity-40 hover:opacity-50 transition flex items-center justify-center shadow-inner cursor-not-allowed relative select-none"
-              title="카카오 로그인 (시스템 개발 및 심사 준비 중)"
+              onClick={() => handleSocialLogin('kakao')}
+              className="w-13 h-13 rounded-full bg-[#FEE500] hover:scale-105 hover:brightness-110 active:scale-95 transition flex items-center justify-center shadow-md cursor-pointer relative select-none ring-2 ring-yellow-400/40 ring-offset-2 animate-pulse"
+              title="카카오 로그인 (연동 즉시 시작)"
             >
-              <svg className="w-6 h-6 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-6 h-6 text-[#191919]" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3c-5.523 0-10 3.535-10 7.9c0 2.825 1.848 5.295 4.633 6.64-.176.65-.635 2.34-.726 2.705-.11.455.168.448.354.323.146-.097 2.337-1.587 3.282-2.228.795.11 1.62.16 2.457.16 5.523 0 10-3.535 10-7.9s-4.477-7.9-10-7.9z" />
               </svg>
-              {/* Under Development Overlay Tag */}
-              <span className="absolute -bottom-1.5 px-1.5 py-0.5 bg-gray-600 text-[8px] font-black text-white rounded-full scale-90 border border-white/10 select-none">
-                준비중
-              </span>
             </button>
 
             {/* Google (Highly Active & Accessible!) */}

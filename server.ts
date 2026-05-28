@@ -59,7 +59,7 @@ async function startServer() {
       const origin = (req.query.origin as string) || "";
       const customKey = (req.query.customKey as string) || "";
       
-      const clientId = customKey || process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "bb6373111f2679add80deecba86eb2ca"; 
+      const clientId = customKey || process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda"; 
       
       // 어떤 상황에서도 무조건 https://choicekr.co.kr/api/auth/kakao/callback 값이 되도록 고정
       const redirectUri = "https://choicekr.co.kr/api/auth/kakao/callback";
@@ -112,7 +112,7 @@ async function startServer() {
       }
 
       if (!clientId) {
-        clientId = process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "bb6373111f2679add80deecba86eb2ca";
+        clientId = process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda";
       }
       
       console.log("🔑 [Kakao OAuth Token Exchange] Trading authorization code for token", { code, redirectUri, clientId });
