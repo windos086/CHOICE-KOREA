@@ -9,11 +9,12 @@ import cors from "cors";
 let aiClient: GoogleGenAI | null = null;
 function getAI() {
   if (!aiClient) {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY environment variable is required");
+    const key = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    if (!key) {
+      throw new Error("GEMINI_API_KEY or VITE_GEMINI_API_KEY environment variable is required");
     }
     aiClient = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: key,
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -52,7 +53,7 @@ async function startServer() {
       const origin = (req.query.origin as string) || "";
       const customKey = (req.query.customKey as string) || "";
       
-      const clientId = customKey || process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda"; 
+      const clientId = customKey || process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JS_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda"; 
       
       // 어떤 상황에서도 무조건 https://choicekr.co.kr/api/auth/kakao/callback 값이 되도록 고정
       const redirectUri = "https://choicekr.co.kr/api/auth/kakao/callback";
@@ -105,7 +106,7 @@ async function startServer() {
       }
 
       if (!clientId) {
-        clientId = process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda";
+        clientId = process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_JS_KEY || process.env.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda";
       }
       
       console.log("🔑 [Kakao OAuth Token Exchange] Trading authorization code for token", { code, redirectUri, clientId });
@@ -210,9 +211,10 @@ async function startServer() {
   app.post("/api/ai/generate-questions", async (req, res) => {
     console.log("🛠️ [Server] Received AI generation request");
     try {
-      if (!process.env.GEMINI_API_KEY) {
+      const key = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+      if (!key) {
         console.error("GEMINI_API_KEY missing");
-        return res.status(500).json({ error: "GEMINI_API_KEY가 설정되지 않았습니다." });
+        return res.status(500).json({ error: "GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY가 설정되지 않았습니다." });
       }
 
       console.log("Request body subcategories:", req.body.subcategories);
@@ -296,8 +298,9 @@ Provide the output in KOREAN language only, following this JSON structure:
     }
 
     try {
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: "GEMINI_API_KEY가 설정되지 않았습니다." });
+      const key = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+      if (!key) {
+        return res.status(500).json({ error: "GEMINI_API_KEY 또는 VITE_GEMINI_API_KEY가 설정되지 않았습니다." });
       }
 
       const prompt = `You are an unbiased AI Oracle for a prediction market. Your job is to search the web and determine the absolute truth about this event.

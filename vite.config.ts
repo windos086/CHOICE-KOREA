@@ -4,7 +4,12 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  // If compiling inside GitHub Actions for GitHub Pages deployment, use '/CHOICE-KOREA/'.
+  // Otherwise, use '/' to keep Cloud Run, local development, and AI Studio working flawlessly.
+  const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
+
   return {
+    base: isGithubActions ? '/CHOICE-KOREA/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

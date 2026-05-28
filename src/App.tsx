@@ -2,7 +2,7 @@ import React from 'react';
 import { db, auth, firebaseAvailable, handleFirestoreError, OperationType } from "./firebase";
 import { signOut } from "firebase/auth";
 import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, addDoc, deleteDoc, query, orderBy, limit, increment } from "firebase/firestore";
-import { UserProfile, PredictionCard, BetRecord, ChatMessage, DynamicMenuItem, CommunityPost } from './types';
+import { UserProfile, PredictionCard, BetRecord, ChatMessage, DynamicMenuItem, CommunityPost, getApiUrl } from './types';
 import { DEFAULT_DYNAMIC_MENUS } from './constants';
 import { stripChildTag } from './utils';
 import Header from './components/Header';
@@ -40,8 +40,7 @@ function KakaoCallbackHandler() {
           throw new Error("Authorization code is missing.");
         }
 
-        const productionBackend = 'https://ais-pre-nx3fiijcdcr5adljkbq6v6-509029500969.asia-northeast1.run.app';
-        const callbackUrl = `${productionBackend}/api/auth/kakao/callback?code=${encodeURIComponent(code)}` + (state ? `&state=${encodeURIComponent(state)}` : '');
+        const callbackUrl = getApiUrl(`/api/auth/kakao/callback?code=${encodeURIComponent(code)}` + (state ? `&state=${encodeURIComponent(state)}` : ''));
 
         console.log("🔗 Trading Kakao OAuth code with backend:", callbackUrl);
         const res = await fetch(callbackUrl);
@@ -571,13 +570,12 @@ export default function App() {
 
     const connect = () => {
       const host = window.location.hostname;
-      const isCustomDomain = host === 'choicekr.co.kr' || host === 'www.choicekr.co.kr';
       const isFirebaseHosting = host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
       
       let wsUrl = '';
-      if (isCustomDomain || isFirebaseHosting) {
-        // Point WebSocket directly to the persistent Cloud Run backend URL
-        wsUrl = `wss://ais-pre-nx3fiijcdcr5adljkbq6v6-509029500969.asia-northeast1.run.app`;
+      if (isFirebaseHosting) {
+        // Point WebSocket directly to the persistent Cloud Run custom domain backend
+        wsUrl = `wss://choicekr.co.kr`;
       } else {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         wsUrl = `${protocol}//${window.location.host}`;

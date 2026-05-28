@@ -163,8 +163,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
     if (platform === 'kakao') {
       try {
-        // 1. 환경 변수 VITE_KAKAO_JAVASCRIPT_KEY 가 지정되어 있다면 번거로움 없이 즉시 패스시킵니다.
-        let customKey = (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || localStorage.getItem('TEMP_KAKAO_JS_KEY') || '';
+        // 1. 환경 변수 VITE_KAKAO_JS_KEY 또는 VITE_KAKAO_JAVASCRIPT_KEY 가 지정되어 있다면 즉시 패스시킵니다.
+        let customKey = (import.meta as any).env?.VITE_KAKAO_JS_KEY || (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || localStorage.getItem('TEMP_KAKAO_JS_KEY') || '';
         
         // 2. 만약 키가 저장되어 있지도 않고 환경 변수도 빈 값인 상태에만 팝업 기입창 권장
         if (!customKey) {

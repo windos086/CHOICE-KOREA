@@ -157,14 +157,19 @@ export function getApiUrl(path: string): string {
   const host = window.location.hostname;
   const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
   const isCloudRun = host.endsWith('.run.app');
+  const isFirebaseHosting = host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
 
-  // If it's not local development and not direct Cloud Run, it's either Firebase static hosting or a custom domain.
-  // We must route API requests directly to the full-stack server running on Cloud Run.
-  if (!isLocal && !isCloudRun) {
-    const productionBackend = 'https://ais-pre-nx3fiijcdcr5adljkbq6v6-509029500969.asia-northeast1.run.app';
-    return `${productionBackend}${path}`;
+  // If running on a static Firebase domain, point directly to the live custom domain Cloud Run backend
+  if (isFirebaseHosting) {
+    return `https://choicekr.co.kr${path}`;
   }
 
-  // Otherwise fallback to local/relative path
+  // If on the custom production domain, make same-origin relative requests 
+  // to avoid preflight CORS checks, SSL hostname issues, or routing to ephemeral AI Studio workspace URLs
+  if (host === 'choicekr.co.kr' || host === 'www.choicekr.co.kr') {
+    return path;
+  }
+
+  // Under normal local development or inline Cloud Run, keep relative path
   return path;
 }
