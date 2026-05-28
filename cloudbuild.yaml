@@ -1,0 +1,51 @@
+# =================================================================
+# Google Cloud Build 자동 배포 파이프라인 (자동 CI/CD 시스템)
+# =================================================================
+steps:
+  # 1 단계: Docker 이미지를 빌드하고 환경변수에 맞춰 태그 적용
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:${COMMIT_SHA}',
+      '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:latest',
+      '.'
+    ]
+    id: 'Docker 이미지 빌드'
+
+  # 2 단계: 빌드된 이미지를 Google Artifact Registry로 푸시
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      '--all-tags',
+      '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}'
+    ]
+    id: 'Artifact Registry에 이미지 업로드'
+
+  # 3 단계: 업로드된 이미지를 기반으로 Google Cloud Run 무중단 배포 실행
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run', 'deploy', '${_SERVICE_NAME}',
+      '--image', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:${COMMIT_SHA}',
+      '--region', '${_REGION}',
+      '--platform', 'managed',
+      '--allow-unauthenticated'
+    ]
+    id: 'Cloud Run으로 무중단 자동 전환 배포'
+
+# 클라우드 빌드 완료 후 보존할 최종 컨테이너 이미지 목록
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:${COMMIT_SHA}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:latest'
+
+# =================================================================
+# 변수 설정 (사용자 환경이나 리전에 따라 변경 가능한 디폴트 매개변수)
+# =================================================================
+substitutions:
+  _REGION: 'asia-northeast1'          # 기본 배포 리전 (예: 도쿄는 asia-northeast1, 서울은 asia-northeast3)
+  _REPOSITORY: 'choicekr-repo'       # Google Cloud Artifact Registry 저장소 이름
+  _IMAGE_NAME: 'choicekr-app'        # 저장소에 올라갈 도커 이미지명
+  _SERVICE_NAME: 'choicekr-service'  # 최종 Cloud Run 컨테이너 서비스 이름
+
+options:
+  logging: CLOUD_LOGGING_ONLY
