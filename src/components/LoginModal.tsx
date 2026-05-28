@@ -180,40 +180,45 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           }
         }
 
-        // 3. 팝업 차단(비동기 차단 필터) 우회를 위해, 사용자 클릭 주관인 현 컨택스트에서 바로 빈 창을 확보합니다.
-        const popupWidth = 480;
-        const popupHeight = 620;
-        const left = window.screen.width / 2 - popupWidth / 2;
-        const top = window.screen.height / 2 - popupHeight / 2;
-        
-        const kakaoPopup = window.open(
-          'about:blank',
-          'kakao_authorized_login',
-          `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
-        );
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
 
-        if (!kakaoPopup) {
-          alert("⚠️ 팝업 차단기가 활성화되어 있어 카카오 로그인을 진행할 수 없습니다.\n브라우저 주소창 우측에서 팝업 허용 설정을 확인해 주세요!");
-          return;
-        }
+        let kakaoPopup: Window | null = null;
+        if (!isMobile) {
+          // 3. PC 환경에서는 팝업 차단(비동기 차단 필터) 우회를 위해, 사용자 클릭 주관인 현 컨택스트에서 바로 빈 창을 확보합니다.
+          const popupWidth = 480;
+          const popupHeight = 620;
+          const left = window.screen.width / 2 - popupWidth / 2;
+          const top = window.screen.height / 2 - popupHeight / 2;
+          
+          kakaoPopup = window.open(
+            'about:blank',
+            'kakao_authorized_login',
+            `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
+          );
 
-        // 팝업 로딩 연동 대기 메세지 작성
-        try {
-          kakaoPopup.document.write(`
-            <html>
-              <head>
-                <title>카카오 로그인 준비 중...</title>
-                <meta charset="utf-8" />
-              </head>
-              <body style="font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fee500; color: #191919; text-align: center; padding: 20px; margin: 0;">
-                <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">카카오 로그인 연결 중...</div>
-                <div style="font-size: 13px; opacity: 0.8; line-height: 1.4;">실시간 안전 보안 연계 및 인가 세션을 분석하는 중입니다.<br/>잠시만 기다려 주세요.</div>
-              </body>
-            </html>
-          `);
-        } catch (docErr) {
-          // Ignore write error for cross-origin or strict browsers
-          console.warn("Could not write helper text to popup window.", docErr);
+          if (!kakaoPopup) {
+            alert("⚠️ 팝업 차단기가 활성화되어 있어 카카오 로그인을 진행할 수 없습니다.\n브라우저 주소창 우측에서 팝업 허용 설정을 확인해 주세요!");
+            return;
+          }
+
+          // 팝업 로딩 연동 대기 메세지 작성
+          try {
+            kakaoPopup.document.write(`
+              <html>
+                <head>
+                  <title>카카오 로그인 준비 중...</title>
+                  <meta charset="utf-8" />
+                </head>
+                <body style="font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fee500; color: #191919; text-align: center; padding: 20px; margin: 0;">
+                  <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">카카오 로그인 연결 중...</div>
+                  <div style="font-size: 13px; opacity: 0.8; line-height: 1.4;">실시간 안전 보안 연계 및 인가 세션을 분석하는 중입니다.<br/>잠시만 기다려 주세요.</div>
+                </body>
+              </html>
+            `);
+          } catch (docErr) {
+            // Ignore write error for cross-origin or strict browsers
+            console.warn("Could not write helper text to popup window.", docErr);
+          }
         }
 
         try {
@@ -232,8 +237,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           }
 
           console.log("🚀 [Kakao Direct Authorized Login] Opening popups with address:", resData.url);
-          // 확보 후 대기하고 있는 팝업 객체의 주소를 갱신하며 카카오 서버로 리다이렉트
-          kakaoPopup.location.href = resData.url;
+          
+          if (isMobile) {
+            // 모바일일때는 팝업을 쓰지 말고 부모창을 직접 리다이렉트 시킴
+            window.location.href = resData.url;
+          } else if (kakaoPopup) {
+            // 확보 후 대기하고 있는 팝업 객체의 주소를 갱신하며 카카오 서버로 리다이렉트
+            kakaoPopup.location.href = resData.url;
+          }
           return;
         } catch (serverErr) {
           if (kakaoPopup && !kakaoPopup.closed) {

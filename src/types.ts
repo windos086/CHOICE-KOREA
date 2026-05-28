@@ -158,9 +158,10 @@ export function getApiUrl(path: string): string {
   const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
   const isCloudRun = host.endsWith('.run.app');
   const isFirebaseHosting = host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
+  const isGithubPages = host.endsWith('.github.io');
 
-  // If running on a static Firebase domain, point directly to the live custom domain Cloud Run backend
-  if (isFirebaseHosting) {
+  // If running on a static Firebase domain or GitHub Pages, point directly to the live custom domain Cloud Run backend
+  if (isFirebaseHosting || isGithubPages) {
     return `https://choicekr.co.kr${path}`;
   }
 

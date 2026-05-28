@@ -190,8 +190,13 @@ async function startServer() {
                   window.opener.postMessage(payload, "*");
                   window.close();
                 } else {
-                  console.warn("Opener window not found. Redirecting to home.");
-                  window.location.href = '/';
+                  console.warn("Opener window not found (Direct Redirect Model). Redirecting to home with credentials.");
+                  const qParams = 'kakao_login_success=true' +
+                    '&email=' + encodeURIComponent(${JSON.stringify(email)}) +
+                    '&nickname=' + encodeURIComponent(${JSON.stringify(nickname)}) +
+                    '&id=' + encodeURIComponent(${JSON.stringify(id)}) +
+                    '&profileImage=' + encodeURIComponent(${JSON.stringify(profileImage)});
+                  window.location.href = '/?' + qParams;
                 }
               } catch (err) {
                 console.error("Error communicating with opener:", err);

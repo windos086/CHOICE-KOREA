@@ -1,7 +1,7 @@
 import React from 'react';
 import { db, auth, firebaseAvailable, handleFirestoreError, OperationType } from "./firebase";
 import { signOut } from "firebase/auth";
-import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, addDoc, deleteDoc, query, orderBy, limit, increment } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, addDoc, deleteDoc, query, orderBy, limit, increment, where } from "firebase/firestore";
 import { UserProfile, PredictionCard, BetRecord, ChatMessage, DynamicMenuItem, CommunityPost, getApiUrl } from './types';
 import { DEFAULT_DYNAMIC_MENUS } from './constants';
 import { stripChildTag } from './utils';
@@ -571,9 +571,10 @@ export default function App() {
     const connect = () => {
       const host = window.location.hostname;
       const isFirebaseHosting = host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
+      const isGithubPages = host.endsWith('.github.io');
       
       let wsUrl = '';
-      if (isFirebaseHosting) {
+      if (isFirebaseHosting || isGithubPages) {
         // Point WebSocket directly to the persistent Cloud Run custom domain backend
         wsUrl = `wss://choicekr.co.kr`;
       } else {
@@ -705,8 +706,10 @@ export default function App() {
         const list: UserProfile[] = [];
         snapshot.forEach((doc) => {
           const data = doc.data() as UserProfile;
-          if (!pendingDeletionsRef.current.has(data.uid)) {
-            list.push(data);
+          const uid = data.uid || doc.id; // Safe fallback if document uid field is missing
+          const normalizedUser = { ...data, uid };
+          if (!pendingDeletionsRef.current.has(uid)) {
+            list.push(normalizedUser);
           }
         });
         setAllUsers(list);
@@ -960,10 +963,10 @@ export default function App() {
         return next;
       });
       
-      // Persist to Firestore
+      // Persist to Firestore (always merge uid as well to keep data fully integral)
       if (firebaseAvailable && db) {
         try {
-          await setDoc(doc(db, "users", userProfile.uid), { nickname: cleanNick, lastNicknameChangeAt: now }, { merge: true });
+          await setDoc(doc(db, "users", userProfile.uid), { uid: userProfile.uid, nickname: cleanNick, lastNicknameChangeAt: now }, { merge: true });
         } catch (err) {
           handleFirestoreError(err, OperationType.WRITE, `users/${userProfile.uid}`);
         }
@@ -1795,30 +1798,52 @@ export default function App() {
 
     if (!cleanId) return;
 
-    // Search matches in allUsers
+    // Search matches in allUsers first
     const searchUid = customUid || cleanId;
-    const matchedUser = allUsers.find(u => 
+    let matchedUser = allUsers.find(u => 
       u.uid === searchUid ||
       u.loginId === cleanId || 
-      u.nickname === cleanId || 
-      (u.loginId && u.loginId.startsWith(cleanId.split('@')[0]))
+      u.nickname === cleanId
     );
+
+    // If still not matched, perform a direct Firestore query to prevent overwrite race conditions
+    if (!matchedUser && firebaseAvailable && db) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", searchUid));
+        if (userDoc.exists()) {
+          matchedUser = userDoc.data() as UserProfile;
+        } else {
+          // Check by loginId field to find existing linked accounts
+          const q = query(collection(db, "users"), where("loginId", "==", cleanId));
+          const querySnap = await getDocs(q);
+          if (!querySnap.empty) {
+            matchedUser = querySnap.docs[0].data() as UserProfile;
+          }
+        }
+      } catch (err) {
+        console.error("Error direct query user info on handleModalLoginSuccess:", err);
+      }
+    }
     
     if (matchedUser) {
-      if (matchedUser.isBanned) {
-        alert(`❌ 해당 계정은 이용이제제(비활성화) 처리된 상태입니다.\n사유: ${matchedUser.banReason || '운영규칙 위반'}`);
+      // Normalize uid property on matchedUser
+      const finalUid = matchedUser.uid || searchUid;
+      const normalizedUser = { ...matchedUser, uid: finalUid };
+
+      if (normalizedUser.isBanned) {
+        alert(`❌ 해당 계정은 이용이제제(비활성화) 처리된 상태입니다.\n사유: ${normalizedUser.banReason || '운영규칙 위반'}`);
         return;
       }
-      if (cleanPw && cleanPw !== 'social_secure_bypass' && matchedUser.password && matchedUser.password !== cleanPw) {
+      if (cleanPw && cleanPw !== 'social_secure_bypass' && normalizedUser.password && normalizedUser.password !== cleanPw) {
         alert("❌ 기입한 비밀번호가 올바르지 않습니다.");
         return;
       }
 
       // Successful matching!
       // If user exists, trust their existing nickname in DB, do not override with social provider nickname
-      const finalNickname = matchedUser.nickname;
+      const finalNickname = normalizedUser.nickname;
       
-      let updatedUser = { ...matchedUser };
+      let updatedUser = { ...normalizedUser };
       // Keep existing nickname, no update needed here unless explicitly requested (which it isn't here)
 
       localStorage.setItem('PREDICT_USER_UID', updatedUser.uid);
@@ -1879,30 +1904,57 @@ export default function App() {
     }
 
     // Try finding in allUsers
-    const matchedUser = allUsers.find(u => u.loginId === cleanId || u.nickname === cleanId);
+    let matchedUser = allUsers.find(u => u.loginId === cleanId || u.nickname === cleanId);
+
+    // Dynamic direct Firestore check as a reliable fallback to prevent asynchronous loading races
+    if (!matchedUser && firebaseAvailable && db) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", cleanId));
+        if (userDoc.exists()) {
+          matchedUser = userDoc.data() as UserProfile;
+        } else {
+          // Query by loginId to find correct profile
+          const q = query(collection(db, "users"), where("loginId", "==", cleanId));
+          const querySnap = await getDocs(q);
+          if (!querySnap.empty) {
+            matchedUser = querySnap.docs[0].data() as UserProfile;
+          } else {
+            // Check by nickname as login identifier
+            const qNick = query(collection(db, "users"), where("nickname", "==", cleanId));
+            const querySnapNick = await getDocs(qNick);
+            if (!querySnapNick.empty) {
+              matchedUser = querySnapNick.docs[0].data() as UserProfile;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error verifying credentials in handleRealLogin:", err);
+      }
+    }
     
     if (matchedUser) {
-      if (matchedUser.isBanned) {
-        alert(`❌ 해당 계정은 이용이제제(비활성화) 처리된 상태입니다.\n사유: ${matchedUser.banReason || '운영규칙 위반'}`);
+      const normalizedUser = { ...matchedUser, uid: matchedUser.uid || cleanId };
+      if (normalizedUser.isBanned) {
+        alert(`❌ 해당 계정은 이용이제제(비활성화) 처리된 상태입니다.\n사유: ${normalizedUser.banReason || '운영규칙 위반'}`);
         return;
       }
-      if (cleanPw && matchedUser.password && matchedUser.password !== cleanPw) {
+      if (cleanPw && normalizedUser.password && normalizedUser.password !== cleanPw) {
         alert("❌ 기입한 비밀번호가 올바르지 않습니다.");
         return;
       }
 
       // Successful matching!
-      localStorage.setItem('PREDICT_USER_UID', matchedUser.uid);
-      localStorage.setItem('PREDICT_USER_NICKNAME', matchedUser.nickname);
-      localStorage.setItem('PREDICT_USER_POINTS', String(matchedUser.points));
-      localStorage.setItem('PREDICT_USER_PREDICTS', String(matchedUser.predictsCount));
-      localStorage.setItem('PREDICT_USER_SUCCESS', String(matchedUser.successCount));
-      localStorage.setItem('PREDICT_USER_EXCHANGE', String(matchedUser.exchangeCount));
+      localStorage.setItem('PREDICT_USER_UID', normalizedUser.uid);
+      localStorage.setItem('PREDICT_USER_NICKNAME', normalizedUser.nickname);
+      localStorage.setItem('PREDICT_USER_POINTS', String(normalizedUser.points));
+      localStorage.setItem('PREDICT_USER_PREDICTS', String(normalizedUser.predictsCount));
+      localStorage.setItem('PREDICT_USER_SUCCESS', String(normalizedUser.successCount));
+      localStorage.setItem('PREDICT_USER_EXCHANGE', String(normalizedUser.exchangeCount));
 
-      setUserProfile(matchedUser);
+      setUserProfile(normalizedUser);
       setLoginId('');
       setLoginPw('');
-      alert(`🎉 웰컴백! [${matchedUser.nickname}]님, 원격 보안 로그인 연동이 완료되었습니다.`);
+      alert(`🎉 웰컴백! [${normalizedUser.nickname}]님, 원격 보안 로그인 연동이 완료되었습니다.`);
     } else {
       // Create guest-like credentialed account for backward compatibility if password exists or no conflict
       const generatedUid = 'usr_' + Math.random().toString(36).substring(2, 11);
@@ -1945,6 +1997,28 @@ export default function App() {
       alert(`👤 신규 가명 계정 [${initialProfile.nickname}]이 생성 및 자동 로그인되었습니다!\n가입 기념 보너스 1,000P 가 지급되었습니다.\n(초기 비밀번호: ${cleanPw || '1234'})`);
     }
   };
+
+  React.useEffect(() => {
+    // Direct redirect OAuth login callback helper (e.g. for mobile)
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('kakao_login_success') === 'true') {
+      const email = searchParams.get('email') || '';
+      const nickname = searchParams.get('nickname') || '';
+      const id = searchParams.get('id') || '';
+      const profileImage = searchParams.get('profileImage') || '';
+      
+      if (email && id) {
+        console.log("🧩 Direct redirection Kakao authentication parsed:", { email, nickname, id });
+        
+        // Handle login success directly
+        handleModalLoginSuccess(email, 'social_secure_bypass', nickname, `kakao_${id}`);
+        
+        // Clean URL parameters cleanly without refreshing the page
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, [allUsers]);
 
   // 회원가입 성공 처리 함수
   const handleRegisterSuccess = async (id: string, password: string, nickname: string) => {
