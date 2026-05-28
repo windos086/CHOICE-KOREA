@@ -1,7 +1,7 @@
 import React from 'react';
 import { db, auth, firebaseAvailable, handleFirestoreError, OperationType } from "./firebase";
 import { signOut } from "firebase/auth";
-import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, addDoc, deleteDoc, query, orderBy, limit, increment } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, addDoc, deleteDoc, query, orderBy, limit, increment } from "firebase/firestore";
 import { UserProfile, PredictionCard, BetRecord, ChatMessage, DynamicMenuItem, CommunityPost } from './types';
 import { DEFAULT_DYNAMIC_MENUS } from './constants';
 import { stripChildTag } from './utils';
@@ -1205,10 +1205,14 @@ export default function App() {
   };
 
   // AI 오라클 확정에 의한 마켓 최종 정산 & 이자 배드 분률 분배 알고리즘
+  // AI 오라클 확정에 의한 마켓 최종 정산 & 이자 배드 분률 분배 알고리즘 및 결과 수정(교정) 로직 통합
   const handleResolvePrediction = async (predictionId: string, winningOption: string, evidence: string) => {
     // 1. Find matching prediction
     const predictionTarget = predictions.find(p => p.id === predictionId);
     if (!predictionTarget) return;
+
+    const isAlreadyResolved = predictionTarget.status === 'resolved';
+    const oldWinningOption = predictionTarget.winningOption;
 
     // Transition prediction stat to resolved
     const updatedCard: PredictionCard = {
@@ -1259,60 +1263,165 @@ export default function App() {
 
     const isRefund = winningOption === 'CANCELED' || winningOption === 'SPECIAL_PUSH' || winningOption === '경기취소' || winningOption === '적중특례';
 
-    // Process prize allocation for the players
-    for (const bet of associatedBets) {
-      let betStatus: 'won' | 'lost' | 'refunded' = 'lost';
-      let prizeValue = 0;
+    if (isAlreadyResolved) {
+      // ⚠️ ADM 결과 수정 & 정산 소급 교정 특례
+      console.log(`[retroactive correction] Resolving predictionId ${predictionId} from ${oldWinningOption} to ${winningOption}`);
+      
+      for (const bet of associatedBets) {
+        // Find previous state
+        const oldStatus = bet.status; // 'won' | 'lost' | 'refunded'
+        const oldPayout = bet.payout || 0;
 
-      if (isRefund) {
-        betStatus = 'refunded';
-        prizeValue = bet.amount;
-      } else {
-        const isWinner = bet.option === winningOption;
-        betStatus = isWinner ? 'won' : 'lost';
-        prizeValue = isWinner ? Math.round(bet.amount * winningOdds) : 0;
-      }
+        let newStatus: 'won' | 'lost' | 'refunded' = 'lost';
+        let newPayout = 0;
 
-      // Update local bet state
-      setBets(prev => prev.map(b => b.id === bet.id ? { ...b, status: betStatus as any, payout: prizeValue } : b));
+        if (isRefund) {
+          newStatus = 'refunded';
+          newPayout = bet.amount;
+        } else {
+          const isWinner = bet.option === winningOption;
+          newStatus = isWinner ? 'won' : 'lost';
+          newPayout = isWinner ? Math.round(bet.amount * winningOdds) : 0;
+        }
 
-      // Realize payout to user's wallet
-      if (bet.userId === (userProfile?.uid || '')) {
-        const currentPoints = userProfile?.points || 0;
-        const currentSuccess = userProfile?.successCount || 0;
-        const addedPoints = currentPoints + prizeValue;
-        const addedSuccess = betStatus === 'won' ? currentSuccess + 1 : currentSuccess;
-        
-        const nextProfile = {
-          ...userProfile,
-          points: addedPoints,
-          successCount: addedSuccess
-        };
-        setUserProfile(nextProfile as any);
-        localStorage.setItem('PREDICT_USER_POINTS', String(addedPoints));
-        localStorage.setItem('PREDICT_USER_SUCCESS', String(addedSuccess));
+        // Compute adjustment differentials
+        const pointsAdjustment = newPayout - oldPayout;
+        let successAdjustment = 0;
+        if (oldStatus === 'won' && newStatus !== 'won') {
+          successAdjustment = -1;
+        } else if (oldStatus !== 'won' && newStatus === 'won') {
+          successAdjustment = 1;
+        }
 
-        if (firebaseAvailable && db && userProfile?.uid) {
+        // Update local bet state
+        setBets(prev => prev.map(b => b.id === bet.id ? { ...b, status: newStatus as any, payout: newPayout } : b));
+
+        // Sync user profile points and success status
+        const targetUserLocal = allUsers.find(u => u.uid === bet.userId);
+        let userCurrentPoints = 0;
+        let userCurrentSuccess = 0;
+
+        if (targetUserLocal) {
+          userCurrentPoints = targetUserLocal.points || 0;
+          userCurrentSuccess = targetUserLocal.successCount || 0;
+        } else if (bet.userId === (userProfile?.uid || '')) {
+          userCurrentPoints = userProfile?.points || 0;
+          userCurrentSuccess = userProfile?.successCount || 0;
+        } else {
+          // Sync directly from database
+          if (firebaseAvailable && db) {
+            try {
+              const userDocRef = doc(db, "users", bet.userId);
+              const userDocSnap = await getDoc(userDocRef);
+              if (userDocSnap.exists()) {
+                const uData = userDocSnap.data();
+                userCurrentPoints = uData.points || 0;
+                userCurrentSuccess = uData.successCount || 0;
+              }
+            } catch (err) {
+              console.error("Error fetching target user data from Firestore:", err);
+            }
+          }
+        }
+
+        const nextPoints = Math.max(0, userCurrentPoints + pointsAdjustment);
+        const nextSuccess = Math.max(0, userCurrentSuccess + successAdjustment);
+
+        // Update currently logged-in user
+        if (bet.userId === (userProfile?.uid || '')) {
+          const nextProfile = {
+            ...userProfile,
+            points: nextPoints,
+            successCount: nextSuccess
+          };
+          setUserProfile(nextProfile as any);
+          localStorage.setItem('PREDICT_USER_POINTS', String(nextPoints));
+          localStorage.setItem('PREDICT_USER_SUCCESS', String(nextSuccess));
+        }
+
+        // Update local list
+        setAllUsers(prev => prev.map(u => u.uid === bet.userId ? { ...u, points: nextPoints, successCount: nextSuccess } : u));
+
+        // Sync user in database
+        if (firebaseAvailable && db) {
           try {
-            await setDoc(doc(db, "users", userProfile.uid), {
-              points: addedPoints,
-              successCount: addedSuccess
+            await setDoc(doc(db, "users", bet.userId), {
+              points: nextPoints,
+              successCount: nextSuccess
             }, { merge: true });
           } catch (e) {
-            handleFirestoreError(e, OperationType.WRITE, `users/${userProfile.uid}`);
+            console.error(`Error updating user points for userId ${bet.userId}:`, e);
+          }
+        }
+
+        // Sync changed bet
+        if (firebaseAvailable && db) {
+          try {
+            await updateDoc(doc(db, "bets", bet.id), {
+              status: newStatus,
+              payout: newPayout
+            });
+          } catch (err) {
+            console.error(`Error updating bet status for betId ${bet.id}:`, err);
           }
         }
       }
+    } else {
+      // 🟢 최초 신규 결과 확정
+      for (const bet of associatedBets) {
+        let betStatus: 'won' | 'lost' | 'refunded' = 'lost';
+        let prizeValue = 0;
 
-      // Sync specific bet changes to db
-      if (firebaseAvailable && db) {
-        try {
-          await updateDoc(doc(db, "bets", bet.id), {
-            status: betStatus,
-            payout: prizeValue
-          });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.UPDATE, `bets/${bet.id}`);
+        if (isRefund) {
+          betStatus = 'refunded';
+          prizeValue = bet.amount;
+        } else {
+          const isWinner = bet.option === winningOption;
+          betStatus = isWinner ? 'won' : 'lost';
+          prizeValue = isWinner ? Math.round(bet.amount * winningOdds) : 0;
+        }
+
+        // Update local bet state
+        setBets(prev => prev.map(b => b.id === bet.id ? { ...b, status: betStatus as any, payout: prizeValue } : b));
+
+        // Realize payout to user's wallet
+        if (bet.userId === (userProfile?.uid || '')) {
+          const currentPoints = userProfile?.points || 0;
+          const currentSuccess = userProfile?.successCount || 0;
+          const addedPoints = currentPoints + prizeValue;
+          const addedSuccess = betStatus === 'won' ? currentSuccess + 1 : currentSuccess;
+          
+          const nextProfile = {
+            ...userProfile,
+            points: addedPoints,
+            successCount: addedSuccess
+          };
+          setUserProfile(nextProfile as any);
+          localStorage.setItem('PREDICT_USER_POINTS', String(addedPoints));
+          localStorage.setItem('PREDICT_USER_SUCCESS', String(addedSuccess));
+
+          if (firebaseAvailable && db && userProfile?.uid) {
+            try {
+              await setDoc(doc(db, "users", userProfile.uid), {
+                points: addedPoints,
+                successCount: addedSuccess
+              }, { merge: true });
+            } catch (e) {
+              handleFirestoreError(e, OperationType.WRITE, `users/${userProfile.uid}`);
+            }
+          }
+        }
+
+        // Sync specific bet changes to db
+        if (firebaseAvailable && db) {
+          try {
+            await updateDoc(doc(db, "bets", bet.id), {
+              status: betStatus,
+              payout: prizeValue
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.UPDATE, `bets/${bet.id}`);
+          }
         }
       }
     }
@@ -1327,7 +1436,11 @@ export default function App() {
     }
 
     // Dispatch chat news
-    if (isRefund) {
+    if (isAlreadyResolved) {
+      const oldWinningLabel = (oldWinningOption === 'CANCELED' || oldWinningOption === '경기취소') ? '경기취소/반환' : oldWinningOption;
+      const newWinningLabel = isRefund ? '경기취소/반환' : winningOption;
+      sendChatMessage(`📢 [최고관리자 판정 결과 긴급수정 고시] : "${predictionTarget.title.substring(0, 20)}..." 예측 마켓의 결과가 [${oldWinningLabel}]에서 [${newWinningLabel}]으로 정정되었습니다. 모든 관련 참가자 베팅 포인트 지급 상태가 소급 조율 완료되었습니다!`, 'system');
+    } else if (isRefund) {
       const refundTypeLabel = (winningOption === 'CANCELED' || winningOption === '경기취소') ? '경기 취소/정산 반환' : '적중 특례/정산 반환';
       sendChatMessage(`📢 [최고관리자 판정 결과] : "${predictionTarget.title.substring(0, 20)}..." 예측 이벤트가 [${refundTypeLabel}] 처리되었습니다. 본 예측 마켓의 모든 오리진 베팅금(100%)이 실시간 즉시 일괄 반환(환불) 처리되었습니다!`, 'system');
     } else {

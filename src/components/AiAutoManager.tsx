@@ -164,11 +164,30 @@ export default function AiAutoManager({
   // Result determination state variables
   const [resolveSearch, setResolveSearch] = React.useState('');
   const [resolveCategory, setResolveCategory] = React.useState('all');
+  const [resolveSubTab, setResolveSubTab] = React.useState<'pending' | 'resolved'>('pending');
   const [selectedPredToResolve, setSelectedPredToResolve] = React.useState<any | null>(null);
   const [resolveWinningOption, setResolveWinningOption] = React.useState('');
   const [resolveEvidence, setResolveEvidence] = React.useState('공식 협회 데이터 및 경기 결과 기준 판정 완료.');
   const [isConfirmingResolve, setIsConfirmingResolve] = React.useState<boolean>(false);
   const [isBatchResolving, setIsBatchResolving] = React.useState<boolean>(false);
+
+  const formatCompactDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      const weekday = weekdays[date.getDay()];
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}. ${month}. ${day}. (${weekday}) ${hours}:${minutes}`;
+    } catch {
+      return '';
+    }
+  };
 
   // Memoized subcategories and action handlers
   const allSubcategories = React.useMemo(() => {
@@ -1575,75 +1594,109 @@ export default function AiAutoManager({
             {/* LEFT COLUMN: UNRESOLVED LIST */}
             <div className="lg:col-span-5 space-y-4">
               <div className="bg-[#121620] border border-gray-800 rounded-xl p-4 shadow-lg min-h-[500px] flex flex-col">
+                {/* SUB-TAB TOGGLE */}
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#181d2a] rounded-lg border border-gray-800 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResolveSubTab('pending');
+                      setSelectedPredToResolve(null);
+                    }}
+                    className={`py-1.5 text-center text-[10px] font-extrabold rounded transition-all cursor-pointer ${
+                      resolveSubTab === 'pending'
+                        ? 'bg-emerald-600 text-white shadow-inner'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    ⚖️ 판정 대기 ({predictionCards.filter(p => p.status !== 'resolved').length}개)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResolveSubTab('resolved');
+                      setSelectedPredToResolve(null);
+                    }}
+                    className={`py-1.5 text-center text-[10px] font-extrabold rounded transition-all cursor-pointer ${
+                      resolveSubTab === 'resolved'
+                        ? 'bg-emerald-600 text-white shadow-inner'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    ✏️ 판정 완료 수정 ({predictionCards.filter(p => p.status === 'resolved').length}개)
+                  </button>
+                </div>
+
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-white font-bold text-xs flex items-center">
                     <List className="h-4 w-4 mr-1.5 text-emerald-400" />
-                    판정 대기 게임 리스트 ({predictionCards.filter(p => p.status !== 'resolved').length}개)
+                    {resolveSubTab === 'pending' ? '판정 대기 게임 리스트' : '판정 완료 게임 리스트'}
                   </h4>
-                  <button
-                    disabled={isBatchResolving}
-                    className={`text-[10px] font-bold px-2 py-1 rounded shadow-sm ${isBatchResolving ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                  {resolveSubTab === 'pending' && (
+                    <button
+                      disabled={isBatchResolving}
+                      className={`text-[10px] font-bold px-2 py-1 rounded shadow-sm ${isBatchResolving ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                       onClick={async () => {
-                      console.log("DEBUG: 버튼 클릭됨");
-                      setIsBatchResolving(true);
-                      console.log("DEBUG: setIsBatchResolving(true) 호출됨");
-                      try {
-                        console.log("DEBUG: Batch reconcile logic started");
-                        const now = new Date();
-                        const expired = predictionCards.filter(p => {
-                          const endDate = new Date(p.endAt);
-                          return p.status !== 'resolved' && endDate <= now;
-                        });
+                        console.log("DEBUG: 버튼 클릭됨");
+                        setIsBatchResolving(true);
+                        console.log("DEBUG: setIsBatchResolving(true) 호출됨");
+                        try {
+                          console.log("DEBUG: Batch reconcile logic started");
+                          const now = new Date();
+                          const expired = predictionCards.filter(p => {
+                            const endDate = new Date(p.endAt);
+                            return p.status !== 'resolved' && endDate <= now;
+                          });
 
-                        console.log("DEBUG: Expired games count:", expired.length);
-                        
-                        if (expired.length === 0) {
-                          alert("확정할 게임이 없습니다.");
-                          return;
-                        }
+                          console.log("DEBUG: Expired games count:", expired.length);
+                          
+                          if (expired.length === 0) {
+                            alert("확정할 게임이 없습니다.");
+                            return;
+                          }
 
-                        let confirmedCount = 0;
-                        console.log("DEBUG: Loop start, expired list:", expired);
-                        for (let i = 0; i < expired.length; i++) {
-                          const p = expired[i];
-                          console.log(`DEBUG: [${i+1}/${expired.length}] Processing game ${p.id}...`);
-                          try {
-                            const res = await fetch(getApiUrl('/api/ai/resolve-prediction'), {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                title: p.title,
-                                description: p.description,
-                                options: p.options,
-                                sourceUrl: p.sourceUrl
-                              })
-                            });
-                            const data = await res.json();
-                            console.log(`DEBUG: [${i+1}/${expired.length}] Result for ${p.id}:`, data);
-                            if (data.success && data.data && data.data.winningOption) {
-                              await onResolvePrediction(p.id, data.data.winningOption, data.data.evidence);
-                              confirmedCount++;
-                            } else {
-                              console.log(`DEBUG: [${i+1}/${expired.length}] Game ${p.id} result not available yet, skipping.`);
-                            }
-                          } catch (err: any) {
-                            console.error(`Error resolving ${p.id}:`, err);
-                            const apiEndpoint = getApiUrl('/api/ai/resolve-prediction');
-                            if (err.message?.includes('fetch') || err.message?.includes('NetworkError') || err.toString()?.includes('fetch')) {
-                              alert(`❌ [일괄 처리 오류]\n\n호스트: ${window.location.hostname}\n대상: ${apiEndpoint}\n\n도메인 정책(CORS) 또는 서버 실행 문제로 연결에 실패했습니다. 백엔드가 최신 서버 사양으로 안전하게 배포 완료되었는지 확인해 주세요.`);
+                          let confirmedCount = 0;
+                          console.log("DEBUG: Loop start, expired list:", expired);
+                          for (let i = 0; i < expired.length; i++) {
+                            const p = expired[i];
+                            console.log(`DEBUG: [${i+1}/${expired.length}] Processing game ${p.id}...`);
+                            try {
+                              const res = await fetch(getApiUrl('/api/ai/resolve-prediction'), {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  title: p.title,
+                                  description: p.description,
+                                  options: p.options,
+                                  sourceUrl: p.sourceUrl
+                                })
+                              });
+                              const data = await res.json();
+                              console.log(`DEBUG: [${i+1}/${expired.length}] Result for ${p.id}:`, data);
+                              if (data.success && data.data && data.data.winningOption) {
+                                await onResolvePrediction(p.id, data.data.winningOption, data.data.evidence);
+                                confirmedCount++;
+                              } else {
+                                console.log(`DEBUG: [${i+1}/${expired.length}] Game ${p.id} result not available yet, skipping.`);
+                              }
+                            } catch (err: any) {
+                              console.error(`Error resolving ${p.id}:`, err);
+                              const apiEndpoint = getApiUrl('/api/ai/resolve-prediction');
+                              if (err.message?.includes('fetch') || err.message?.includes('NetworkError') || err.toString()?.includes('fetch')) {
+                                alert(`❌ [일괄 처리 오류]\n\n호스트: ${window.location.hostname}\n대상: ${apiEndpoint}\n\n도메인 정책(CORS) 또는 서버 실행 문제로 연결에 실패했습니다. 백엔드가 최신 서버 사양으로 안전하게 배포 완료되었는지 확인해 주세요.`);
+                              }
                             }
                           }
+                          console.log("DEBUG: Loop finished, count:", confirmedCount);
+                          alert(`${confirmedCount}개의 게임 검토 완료.`);
+                        } finally {
+                          setIsBatchResolving(false);
+                          console.log("DEBUG: setIsBatchResolving(false) 호출됨");
                         }
-                        console.log("DEBUG: Loop finished, count:", confirmedCount);
-                        alert(`${confirmedCount}개의 게임 검토 완료.`);
-                      } finally {
-                        setIsBatchResolving(false);
-                        console.log("DEBUG: setIsBatchResolving(false) 호출됨");
-                      }
-                    }}
-                  >
-                    {isBatchResolving ? 'AI 분석 및 확정 작업 중...' : 'AI 전체 결과 일괄 확정 🤖'}
-                  </button>
+                      }}
+                    >
+                      {isBatchResolving ? 'AI 분석 및 확정 작업 중...' : 'AI 전체 결과 일괄 확정 🤖'}
+                    </button>
+                  )}
                 </div>
 
                 {/* SEARCH & FILTER */}
@@ -1696,25 +1749,29 @@ export default function AiAutoManager({
                   </div>
                 </div>
 
-                {/* LIST OF UNRESOLVED PREDICTIONS */}
+                {/* LIST OF PREDICTIONS */}
                 <div className="flex-1 overflow-y-auto space-y-2 max-h-[480px] pr-1">
-                  {predictionCards.filter(p => p.status !== 'resolved').filter((p) => {
+                  {predictionCards.filter(p => resolveSubTab === 'pending' ? p.status !== 'resolved' : p.status === 'resolved').filter((p) => {
                     const matchesSearch = p.title.toLowerCase().includes(resolveSearch.toLowerCase());
                     const matchesCategory = resolveCategory === 'all' || p.category === resolveCategory;
                     return matchesSearch && matchesCategory;
                   }).length === 0 ? (
                     <div className="text-center py-20 text-gray-500 flex flex-col items-center justify-center">
                       <ShieldCheck className="h-10 w-10 text-gray-600 mb-2 opacity-30" />
-                      <p className="font-bold text-xs">확정 대기 중인 예측 게임이 없습니다.</p>
-                      <p className="text-[10px] opacity-70 mt-1">새로운 마켓이 마감되면 이곳에 표시됩니다.</p>
+                      <p className="font-bold text-xs">
+                        {resolveSubTab === 'pending' ? '확정 대기 중인 예측 게임이 없습니다.' : '판정된 예측 게임이 없습니다.'}
+                      </p>
+                      <p className="text-[10px] opacity-70 mt-1">
+                        {resolveSubTab === 'pending' ? '새로운 마켓이 마감되면 이곳에 표시됩니다.' : '결과를 확정한 게임들이 여기에 표시되며 수정할 수 있습니다.'}
+                      </p>
                     </div>
                   ) : (
-                    predictionCards.filter(p => p.status !== 'resolved').filter((p) => {
+                    predictionCards.filter(p => resolveSubTab === 'pending' ? p.status !== 'resolved' : p.status === 'resolved').filter((p) => {
                       const matchesSearch = p.title.toLowerCase().includes(resolveSearch.toLowerCase());
                       const matchesCategory = resolveCategory === 'all' || p.category === resolveCategory;
                       return matchesSearch && matchesCategory;
                     }).map((p) => {
-                      const isExpired = new Date(p.endAt) <= new Date() || p.status === 'closed';
+                      const isExpired = new Date(p.endAt) <= new Date() || p.status === 'closed' || p.status === 'resolved';
                       const isSelected = selectedPredToResolve?.id === p.id;
                       const categoryLabels: Record<string, string> = {
                         politics: '정치', sports: '스포츠', esports: 'Esports',
@@ -1726,7 +1783,7 @@ export default function AiAutoManager({
                           key={p.id}
                           onClick={() => {
                             setSelectedPredToResolve(p);
-                            setResolveWinningOption('');
+                            setResolveWinningOption(resolveSubTab === 'resolved' ? (p.winningOption || '') : '');
                             setIsConfirmingResolve(false);
                           }}
                           className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
@@ -1735,11 +1792,22 @@ export default function AiAutoManager({
                               : 'bg-[#181c26] border-gray-800 hover:border-gray-700'
                           }`}
                         >
-                          <div className="flex justify-between items-start mb-1.5">
-                            <span className="text-[9px] bg-[#22c55e]/10 text-emerald-400 font-extrabold px-1.5 py-0.5 rounded">
-                              {categoryLabels[p.category] || p.category}
-                            </span>
-                            {isExpired ? (
+                          <div className="flex justify-between items-start mb-1.5 flex-wrap gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] bg-[#22c55e]/10 text-emerald-400 font-extrabold px-1.5 py-0.5 rounded">
+                                {categoryLabels[p.category] || p.category}
+                              </span>
+                              {p.endAt && (
+                                <span className="text-[9px] text-gray-400 font-medium font-sans">
+                                  📅 경기: {formatCompactDate(p.endAt)}
+                                </span>
+                              )}
+                            </div>
+                            {p.status === 'resolved' ? (
+                              <span className="text-[9px] bg-emerald-500/10 text-emerald-300 font-black px-1.5 py-0.5 rounded flex items-center gap-1">
+                                🏆 결과 확정됨 ({p.winningOption})
+                              </span>
+                            ) : isExpired ? (
                               <span className="text-[9px] bg-red-500/10 text-red-400 font-black px-1.5 py-0.5 rounded">
                                 🔴 예측 마감
                               </span>
@@ -1752,7 +1820,7 @@ export default function AiAutoManager({
                           <h5 className="text-xs font-black text-white line-clamp-2 leading-snug mb-2">{p.title}</h5>
                           <div className="flex justify-between items-center text-[10px] text-gray-500 font-mono">
                             <span>선택옵션: {p.options?.length || 0}개</span>
-                            {isExpired && (
+                            {resolveSubTab === 'pending' && isExpired && (
                                 <button
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] px-2 py-1 rounded"
                                     onClick={async (e) => {
@@ -1807,13 +1875,18 @@ export default function AiAutoManager({
                 <div className="bg-[#121620] border border-gray-800 rounded-xl p-5 shadow-lg space-y-5 animate-fade-in">
                   <div>
                     <span className="text-[10px] bg-emerald-500/15 text-emerald-400 font-black px-2 py-1 rounded">
-                      STEP 2: 결과 확정 전산 폼
+                      {resolveSubTab === 'pending' ? 'STEP 2: 결과 확정 전산 폼' : 'STEP 2: 결과 수정 및 소급 교정 전산 폼'}
                     </span>
                     <h4 className="text-white font-bold text-sm mt-3 line-clamp-2 leading-relaxed">
                       {selectedPredToResolve.title}
                     </h4>
                     <p className="text-[10px] text-gray-400 mt-1">
                       본 게임의 식별코드: <span className="font-mono text-emerald-400 font-bold">{selectedPredToResolve.id}</span>
+                      {selectedPredToResolve.status === 'resolved' && (
+                        <span className="ml-2 text-amber-400 font-extrabold font-mono">
+                          (현재 판정값: {selectedPredToResolve.winningOption})
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -1840,13 +1913,14 @@ export default function AiAutoManager({
                   {/* WINNING OPTION SELECTOR */}
                   <div className="space-y-3">
                     <label className="text-[11px] text-gray-300 font-bold block">
-                      정확한 결과(당첨 옵션) 또는 특별 처리 옵션 선택
+                      {resolveSubTab === 'pending' ? '정확한 결과(당첨 옵션) 또는 특별 처리 옵션 선택' : '정정하고자 하는 새로운 결과(당첨 옵션) 또는 전산 취소 옵션 선택'}
                     </label>
 
                     {/* Basic options list */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {selectedPredToResolve.options.map((opt: string) => {
                         const isChosen = resolveWinningOption === opt;
+                        const isOriginalWinner = selectedPredToResolve.winningOption === opt;
 
                         return (
                           <button
@@ -1863,7 +1937,10 @@ export default function AiAutoManager({
                             }`}
                           >
                             <div className="flex justify-between items-center font-bold">
-                              <span>{opt}</span>
+                              <span className="flex items-center gap-1.5">
+                                {opt}
+                                {isOriginalWinner && <span className="text-[9px] text-[#22c55e] border border-[#22c55e]/30 px-1 rounded">기존당첨</span>}
+                              </span>
                               {isChosen && <span className="text-xs bg-emerald-500 text-black px-1.5 py-0.5 rounded font-black">판정선택</span>}
                             </div>
                           </button>
@@ -1889,7 +1966,10 @@ export default function AiAutoManager({
                           }`}
                         >
                           <div className="flex justify-between items-center font-bold text-xs">
-                            <span>경기 취소</span>
+                            <span className="flex items-center gap-1.5">
+                              경기 취소
+                              {selectedPredToResolve.winningOption === '경기취소' && <span className="text-[9px] text-purple-400 border border-purple-500/30 px-1 rounded">기존</span>}
+                            </span>
                             {resolveWinningOption === '경기취소' && (
                               <span className="text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded">지정됨</span>
                             )}
@@ -1911,7 +1991,10 @@ export default function AiAutoManager({
                           }`}
                         >
                           <div className="flex justify-between items-center font-bold text-xs">
-                            <span>적중 특례</span>
+                            <span className="flex items-center gap-1.5">
+                              적중 특례
+                              {selectedPredToResolve.winningOption === '적중특례' && <span className="text-[9px] text-pink-400 border border-pink-500/30 px-1 rounded">기존</span>}
+                            </span>
                             {resolveWinningOption === '적중특례' && (
                               <span className="text-[9px] bg-pink-500 text-white px-1.5 py-0.5 rounded">지정됨</span>
                             )}
@@ -1931,7 +2014,7 @@ export default function AiAutoManager({
                     <textarea
                       rows={3}
                       className="w-full bg-[#181d2a] text-xs text-white border border-gray-800 p-2.5 rounded focus:border-[#22c55e] focus:outline-none"
-                      placeholder="예시: 경기결과 2-1로 XX팀 승리가 확정되어 규정에 따라 판정을 결정합니다."
+                      placeholder={resolveSubTab === 'pending' ? "예시: 경기결과 2-1로 XX팀 승리가 확정되어 규정에 따라 판정을 결정합니다." : "예시: 판정 결과 정정 고시. 기존 분석 오류를 교하고 정정에 의거 당첨 포인트 지급을 소급 적용합니다."}
                       value={resolveEvidence}
                       onChange={(e) => setResolveEvidence(e.target.value)}
                     />
@@ -1943,10 +2026,15 @@ export default function AiAutoManager({
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-[11px] text-amber-400 text-left flex items-start gap-2 mb-2 animate-pulse">
                         <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold text-xs">확정 판정 최종 동의 고시</p>
-                          <p className="mt-0.5 opacity-90 leading-relaxed text-[10px]">
-                            본 게임의 결과를 <strong>[{resolveWinningOption}]</strong>(으)로 확정하시겠습니까?<br />
-                            실행 시 베팅 내역 보관소에 기록되며 되돌릴 수 없습니다. 확인 후 한번 더 클릭하세요.
+                          <p className="font-bold text-xs">
+                            {resolveSubTab === 'pending' ? '확정 판정 최종 동의 고시' : '판정 결과 정정 및 자금 소급수합 최종 동의'}
+                          </p>
+                          <p className="mt-0.5 opacity-90 leading-relaxed text-[10px] text-amber-200">
+                            {resolveSubTab === 'pending' ? (
+                              <>본 게임의 결과를 <strong>[{resolveWinningOption}]</strong>(으)로 확정하시겠습니까?<br />실행 시 베팅 내역 보관소에 기록되며 되돌릴 수 없습니다. 확인 후 한번 더 클릭하세요.</>
+                            ) : (
+                              <>기존 결과를 취소하고 신규 결과를 <strong>[{resolveWinningOption}]</strong>(으)로 전면 수정하시겠습니까?<br />실행 즉시 이미 지급되었던 배당금이 무효가 되고 올바른 당첨 유저들에게 소급 환수/지급 정산 처리가 동시 실행됩니다. 확인 후 한번 더 클릭하세요.</>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -1974,6 +2062,11 @@ export default function AiAutoManager({
                             return;
                           }
 
+                          if (resolveSubTab === 'resolved' && resolveWinningOption === selectedPredToResolve.winningOption) {
+                            alert("기존에 적용된 판정 결과 옵션과 동일합니다. 다른 정답 결과를 선택해 정정을 진행해 주세요.");
+                            return;
+                          }
+
                           if (!isConfirmingResolve) {
                             setIsConfirmingResolve(true);
                             return;
@@ -1982,7 +2075,11 @@ export default function AiAutoManager({
                           try {
                             await onResolvePrediction(selectedPredToResolve.id, resolveWinningOption, resolveEvidence);
                             try {
-                              alert(`[결과 확정 완료] [${selectedPredToResolve.title.substring(0, 10)}] 예측에 대한 결과 확정이 최종 완료되었습니다.`);
+                              if (resolveSubTab === 'pending') {
+                                alert(`[결과 확정 완료] [${selectedPredToResolve.title.substring(0, 10)}] 예측에 대한 결과 확정이 최종 완료되었습니다.`);
+                              } else {
+                                alert(`[판정 결과 소급 정정 완료] [${selectedPredToResolve.title.substring(0, 10)}] 예측 결과가 성공적으로 긴급 정정되었으며, 참가자들의 포인트 지급 잔고가 실시간 소급 정산 완료되었습니다.`);
+                              }
                             } catch (alertErr) {
                               // alert might be blocked
                             }
@@ -2012,12 +2109,22 @@ export default function AiAutoManager({
                         }`}
                       >
                         <ShieldCheck className="h-4 w-4" />
-                        <span>{isConfirmingResolve ? '⚠️ 결과 최종 확정 동의 (다시 클릭하여 무조건 완료)' : '결과 최종 확정 및 즉시 마감 ⚡'}</span>
+                        <span>
+                          {resolveSubTab === 'pending' ? (
+                            isConfirmingResolve ? '⚠️ 결과 최종 확정 동의 (다시 클릭하여 무조건 완료)' : '결과 최종 확정 및 즉시 마감 ⚡'
+                          ) : (
+                            isConfirmingResolve ? '⚠️ 결과 긴급 정정 적용 (다시 클릭하여 즉시 소급 교정)' : '결과 긴급 정정 및 소급 교정 발포 ⚡'
+                          )}
+                        </span>
                       </button>
                     </div>
 
-                    <p className="text-[9px] text-gray-400 text-center mt-2 font-semibold">
-                      확정과 동시에 당첨 예측 결과 보관소에 기록되며, 전체 판정 속보가 공개 로비 챗방으로 자동 보도됩니다.
+                    <p className="text-[9px] text-gray-400 text-center mt-2 font-semibold font-sans">
+                      {resolveSubTab === 'pending' ? (
+                        '확정과 동시에 당첨 예측 결과 보관소에 기록되며, 전체 판정 속보가 공개 로비 챗방으로 자동 보도됩니다.'
+                      ) : (
+                        '판정 수정 즉시 전체 예측 당첨자 보관소가 전면 재정산 업데이트되며, 로비 챗방으로 수정정정 성명문이 즉시 보도 고시됩니다.'
+                      )}
                     </p>
                   </div>
                 </div>
