@@ -163,22 +163,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
     if (platform === 'kakao') {
       try {
-        // 1. 환경 변수 VITE_KAKAO_JS_KEY 또는 VITE_KAKAO_JAVASCRIPT_KEY 가 지정되어 있다면 즉시 패스시킵니다.
-        let customKey = (import.meta as any).env?.VITE_KAKAO_JS_KEY || (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || localStorage.getItem('TEMP_KAKAO_JS_KEY') || '';
-        
-        // 2. 만약 키가 저장되어 있지도 않고 환경 변수도 빈 값인 상태에만 팝업 기입창 권장
-        if (!customKey) {
-          const skipOrEnter = window.confirm(
-            "💬 [카카오톡 실제 실시간 연동 로그인]\n\n실제 실시간 카카오 가입 및 연동 로그인을 하려면 개발사 카카오 앱키(REST API 혹은 JS 앱키)가 필요합니다.\n\n[확인]을 누르면 앱 키를 수동 기입하실 수 있으며,\n[취소]를 누르면 데모 전용 기본 키(or 무작위 모의 연동)로 즉시 팝업 로그인을 진행합니다."
-          );
-          if (skipOrEnter) {
-            const userKey = window.prompt("🔑 카카오 디벨로퍼스 (developers.kakao.com)에서 발급받은 실제 JavaScript 앱 키를 입력해 주세요:");
-            if (userKey && userKey.trim()) {
-              customKey = userKey.trim();
-              localStorage.setItem('TEMP_KAKAO_JS_KEY', customKey);
-            }
-          }
-        }
+        // 환경 변수 VITE_KAKAO_JS_KEY 또는 VITE_KAKAO_JAVASCRIPT_KEY 또는 로컬 스토리지 키 확인 (불필요한 안내 팝업 없이 바로 진행)
+        const customKey = (import.meta as any).env?.VITE_KAKAO_JS_KEY || (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || localStorage.getItem('TEMP_KAKAO_JS_KEY') || '';
 
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
 
