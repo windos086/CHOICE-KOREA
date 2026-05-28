@@ -155,11 +155,12 @@ export function getApiUrl(path: string): string {
   }
 
   const host = window.location.hostname;
-  const isCustomDomain = host === 'choicekr.co.kr' || host === 'www.choicekr.co.kr';
-  const isFirebaseHosting = host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
+  const isCloudRun = host.endsWith('.run.app');
 
-  if (isCustomDomain || isFirebaseHosting) {
-    // Under Firebase Hosting static domains or custom domains, make request directly to the serverless Cloud Run full-stack service
+  // If it's not local development and not direct Cloud Run, it's either Firebase static hosting or a custom domain.
+  // We must route API requests directly to the full-stack server running on Cloud Run.
+  if (!isLocal && !isCloudRun) {
     const productionBackend = 'https://ais-pre-nx3fiijcdcr5adljkbq6v6-509029500969.asia-northeast1.run.app';
     return `${productionBackend}${path}`;
   }

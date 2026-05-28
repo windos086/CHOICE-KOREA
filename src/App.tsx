@@ -25,7 +25,78 @@ import { Gamepad2, Hourglass, Landmark, Trophy, ArrowRight, UserCheck, Flame, Ci
 // Prepopulated Default Prediction Cards representing a lively market (Fail-safe initial data)
 const MOCK_INITIAL_PREDICTIONS: PredictionCard[] = [];
 
+function KakaoCallbackHandler() {
+  const [status, setStatus] = React.useState<'processing' | 'success' | 'error'>('processing');
+  const [errorMsg, setErrorMsg] = React.useState<string>('');
+
+  React.useEffect(() => {
+    const handleExchange = async () => {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const code = searchParams.get('code');
+        const state = searchParams.get('state');
+
+        if (!code) {
+          throw new Error("Authorization code is missing.");
+        }
+
+        const productionBackend = 'https://ais-pre-nx3fiijcdcr5adljkbq6v6-509029500969.asia-northeast1.run.app';
+        const callbackUrl = `${productionBackend}/api/auth/kakao/callback?code=${encodeURIComponent(code)}` + (state ? `&state=${encodeURIComponent(state)}` : '');
+
+        console.log("🔗 Trading Kakao OAuth code with backend:", callbackUrl);
+        const res = await fetch(callbackUrl);
+        const htmlText = await res.text();
+
+        document.open();
+        document.write(htmlText);
+        document.close();
+        setStatus('success');
+      } catch (err: any) {
+        console.error("Kakao Callback error:", err);
+        setStatus('error');
+        setErrorMsg(err?.message || String(err));
+      }
+    };
+
+    handleExchange();
+  }, []);
+
+  if (status === 'processing') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#121620] text-white p-6 text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500 mb-4"></div>
+        <h2 className="text-lg font-bold">카카오 간편 로그인 처리 중...</h2>
+        <p className="text-gray-400 text-xs mt-2">안전한 세션 연결 및 소셜 정보를 확인하는 중입니다.</p>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#121620] text-white p-6 text-center">
+        <div className="text-red-500 text-4xl mb-4">⚠️</div>
+        <h2 className="text-lg font-bold text-red-400">카카오 로그인 연동 실패</h2>
+        <p className="text-gray-350 text-xs bg-red-500/10 border border-red-500/20 p-3 rounded mt-3 max-w-md break-all font-mono">
+          {errorMsg}
+        </p>
+        <button
+          onClick={() => window.close()}
+          className="mt-6 bg-yellow-500 hover:bg-yellow-600 text-black font-extrabold text-xs px-4 py-2 rounded shadow transition-all cursor-pointer"
+        >
+          창 닫기
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function App() {
+  if (window.location.pathname === '/api/auth/kakao/callback') {
+    return <KakaoCallbackHandler />;
+  }
+
   const [currentTab, setCurrentTab] = React.useState<string>('predict');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const kstDate = new Date(new Date().getTime() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
