@@ -231,7 +231,10 @@ Active Subcategories & Child categories available on the website (JSON format):
 ${JSON.stringify(req.body.subcategories, null, 2)}
 
 Requirements:
-1. ONLY generate prediction games for the specific subcategories provided in the list above. USE THE EXACT 'key' for subCategory (from the list) AND THE EXACT 'parentCategory' name FOR EACH GENERATED GAME.
+1. ONLY generate prediction games for the specific subcategories provided in the list above.
+   - Set "category" to the EXACT "topCategory" of the chosen item (e.g., 'sports', 'politics', 'esports', 'economy', 'entertainment', 'news', 'broadcast').
+   - Set "subCategory" to the EXACT "key" (the subcategory key) from the chosen list.
+   - Set "parentCategory" to the EXACT "parentCategory" (the Korean label of parent category, e.g. '야구', '축구') from the chosen list.
 2. For sports games, ALWAYS perform an EXHAUSTIVE, COMPREHENSIVE search for EVERY SINGLE GAME scheduled TODAY (May 26, 2026) for KBO, MLB, NPB, NBA, and other major sports. YOU ARE FORBIDDEN FROM OMITTING GAMES. LIST EVERY GAME FOUND. If absolutely no games are today, search for the earliest upcoming scheduled games. 
    Format titles EXACTLY: "[Team A] vs [Team B] 승자는 ?".
    VERY IMPORTANT: Provide FULL, COMPLETE, AND EXACT Team Names in the "options" list. DO NOT TRUNCATE, ABBREVIATE, OR SHORTEN TEAM NAMES UNDER ANY CIRCUMSTANCES. If a team name is normally long, include the full name. Failure to provide full names will break the system. Ensure names are clear and unambiguous.
@@ -245,9 +248,9 @@ Provide the output in KOREAN language only, following this JSON structure:
   {
     "title": "예측 카드 제목 (예시와 동일하게 '... 승자는 ?' 형식 준수)",
     "description": "구체적이고 명확한 판정 기준 설명 (한국어)",
-    "category": "sports | politics | esports | economy | entertainment | news | broadcast 중 하나 (제공된 리스트의 parentCategory와 정확히 일치)",
-    "subCategory": "Kategorey Key (제공된 리스트의 'key'와 정확히 일치해서 바인딩)",
-    "parentCategory": "부모 카테고리 이름 (제공된 리스트의 'parentCategory'와 정확히 일치)",
+    "category": "제공된 리스트에서 선택한 항목의 'topCategory'값 (예: sports, politics, esports, economy, entertainment, news, broadcast 중 하나)",
+    "subCategory": "제공된 리스트에서 선택한 항목의 'key'값 (예: 'sports-baseball-kbo')",
+    "parentCategory": "제공된 리스트에서 선택한 항목의 'parentCategory'값 (한국어 레이블 예: '야구', '축구')",
     "options": ["옵션 1", "옵션 2", ...],
     "endAt": "마감 시점 ISO DateTime String",
     "sourceUrl": "판정에 활용할 핵심 검색 및 참고 검증용 설명 또는 검색어"

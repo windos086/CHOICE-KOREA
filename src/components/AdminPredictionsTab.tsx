@@ -163,7 +163,7 @@ export default function AdminPredictionsTab({
     setSubChildren(subChildren.filter((_, i) => i !== idx));
   };
 
-  const submitPred = (e: React.FormEvent) => {
+  const submitPred = async (e: React.FormEvent) => {
     e.preventDefault();
     const validOptions = predOptions.filter(o => o.trim() !== '');
     if (!predTitle.trim() || validOptions.length < 2) {
@@ -174,7 +174,7 @@ export default function AdminPredictionsTab({
     // Normalize title: remove [ and ] and trim
     const normalizedTitle = predTitle.replace(/[\[\]]/g, '').trim();
 
-    onAddPrediction({
+    const result = await onAddPrediction({
       title: normalizedTitle,
       description: "",
       category: subCatMode,
@@ -182,14 +182,16 @@ export default function AdminPredictionsTab({
       options: validOptions.map(o => o.trim()),
       endAt: predEndAt || new Date(Date.now() + 86400000).toISOString(),
       sourceUrl: ""
-    });
+    }, true);
 
-    setIsAddingPred(false);
-    setPredTitle('');
-    setPredOptions(['예', '아니오']);
-    setPredEndAt('');
-    setPredSubCategory('');
-    alert('예측 게임 등록 완료!');
+    if (result) {
+      setIsAddingPred(false);
+      setPredTitle('');
+      setPredOptions(['예', '아니오']);
+      setPredEndAt('');
+      setPredSubCategory('');
+      alert('예측 게임 등록 완료!');
+    }
   };
 
   // Helper to add card
@@ -363,6 +365,7 @@ export default function AdminPredictionsTab({
                         if (item.children && item.children.length > 0) {
                           item.children.forEach((child: any) => {
                             allTargetSubcats.push({
+                              topCategory: parentCatId, // 'sports', 'politics', etc.
                               parentCategory: item.label,
                               key: child.key,
                               subCategoryTitle: child.label
@@ -395,12 +398,104 @@ export default function AdminPredictionsTab({
                     
                     if (res.ok && result.success && result.data) {
                       let addedCount = 0;
-                      result.data.forEach((card: any) => {
-                        if (addValidatedPrediction(card)) {
-                          addedCount++;
+                      
+                      // Define standard cleaning helper inside
+                      const cleanString = (s: string) => {
+                        if (!s) return "";
+                        return s.replace(/[\[\]\s\(\)\-\_\,\.\:\'\"]/g, '').toLowerCase();
+                      };
+
+                      const existingKeys = new Set<string>();
+
+                      // Map existing open/ongoing cards
+                      (predictionCards || []).forEach((p: any) => {
+                        if (p.status === 'open') {
+                          existingKeys.add(cleanString(p.title));
+                          const cleanOpts = (p.options || []).map((o: string) => cleanString(o)).sort().join(',');
+                          if (cleanOpts) {
+                            existingKeys.add("opts_" + cleanOpts);
+                          }
                         }
                       });
-                      alert(`${result.data.length}개의 분석 결과 중 ${addedCount}개의 새로운 예측 게임이 생성되었습니다!`);
+
+                      const sanitizedAndFiltered: any[] = [];
+
+                      result.data.forEach((card: any) => {
+                        // A. Align/sanitize category mapping
+                        let matchedTopCategory = card.category;
+                        let matchedSubCategory = card.subCategory;
+                        
+                        let found = false;
+                        Object.entries(globalSubcategories).forEach(([parentCatId, subcats]) => {
+                          if (found) return;
+                          const list = Array.isArray(subcats) ? subcats : [];
+                          list.forEach((item: any) => {
+                            if (found) return;
+                            if (item.children && item.children.length > 0) {
+                              item.children.forEach((child: any) => {
+                                if (found) return;
+                                if (child.key === card.subCategory) {
+                                  matchedTopCategory = parentCatId;
+                                  matchedSubCategory = child.key;
+                                  found = true;
+                                }
+                              });
+                            }
+                          });
+                        });
+                        
+                        if (!found) {
+                          // Try label matching if key didn't match directly
+                           Object.entries(globalSubcategories).forEach(([parentCatId, subcats]) => {
+                            if (found) return;
+                            const list = Array.isArray(subcats) ? subcats : [];
+                            list.forEach((item: any) => {
+                              if (found) return;
+                              if (item.children && item.children.length > 0) {
+                                item.children.forEach((child: any) => {
+                                  if (found) return;
+                                  if (child.label === card.subCategory || child.label === card.title) {
+                                    matchedTopCategory = parentCatId;
+                                    matchedSubCategory = child.key;
+                                    found = true;
+                                  }
+                                });
+                              }
+                            });
+                          });
+                        }
+
+                        const alignedCard = {
+                          ...card,
+                          category: matchedTopCategory,
+                          subCategory: matchedSubCategory
+                        };
+
+                        // B. Check for Duplicates (both title and sorted options list)
+                        const cleanTitle = cleanString(alignedCard.title);
+                        const cleanOpts = (alignedCard.options || []).map((o: string) => cleanString(o)).sort().join(',');
+
+                        const isTitleDup = existingKeys.has(cleanTitle);
+                        const isOptsDup = cleanOpts ? existingKeys.has("opts_" + cleanOpts) : false;
+
+                        if (!isTitleDup && !isOptsDup) {
+                          existingKeys.add(cleanTitle);
+                          if (cleanOpts) {
+                            existingKeys.add("opts_" + cleanOpts);
+                          }
+                          sanitizedAndFiltered.push(alignedCard);
+                        } else {
+                          console.log("[Duplicate filtered in batch]", alignedCard.title);
+                        }
+                      });
+
+                      // C. Register remaining non-duplicate games sequentially
+                      for (const card of sanitizedAndFiltered) {
+                        await onAddPrediction(card, false); // passing alertOnDuplicate = false
+                        addedCount++;
+                      }
+
+                      alert(`${result.data.length}개의 분석 결과 중 중복 게임을 제외하고 ${addedCount}개의 새로운 예측 게임이 카테고리에 완벽히 분류 등록되었습니다!`);
                     } else {
                       console.error("AI Generation Response Error:", result);
                       alert(`AI 생성 실패: ${result.error || result.message || '알 수 없는 오류'}`);

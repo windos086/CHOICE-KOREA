@@ -1527,12 +1527,40 @@ export default function App() {
   };
 
   // AI 오토 매니저가 기획한 카드를 마켓에 추가 업로드
-  const handleAddPrediction = async (newCardData: any) => {
-    // Check for duplicates
-    const isDuplicate = predictions.some(p => p.title === newCardData.title);
+  const handleAddPrediction = async (newCardData: any, alertOnDuplicate = false) => {
+    const cleanString = (s: string) => {
+      if (!s) return "";
+      return s.replace(/[\[\]\s\(\)\-\_\,\.\:\'\"]/g, '').toLowerCase();
+    };
+
+    const newCleanTitle = cleanString(newCardData.title);
+    const newCleanOptions = (newCardData.options || []).map((o: string) => cleanString(o)).sort().join(',');
+
+    // Check for duplicates in open/ongoing games
+    const isDuplicate = predictions.some(p => {
+      if (p.status !== 'open') return false;
+
+      const pCleanTitle = cleanString(p.title);
+      const pCleanOptions = (p.options || []).map((o: string) => cleanString(o)).sort().join(',');
+
+      // 1. Same game title (normalized)
+      if (pCleanTitle && pCleanTitle === newCleanTitle) {
+        return true;
+      }
+
+      // 2. Exact same options list (normalized) - represents same match/game
+      if (pCleanOptions && pCleanOptions === newCleanOptions) {
+        return true;
+      }
+
+      return false;
+    });
+
     if (isDuplicate) {
+      if (alertOnDuplicate) {
         alert("이미 등록된 경기입니다.");
-        return;
+      }
+      return null;
     }
 
     const cardId = 'pred_' + Math.random().toString(36).substring(2, 11);
@@ -1578,6 +1606,8 @@ export default function App() {
         payload: completeCard
       }));
     }
+
+    return completeCard;
   };
 
   const handleDeletePrediction = async (cardId: string) => {
