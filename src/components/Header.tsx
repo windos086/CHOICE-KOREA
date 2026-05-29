@@ -496,63 +496,127 @@ export default function Header({
             ? 'bg-white border-gray-200 text-neutral-800'
             : 'bg-[#141414] border-neutral-800 text-gray-205'
         }`}>
-          <div className="p-4 space-y-3">
-            {dynamicMenus.map((item) => {
-              const hasSubmenus = item.submenus && item.submenus.length > 0;
-              const isActive = item.tab === 'predict' 
-                ? (currentTab === 'predict' && selectedCategory === (item.category || 'all'))
-                : (currentTab === item.tab);
+          <div className="p-4">
+            {(() => {
+              // Reorder dynamicMenus to place 'community' (커뮤니티) at the very top for mobile
+              const mobileMenus = [...dynamicMenus];
+              const communityIdx = mobileMenus.findIndex(m => m.id === 'community');
+              if (communityIdx > -1) {
+                const [communityItem] = mobileMenus.splice(communityIdx, 1);
+                mobileMenus.unshift(communityItem);
+              }
+
+              // Detect which compiled item has submenus and is active
+              const activeItemWithSubmenus = mobileMenus.find(item => {
+                const hasSubmenus = item.submenus && item.submenus.length > 0;
+                if (!hasSubmenus) return false;
+                return item.tab === currentTab || item.submenus?.some(sub => sub.tab === currentTab);
+              });
 
               return (
-                <div key={item.id} className="space-y-1.5 border-b border-neutral-800/10 dark:border-neutral-800/40 pb-3 last:border-0 last:pb-0">
-                  {/* Parent Title/Click */}
-                  <button
-                    onClick={() => {
-                      handleDynamicClick(item.tab, item.category);
-                      if (!hasSubmenus) {
-                        setIsMobileMenuOpen(false);
-                      }
-                    }}
-                    className={`w-full text-left px-3 py-2 text-[12.5px] font-black rounded-lg transition-all flex items-center justify-between ${
-                      isActive
-                        ? 'bg-[#d11822]/10 text-[#d11822]'
-                        : theme === 'light' ? 'hover:bg-gray-100 text-neutral-800' : 'hover:bg-neutral-900 text-gray-200'
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                    {hasSubmenus && <ChevronDown className="h-4 w-4 opacity-50" />}
-                  </button>
+                <div className="space-y-4">
+                  {/* Grid layout of 3 items per row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {mobileMenus.map((item) => {
+                      const hasSubmenus = item.submenus && item.submenus.length > 0;
+                      // Determine active state for parent button
+                      const isActive = item.tab === 'predict' 
+                        ? (currentTab === 'predict' && selectedCategory === (item.category || 'all'))
+                        : (currentTab === item.tab || (hasSubmenus && item.submenus?.some(sub => sub.tab === currentTab)));
 
-                  {/* Submenus (if any) Rendered Neatly as grid/list */}
-                  {hasSubmenus && item.submenus && (
-                    <div className="grid grid-cols-2 gap-1.5 pl-3 pt-0.5">
-                      {item.submenus.map((sub, sIdx) => {
-                        const isSubActive = sub.tab === 'predict'
-                          ? (currentTab === 'predict' && selectedCategory === (sub.category || 'all'))
-                          : (currentTab === sub.tab);
+                      const IconComponent = IconMap[item.iconName || 'List'] || List;
 
-                        return (
-                          <button
-                            key={sIdx}
-                            onClick={() => {
-                              handleDynamicClick(sub.tab, sub.category);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            handleDynamicClick(item.tab, item.category);
+                            if (!hasSubmenus) {
                               setIsMobileMenuOpen(false);
-                            }}
-                            className={`text-left px-2.5 py-1.5 rounded text-[11px] font-extrabold transition-all ${
-                              isSubActive
-                                ? 'bg-[#d11822]/10 border-l-2 border-[#d11822] text-[#d11822]'
-                                : theme === 'light' ? 'bg-gray-50 text-neutral-600 hover:bg-gray-100 hover:text-black' : 'bg-[#1b1b1b] text-neutral-400 hover:bg-[#d11822]/15 hover:text-white'
-                            }`}
-                          >
-                            • {sub.label}
-                          </button>
-                        );
-                      })}
+                            }
+                          }}
+                          className={`relative flex flex-col items-center justify-center py-3.5 px-1.5 rounded-xl border text-center transition-all ${
+                            isActive
+                              ? theme === 'light'
+                                ? 'bg-red-50/70 border-red-500/30 text-[#d11822] shadow-sm font-black scale-[0.98]'
+                                : 'bg-[#d11822]/15 border-[#d11822]/40 text-red-400 font-black shadow-sm scale-[0.98]'
+                              : theme === 'light'
+                                ? 'bg-gray-50/80 border-gray-200/50 hover:bg-gray-100 text-neutral-700 font-bold'
+                                : 'bg-[#1b1b1b] border-neutral-800/80 hover:bg-neutral-900 text-gray-300 font-bold'
+                          }`}
+                        >
+                          {/* Premium Icon Badge style */}
+                          <div className={`p-2 rounded-xl mb-1.5 flex items-center justify-center transition-all duration-200 ${
+                            isActive
+                              ? theme === 'light' ? 'bg-red-100/80 text-[#d11822]' : 'bg-[#d11822]/25 text-red-400'
+                              : theme === 'light' ? 'bg-gray-100 text-neutral-500' : 'bg-neutral-800 text-neutral-400'
+                          }`}>
+                            <IconComponent className="h-4.5 w-4.5" />
+                          </div>
+
+                          {/* Label Text */}
+                          <p className="text-[11px] tracking-tighter truncate max-w-full font-extrabold">
+                            {item.label}
+                          </p>
+
+                          {/* Submenu Indicator Dot */}
+                          {hasSubmenus && (
+                            <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+                              isActive ? 'bg-[#d11822] dark:bg-red-400' : 'bg-neutral-450 dark:bg-neutral-600'
+                            }`} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Neatly structured detailed Submenus Container underneath if any */}
+                  {activeItemWithSubmenus && activeItemWithSubmenus.submenus && (
+                    <div className={`p-3 rounded-2xl border ${
+                      theme === 'light'
+                        ? 'bg-gray-50/60 border-gray-200/50'
+                        : 'bg-[#1a1a1a]/40 border-neutral-800/60'
+                    }`}>
+                      <div className="flex items-center space-x-1.5 mb-2.5 px-1">
+                        <div className="w-1 h-3.5 bg-[#d11822] rounded-full" />
+                        <span className="text-[11.5px] font-black tracking-tight opacity-80">
+                          {activeItemWithSubmenus.label} 상세 메뉴
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {activeItemWithSubmenus.submenus.map((sub, sIdx) => {
+                          const isSubActive = sub.tab === 'predict'
+                            ? (currentTab === 'predict' && selectedCategory === (sub.category || 'all'))
+                            : (currentTab === sub.tab);
+
+                          return (
+                            <button
+                              key={sIdx}
+                              onClick={() => {
+                                handleDynamicClick(sub.tab, sub.category);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className={`text-left px-3 py-2.5 rounded-lg text-[11px] font-bold transition-all border ${
+                                isSubActive
+                                  ? theme === 'light'
+                                    ? 'bg-red-50/80 border-[#d11822]/30 text-[#d11822] font-black'
+                                    : 'bg-[#d11822]/10 border-[#d11822]/40 text-red-400 font-black'
+                                  : theme === 'light' 
+                                    ? 'bg-gray-50/40 border-gray-200/50 text-neutral-600 hover:bg-gray-100 hover:text-black' 
+                                    : 'bg-[#1b1b1b] border-neutral-800 text-neutral-400 hover:bg-[#d11822]/15 hover:text-white'
+                              }`}
+                            >
+                              <span className="mr-1 opacity-40">•</span>{sub.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
               );
-            })}
+            })()}
 
             {/* Quick Link to Admin Panel for Admin if logged in */}
             {userProfile && (() => {

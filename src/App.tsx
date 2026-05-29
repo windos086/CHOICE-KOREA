@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { db, auth, firebaseAvailable, handleFirestoreError, OperationType } from "./firebase";
 import { signOut } from "firebase/auth";
 import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, addDoc, deleteDoc, query, orderBy, limit, increment, where } from "firebase/firestore";
@@ -109,12 +110,16 @@ export default function App() {
   const [posts, setPosts] = React.useState<CommunityPost[]>([]);
   const [postsHumor, setPostsHumor] = React.useState<CommunityPost[]>([]);
   const [postsNotice, setPostsNotice] = React.useState<CommunityPost[]>([]);
+  const [selectedCommunityPostId, setSelectedCommunityPostId] = React.useState<string | null>(null);
   const [chats, setChats] = React.useState<ChatMessage[]>([]);
   const [allUsers, setAllUsers] = React.useState<UserProfile[]>([]);
   const [activeUserCount, setActiveUserCount] = React.useState<number>(1);
   const [participantCounts, setParticipantCounts] = React.useState<Record<string, number>>({});
   const [mainViewFilter, setMainViewFilter] = React.useState<'ongoing' | 'closed' | 'bookmarked'>('ongoing');
   const [homeBookmarkedIds, setHomeBookmarkedIds] = React.useState<string[]>([]);
+  const [isMobileGameListVisible, setIsMobileGameListVisible] = React.useState(false);
+
+
   const [toasts, setToasts] = React.useState<{id: string; message: string; type: 'success' | 'info' | 'error'}[]>([]);
 
   const addToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -1148,7 +1153,7 @@ export default function App() {
   // Handle Placing Bets
   const handlePlacePrediction = async () => {
     if (!userProfile) {
-      setShowNicknameModal(true);
+      setIsLoginModalOpen(true);
       return;
     }
 
@@ -2117,6 +2122,301 @@ export default function App() {
     return card && card.status !== 'resolved';
   }).length;
 
+  const renderDesktopLoginOrProfileBox = () => {
+    return (
+      <div className="bg-[#1c1c1e] border border-[#2c2d33] rounded-xl p-4 text-xs font-sans shadow-lg">
+        {userProfile ? (
+          // 로그인 완료 시 정보 카드
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-[#2b2b2b] pb-2">
+              <span className="text-[#22c55e] font-bold">🟢 연동중인 회원 정보</span>
+              {userProfile.loginId === 'sinpotnf@gmail.com' || userProfile.nickname === '최고관리자' || userProfile.nickname === '운영자' ? (
+                <span className="bg-red-500/10 text-red-400 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase font-sans border border-red-900/30">
+                  운영자
+                </span>
+              ) : (
+                <span className="bg-neutral-800 text-neutral-400 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase font-sans border border-neutral-700/30">
+                  일반회원
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col items-center justify-center py-3 bg-[#111112] rounded-xl border border-neutral-800/40 space-y-2">
+              <div className="relative group w-16 h-16 rounded-full overflow-hidden border-2 border-neutral-700 bg-neutral-800 flex items-center justify-center hover:border-amber-400 transition-colors cursor-pointer shadow-lg animate-fade-in">
+                {userProfile.profileImageUrl ? (
+                  <img 
+                    src={userProfile.profileImageUrl} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="text-3xl select-none">👤</span>
+                )}
+                
+                {/* Hover Overlay */}
+                <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-200">
+                  <span className="text-[10px] text-white font-extrabold text-center leading-tight">변경 📷</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleProfileImageUpload(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <label className="text-[10px] text-neutral-400 hover:text-amber-400 font-medium cursor-pointer transition-colors flex items-center gap-1">
+                <span>프로필 사진 변경</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleProfileImageUpload(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">아이디/닉네임:</span>
+                <span className="text-white font-extrabold hover:underline cursor-pointer" onClick={handleTriggerRename}>
+                  {userProfile.nickname} (수정 ⚙️)
+                </span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-gray-400">현재 보유 포인트:</span>
+                <span className="text-amber-400 font-extrabold">
+                  {userProfile.points?.toLocaleString() || 0} P
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={() => setIsQuestModalOpen(true)}
+                className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] hover:scale-[1.02] text-black py-2 rounded text-xs font-extrabold transition-all duration-200 cursor-pointer text-center block shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+              >
+                일일퀘스트 / 포인트샵
+              </button>
+              <button
+                onClick={() => {
+                  const keysToRemove = Object.keys(localStorage).filter(key => key.startsWith('PREDICT_'));
+                  keysToRemove.forEach(key => localStorage.removeItem(key));
+                  window.location.reload();
+                }}
+                className="w-full bg-[#cc2929] hover:bg-[#b82222] active:scale-[0.98] hover:scale-[1.02] text-white py-2 rounded text-xs font-extrabold transition-all duration-200 cursor-pointer text-center block"
+              >
+                로그아웃 (계정 연결 해제)
+              </button>
+            </div>
+          </div>
+        ) : (
+          // 로그 아웃 상태
+          <div className="flex flex-col space-y-3.5">
+            <p className="text-gray-400 text-xs leading-relaxed font-semibold">
+              초이스 코리아에 안전하게 로그인하여 실시간 예측과 커뮤니티 활동을 마음껏 즐겨보세요!
+            </p>
+            
+            {/* 로그인 파워버튼 - 모달 팝업 트리거 */}
+            <button
+              type="button"
+              onClick={() => setIsLoginModalOpen(true)}
+              className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-bold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl"
+            >
+              <Power className="h-4.5 w-4.5 text-white" strokeWidth={2.5} />
+              <span>초이스 코리아 로그인</span>
+            </button>
+
+            {/* 하단 유틸 링크 */}
+            <div className="flex items-center justify-between px-2 pt-2 text-[13px] text-white font-bold font-sans">
+              <button 
+                type="button" 
+                onClick={() => setIsLoginModalOpen(true)} 
+                className="flex items-center space-x-2 hover:text-gray-300 hover:underline transition-colors cursor-pointer bg-transparent border-none p-0"
+              >
+                <KeyRound className="h-3.5 w-3.5 text-white" strokeWidth={2.5} />
+                <span>비밀번호찾기</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setCurrentTab('register');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} 
+                className="flex items-center space-x-2 hover:text-gray-300 hover:underline transition-colors cursor-pointer bg-transparent border-none p-0"
+              >
+                <LogIn className="h-3.5 w-3.5 text-white" strokeWidth={2.5} />
+                <span>회원가입</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMobileLoginOrProfileBox = () => {
+    return (
+      <div className="bg-[#1c1c1e] border border-[#2c2d33] rounded-2xl p-4.5 text-xs font-sans shadow-lg">
+        {userProfile ? (
+          // 로그인 완료 시 정보 카드
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between border-b border-[#2b2b2b]/60 pb-2.5">
+              <span className="text-[#22c55e] text-[12px] font-extrabold flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#22c55e] animate-pulse"></span>
+                연동중인 회원 정보
+              </span>
+              {userProfile.loginId === 'sinpotnf@gmail.com' || userProfile.nickname === '최고관리자' || userProfile.nickname === '운영자' ? (
+                <span className="bg-red-500/10 text-red-400 text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase font-sans border border-red-900/30">
+                  운영자
+                </span>
+              ) : (
+                <span className="bg-neutral-800 text-neutral-400 text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase font-sans border border-neutral-700/30">
+                  일반회원
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-12 gap-4 items-center bg-[#111112]/90 p-4 rounded-2xl border border-neutral-800/60 shadow-inner">
+              <div className="col-span-4 flex flex-col items-center justify-center space-y-2">
+                <div className="relative group w-18 h-18 rounded-full overflow-hidden border-2 border-neutral-700 bg-neutral-800 flex items-center justify-center hover:border-amber-400 transition-colors cursor-pointer shadow-lg">
+                  {userProfile.profileImageUrl ? (
+                    <img 
+                      src={userProfile.profileImageUrl} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="text-3xl select-none">👤</span>
+                  )}
+                  
+                  {/* Hover Overlay */}
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-200">
+                    <span className="text-[10px] text-white font-extrabold text-center leading-tight">변경 📷</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleProfileImageUpload(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <label className="text-[10px] text-neutral-400 hover:text-amber-400 font-bold cursor-pointer transition-colors flex items-center gap-1">
+                  <span>프로필 사진 변경</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleProfileImageUpload(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              
+              <div className="col-span-8 space-y-2 text-left px-2">
+                <div className="flex justify-between items-center text-[12px] gap-2">
+                  <span className="text-gray-400 font-medium shrink-0">닉네임</span>
+                  <button 
+                    className="text-white font-black hover:underline cursor-pointer flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5 truncate max-w-[120px]" 
+                    onClick={handleTriggerRename}
+                  >
+                    <span className="truncate">{userProfile.nickname}</span> 
+                    <span className="text-neutral-400 text-[10px] shrink-0">⚙️</span>
+                  </button>
+                </div>
+                <div className="flex justify-between items-center text-[12px] gap-2">
+                  <span className="text-gray-400 font-medium shrink-0">포인트</span>
+                  <span className="text-amber-400 font-extrabold bg-amber-400/10 px-2 py-1 rounded-lg border border-amber-450/10 whitespace-nowrap">
+                    {userProfile.points?.toLocaleString() || 0} P
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => setIsQuestModalOpen(true)}
+                className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] hover:scale-[1.02] text-black py-2.5 rounded-xl text-xs font-black transition-all duration-200 cursor-pointer text-center block shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+              >
+                🏆 일일퀘스트 / 포인트샵
+              </button>
+              <button
+                onClick={() => {
+                  const keysToRemove = Object.keys(localStorage).filter(key => key.startsWith('PREDICT_'));
+                  keysToRemove.forEach(key => localStorage.removeItem(key));
+                  window.location.reload();
+                }}
+                className="w-full bg-[#cc2929] hover:bg-[#b82222] active:scale-[0.98] hover:scale-[1.02] text-white py-2.5 rounded-xl text-xs font-black transition-all duration-200 cursor-pointer text-center block"
+              >
+                🔑 로그아웃 (연결해제)
+              </button>
+            </div>
+          </div>
+        ) : (
+          // 로그 아웃 상태
+          <div className="flex flex-col space-y-3.5">
+            <p className="text-gray-400 text-xs leading-relaxed font-bold">
+              초이스 코리아에 안전하게 로그인하여 실시간 예측과 커뮤니티 활동을 마음껏 즐겨보세요!
+            </p>
+            
+            {/* 로그인 파워버튼 - 모달 팝업 트리거 */}
+            <button
+              type="button"
+              onClick={() => setIsLoginModalOpen(true)}
+              className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-extrabold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl"
+            >
+              <Power className="h-4.5 w-4.5 text-white animate-pulse" strokeWidth={2.5} />
+              <span>초이스 코리아 로그인</span>
+            </button>
+
+            {/* 하단 유틸 링크 (비밀번호찾기, 회원가입) */}
+            <div className="flex items-center justify-between px-2 pt-1 text-[13px] text-neutral-350 font-extrabold font-sans">
+              <button 
+                type="button" 
+                onClick={() => setIsLoginModalOpen(true)} 
+                className="flex items-center space-x-1.5 hover:text-white hover:underline transition-colors cursor-pointer bg-transparent border-none p-0"
+              >
+                <KeyRound className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <span>비밀번호찾기</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setCurrentTab('register');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} 
+                className="flex items-center space-x-1.5 hover:text-white hover:underline transition-colors cursor-pointer bg-transparent border-none p-0"
+              >
+                <LogIn className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <span>회원가입</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'light-theme bg-[#f8f9fa] text-neutral-800' : 'bg-[#050608] text-gray-200'} font-sans selection:bg-rose-600 selection:text-white transition-all duration-300`}>
       
@@ -2139,6 +2439,13 @@ export default function App() {
 
       {/* 메인 레이아웃 본문 (그리드 분할: 좌측 사이드바 / 중앙 메인 / 우측 AD) */}
       <main className="max-w-[1600px] mx-auto px-4 py-4">
+        {/* 모바일 환경에서만 최상단에 노출되는 회원정보/로그인 영역 */}
+        {!currentTab.startsWith('community') && (
+          <div className="block lg:hidden mb-4">
+            {renderMobileLoginOrProfileBox()}
+          </div>
+        )}
+
         {currentTab === 'predict' && selectedCategory !== 'all' ? (
           <PoliticsPortal 
             category={selectedCategory}
@@ -2170,146 +2477,11 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           
           {/* [좌측 사이드바] - 로그인 창, 광고배너, 실시간 채팅방 */}
-          <div className="col-span-1 space-y-4 order-2 lg:order-none">
+          <div className={`col-span-1 space-y-4 order-2 lg:order-none ${currentTab.startsWith('community') ? 'hidden lg:block' : ''}`}>
             
-            {/* 1. 로그인 박스 (로그인 폼 / 연동 프로필) */}
-            <div className="bg-[#1c1c1e] border border-[#2c2d33] rounded-xl p-4 text-xs font-sans shadow-lg">
-              {userProfile ? (
-                // 로그인 완료 시 정보 카드
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#2b2b2b] pb-2">
-                    <span className="text-[#22c55e] font-bold">🟢 연동중인 회원 정보</span>
-                    {userProfile.loginId === 'sinpotnf@gmail.com' || userProfile.nickname === '최고관리자' || userProfile.nickname === '운영자' ? (
-                      <span className="bg-red-500/10 text-red-400 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase font-sans border border-red-900/30">
-                        운영자
-                      </span>
-                    ) : (
-                      <span className="bg-neutral-800 text-neutral-400 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase font-sans border border-neutral-700/30">
-                        일반회원
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center py-3 bg-[#111112] rounded-xl border border-neutral-800/40 space-y-2">
-                    <div className="relative group w-16 h-16 rounded-full overflow-hidden border-2 border-neutral-700 bg-neutral-800 flex items-center justify-center hover:border-amber-400 transition-colors cursor-pointer shadow-lg animate-fade-in">
-                      {userProfile.profileImageUrl ? (
-                        <img 
-                          src={userProfile.profileImageUrl} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <span className="text-3xl select-none">👤</span>
-                      )}
-                      
-                      {/* Hover Overlay */}
-                      <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-200">
-                        <span className="text-[10px] text-white font-extrabold text-center leading-tight">변경 📷</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleProfileImageUpload(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                    <label className="text-[10px] text-neutral-400 hover:text-amber-400 font-medium cursor-pointer transition-colors flex items-center gap-1">
-                      <span>프로필 사진 변경</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleProfileImageUpload(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">아이디/닉네임:</span>
-                      <span className="text-white font-extrabold hover:underline cursor-pointer" onClick={handleTriggerRename}>
-                        {userProfile.nickname} (수정 ⚙️)
-                      </span>
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-gray-400">현재 보유 포인트:</span>
-                      <span className="text-amber-400 font-extrabold">
-                        {userProfile.points?.toLocaleString() || 0} P
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 space-y-2">
-                    <button
-                      onClick={() => setIsQuestModalOpen(true)}
-                      className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] hover:scale-[1.02] text-black py-2 rounded text-xs font-extrabold transition-all duration-200 cursor-pointer text-center block shadow-[0_0_10px_rgba(245,158,11,0.2)]"
-                    >
-                      일일퀘스트 / 포인트샵
-                    </button>
-                    <button
-                      onClick={() => {
-                        const keysToRemove = Object.keys(localStorage).filter(key => key.startsWith('PREDICT_'));
-                        keysToRemove.forEach(key => localStorage.removeItem(key));
-                        window.location.reload();
-                      }}
-                      className="w-full bg-[#cc2929] hover:bg-[#b82222] active:scale-[0.98] hover:scale-[1.02] text-white py-2 rounded text-xs font-extrabold transition-all duration-200 cursor-pointer text-center block"
-                    >
-                      로그아웃 (계정 연결 해제)
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                // 로그 아웃 상태 (Screenshot의 두 필드 입력창 및 초록 로그인 단추)
-                <div className="flex flex-col space-y-3.5">
-                  <p className="text-gray-400 text-xs leading-relaxed font-semibold">
-                    초이스 코리아에 안전하게 로그인하여 실시간 예측과 커뮤니티 활동을 마음껏 즐겨보세요!
-                  </p>
-                  
-                  {/* 로그인 파워버튼 - 모달 팝업 트리거 */}
-                  <button
-                    type="button"
-                    onClick={() => setIsLoginModalOpen(true)}
-                    className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-bold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl"
-                  >
-                    <Power className="h-4.5 w-4.5 text-white" strokeWidth={2.5} />
-                    <span>초이스 코리아 로그인</span>
-                  </button>
-
-                  {/* 하단 유틸 링크 (비밀번호찾기, 회원가입) */}
-                  <div className="flex items-center justify-between px-2 pt-2 text-[13px] text-white font-bold font-sans">
-                    <button 
-                      type="button" 
-                      onClick={() => setIsLoginModalOpen(true)} 
-                      className="flex items-center space-x-2 hover:text-gray-300 hover:underline transition-colors cursor-pointer bg-transparent border-none p-0"
-                    >
-                      <KeyRound className="h-4 w-4 text-white" strokeWidth={2.5} />
-                      <span>비밀번호찾기</span>
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setCurrentTab('register');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }} 
-                      className="flex items-center space-x-2 hover:text-gray-300 hover:underline transition-colors cursor-pointer bg-transparent border-none p-0"
-                    >
-                      <LogIn className="h-4 w-4 text-white" strokeWidth={2.5} />
-                      <span>회원가입</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+            {/* 1. 로그인 박스 (로그인 폼 / 연동 프로필) - 데스크톱에서만 노출 */}
+            <div className="hidden lg:block">
+              {renderDesktopLoginOrProfileBox()}
             </div>
 
             {/* 2. AD 광고 제휴 문의 배너 */}
@@ -2331,8 +2503,8 @@ export default function App() {
               </p>
             </div>
 
-            {/* 3. 라이브 채팅 위젯 */}
-            <div id="live-chat-section">
+            {/* 3. 라이브 채팅 위젯 - 모바일 환경에서는 숨김 */}
+            <div id="live-chat-section" className="hidden lg:block">
               <LiveChat 
                 chatMessages={chats}
                 userProfile={userProfile}
@@ -2345,7 +2517,11 @@ export default function App() {
             </div>
             
             {/* 4. 회원 랭킹 TOP 10 */}
-            <UserRanking allUsers={allUsers} />
+            <div className={currentTab.startsWith('community') ? 'hidden lg:block' : ''}>
+              <UserRanking allUsers={allUsers} />
+            </div>
+
+
 
           </div>
 
@@ -2483,12 +2659,19 @@ export default function App() {
                   <div className="bg-[#1a1a1a] border border-[#2b2b2b] rounded-md p-4">
                     <div className="flex items-center justify-between border-b border-[#2b2b2b] pb-2 mb-3">
                       <span className="text-white font-extrabold">최근 등록글</span>
-                      <span className="text-gray-500 text-[10px]">더보기 +</span>
+                      <span className="text-gray-500 text-[10px] cursor-pointer hover:text-white select-none" onClick={() => setCurrentTab('community')}>더보기 +</span>
                     </div>
 
                     <div className="space-y-2.5">
                       {posts.slice(0, 4).map((post) => (
-                        <div key={post.id} className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group">
+                        <div 
+                          key={post.id} 
+                          className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
+                          onClick={() => {
+                            setSelectedCommunityPostId(post.id);
+                            setCurrentTab('community');
+                          }}
+                        >
                           <div className="flex items-center gap-1.5 overflow-hidden pr-2">
                             {post.tag && <span className="text-[#0ea5e9] text-xs font-bold whitespace-nowrap">{post.tag}</span>}
                             <span className="text-gray-300 group-hover:underline truncate">{post.title}</span>
@@ -2542,7 +2725,7 @@ export default function App() {
                     </div>
 
                     {/* Tab values listing */}
-                    <div className="space-y-2.5 mt-3 flex-1 pt-5 pb-5">
+                    <div className="space-y-2.5 mt-3 flex-1 pt-5 pb-5 font-medium">
                       {rightBoardTab === 'notice' ? (
                         <>
                           {postsNotice.filter(p => p.isRecommended).slice(0, 4).map((post, index) => (
@@ -2550,6 +2733,10 @@ export default function App() {
                               key={post.id} 
                               className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
                               style={index === 0 ? { paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px', marginLeft: '0px', marginRight: '0px', marginTop: '-25px' } : undefined}
+                              onClick={() => {
+                                setSelectedCommunityPostId(post.id);
+                                setCurrentTab('community_notice');
+                              }}
                             >
                               <div className="flex items-center gap-1.5 overflow-hidden pr-2">
                                 {post.tag && <span className="text-[#0ea5e9] text-xs font-bold whitespace-nowrap">{post.tag}</span>}
@@ -2569,6 +2756,10 @@ export default function App() {
                               key={post.id} 
                               className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
                               style={index === 0 ? { paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px', marginLeft: '0px', marginRight: '0px', marginTop: '-25px' } : undefined}
+                              onClick={() => {
+                                setSelectedCommunityPostId(post.id);
+                                setCurrentTab('community_notice');
+                              }}
                             >
                               <div className="flex items-center gap-1.5 overflow-hidden pr-2">
                                 {post.tag && <span className="text-[#0ea5e9] text-xs font-bold whitespace-nowrap">{post.tag}</span>}
@@ -2588,6 +2779,10 @@ export default function App() {
                               key={post.id} 
                               className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
                               style={index === 0 ? { paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px', marginLeft: '0px', marginRight: '0px', marginTop: '-25px' } : undefined}
+                              onClick={() => {
+                                setSelectedCommunityPostId(post.id);
+                                setCurrentTab('community');
+                              }}
                             >
                               <div className="flex items-center gap-1.5 overflow-hidden pr-2">
                                 {post.tag && <span className="text-[#0ea5e9] text-xs font-bold whitespace-nowrap">{post.tag}</span>}
@@ -2607,6 +2802,10 @@ export default function App() {
                               key={post.id} 
                               className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
                               style={index === 0 ? { paddingLeft: '0px', paddingTop: '0px', paddingBottom: '0px', marginLeft: '0px', marginRight: '0px', marginTop: '-25px' } : undefined}
+                              onClick={() => {
+                                setSelectedCommunityPostId(post.id);
+                                setCurrentTab('community_humor');
+                              }}
                             >
                               <div className="flex items-center gap-1.5 overflow-hidden pr-2">
                                 {post.tag && <span className="text-[#0ea5e9] text-xs font-bold whitespace-nowrap">{post.tag}</span>}
@@ -2649,12 +2848,27 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-2 mb-4">
-                  <button onClick={() => setMainViewFilter('ongoing')} className={`flex-1 py-2 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all ${mainViewFilter === 'ongoing' ? 'bg-blue-600 text-white shadow-sm' : 'bg-neutral-800 text-gray-400 hover:text-white'}`}>진행중 ({ongoingCount})</button>
-                  <button onClick={() => setMainViewFilter('closed')} className={`flex-1 py-2 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all ${mainViewFilter === 'closed' ? 'bg-blue-600 text-white shadow-sm' : 'bg-neutral-800 text-gray-400 hover:text-white'}`}>예측마감 ({closedCount})</button>
-                  <button onClick={() => setMainViewFilter('bookmarked')} className={`flex-1 py-2 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all ${mainViewFilter === 'bookmarked' ? 'bg-amber-600 text-white shadow-sm' : 'bg-neutral-800 text-gray-400 hover:text-white'}`}>관심예측 ({bookmarkedCount})</button>
+                  <button onClick={() => { setMainViewFilter('ongoing'); setIsMobileGameListVisible(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all ${mainViewFilter === 'ongoing' ? 'bg-blue-600 text-white shadow-sm' : 'bg-neutral-800 text-gray-400 hover:text-white'}`}>진행중 ({ongoingCount})</button>
+                  <button onClick={() => { setMainViewFilter('closed'); setIsMobileGameListVisible(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all ${mainViewFilter === 'closed' ? 'bg-blue-600 text-white shadow-sm' : 'bg-neutral-800 text-gray-400 hover:text-white'}`}>예측마감 ({closedCount})</button>
+                  <button onClick={() => { setMainViewFilter('bookmarked'); setIsMobileGameListVisible(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition-all ${mainViewFilter === 'bookmarked' ? 'bg-amber-600 text-white shadow-sm' : 'bg-neutral-800 text-gray-400 hover:text-white'}`}>관심예측 ({bookmarkedCount})</button>
                 </div>
                 
-                <div className="grid grid-cols-1 gap-4">
+                {/* 모바일 화면에서 게임 리스트 숨김/보기 토글 */}
+                <div className="md:hidden flex justify-center mb-4 w-full px-2">
+                   <motion.button 
+                       onClick={() => setIsMobileGameListVisible(!isMobileGameListVisible)} 
+                       whileHover={{ scale: 1.05 }}
+                       whileTap={{ scale: 0.95 }}
+                       animate={{ opacity: [1, 0.6, 1] }}
+                       transition={{ repeat: Infinity, duration: 2 }}
+                       className="w-full py-5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-[17.5px] font-black flex items-center justify-center gap-2.5 shadow-xl ring-2 ring-orange-400 ring-offset-2 ring-offset-neutral-900 tracking-wide transition-all"
+                   >
+                       {isMobileGameListVisible ? '▲ 예측 접기' : '▼ 예측참여하기'}
+                   </motion.button>
+                </div>
+
+                <div className={`grid grid-cols-1 gap-4 ${!isMobileGameListVisible ? 'hidden md:grid' : ''}`}>
+                  <div className={`grid grid-cols-1 gap-4`}>
                   {displayPredictions.slice(0, homeDisplayedCount).map((card) => {
                           const realTotal = card.options.reduce((sum, opt) => sum + (card.pool[opt] || 0), 0);
                           const isClosed = card.status === 'closed' || new Date(card.endAt) <= new Date();
@@ -2735,7 +2949,7 @@ export default function App() {
                                  onClick={() => {
                                    if (!isClosed) {
                                      if (!userProfile) {
-                                       setShowNicknameModal(true);
+                                       setIsLoginModalOpen(true);
                                        return;
                                      }
                                      const hasAlreadyPredicted = allBets.some(
@@ -2775,8 +2989,8 @@ export default function App() {
                   );})}
                   <div ref={homeObserverTarget} />
                 </div>
-
               </div>
+            </div>
             )}
 
             {currentTab === 'register' && (
@@ -2852,6 +3066,8 @@ export default function App() {
                 title="자유게시판"
                 boardType="free"
                 allUsers={allUsers}
+                initialSelectedPostId={selectedCommunityPostId}
+                onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
               />
             )}
             
@@ -2863,6 +3079,8 @@ export default function App() {
                 title="유머게시판"
                 boardType="humor"
                 allUsers={allUsers}
+                initialSelectedPostId={selectedCommunityPostId}
+                onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
               />
             )}
 
@@ -2874,6 +3092,8 @@ export default function App() {
                 title="공지사항"
                 boardType="notice"
                 allUsers={allUsers}
+                initialSelectedPostId={selectedCommunityPostId}
+                onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
               />
             )}
 
@@ -3054,7 +3274,7 @@ export default function App() {
             )}
             
           </div>
-          
+
           {/* [우측 사이드바 AD 배너 영역] */}
           {(currentTab === 'predict' || currentTab === 'results') && (
             <div className="hidden lg:block lg:col-span-1">
@@ -3093,7 +3313,6 @@ export default function App() {
               </div>
             </div>
           )}
-
         </div>
         )}
       </main>

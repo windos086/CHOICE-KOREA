@@ -89,6 +89,7 @@ export interface CommunityPost {
   likedBy?: string[]; // Track who liked the post to restrict limits
   isNotice: boolean;
   isRecommended: boolean;
+  isEvent?: boolean;
   commentCount?: number;
 }
 

@@ -12,7 +12,13 @@ import {
   Sparkles,
   FileText,
   Youtube,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Heart,
+  MessageCircle,
+  Repeat,
+  Share2,
+  MoreHorizontal,
+  Bell
 } from 'lucide-react';
 import { CommunityPost, UserProfile, Comment } from '../types';
 import { db, storage, handleFirestoreError, OperationType } from '../firebase';
@@ -27,6 +33,8 @@ interface CommunityBoardProps {
   boardType?: string;
   onQuestProgress?: (type: 'post' | 'comment') => void;
   allUsers?: UserProfile[];
+  initialSelectedPostId?: string | null;
+  onClearInitialSelectedPostId?: () => void;
 }
 
 // Utility to format dates: "X hours ago" or "YYYY/MM/DD"
@@ -155,7 +163,16 @@ const DEFAULT_POSTS: CommunityPost[] = [
   }
 ];
 
-export default function CommunityBoard({ userProfile, onOpenLoginModal, title = "자유게시판", boardType = "free", onQuestProgress, allUsers = [] }: CommunityBoardProps) {
+export default function CommunityBoard({ 
+  userProfile, 
+  onOpenLoginModal, 
+  title = "자유게시판", 
+  boardType = "free", 
+  onQuestProgress, 
+  allUsers = [],
+  initialSelectedPostId,
+  onClearInitialSelectedPostId
+}: CommunityBoardProps) {
   const [posts, setPosts] = React.useState<CommunityPost[]>([]);
   
   const getUserProfileByNickname = (nickname: string) => {
@@ -185,6 +202,7 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
   const [activeTab, setActiveTab] = React.useState<'all' | 'recommended' | 'notice'>('all');
   const [isManagementMode, setIsManagementMode] = React.useState<boolean>(false);
   const [selectedPostIds, setSelectedPostIds] = React.useState<string[]>([]);
+  const [followedUsers, setFollowedUsers] = React.useState<Record<string, boolean>>({});
   const [pageSize, setPageSize] = React.useState<number>(30);
   const [currentPage, setCurrentPage] = React.useState<number>(1);
   const [searchType, setSearchType] = React.useState<'titleContext' | 'title' | 'author'>('titleContext');
@@ -193,6 +211,7 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
   
   // Create / View Post States
   const [selectedPost, setSelectedPost] = React.useState<CommunityPost | null>(null);
+  const [editingPost, setEditingPost] = React.useState<CommunityPost | null>(null);
   const [isWriting, setIsWriting] = React.useState<boolean>(false);
   const [newTitle, setNewTitle] = React.useState<string>('');
   const [newTag, setNewTag] = React.useState<string>('');
@@ -200,8 +219,57 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
   const [youtubeUrl, setYoutubeUrl] = React.useState<string>('');
   const [media, setMedia] = React.useState<{type: 'image' | 'youtube', url: string}[]>([]);
   const [newIsNotice, setNewIsNotice] = React.useState<boolean>(false);
+  const [newIsEvent, setNewIsEvent] = React.useState<boolean>(false);
   const [newIsRecommended, setNewIsRecommended] = React.useState<boolean>(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleEditClick = (post: CommunityPost) => {
+    try {
+      console.log("DEBUG: handleEditClick called with:", post);
+      setEditingPost(post);
+      setNewTitle(post.title || '');
+      setNewTag(post.tag || '');
+      
+      const content = post.content || '';
+      const contentParts = content.split('\n![Image]');
+      setNewContent(contentParts[0] || '');
+      
+      setNewIsNotice(!!post.isNotice);
+      setNewIsEvent(!!post.isEvent);
+      setNewIsRecommended(!!post.isRecommended);
+      
+      // Extract existing images/media block
+      const scannedMedia: {type: 'image' | 'youtube', url: string}[] = [];
+      const imageRegex = /!\[Image\]\((https?:\/\/[^\s)]+)\)/g;
+      let match;
+      while ((match = imageRegex.exec(content)) !== null) {
+        if (match[1]) {
+          scannedMedia.push({ type: 'image', url: match[1] });
+        }
+      }
+      setMedia(scannedMedia);
+      setIsWriting(true);
+    } catch (err) {
+      console.error("Error in handleEditClick:", err);
+      alert("글 수정 양식을 불러오는 데 실패했습니다: " + (err as Error).message);
+    }
+  };
+
+  const handleCancelWrite = () => {
+    setIsWriting(false);
+    setEditingPost(null);
+    setNewTitle('');
+    setNewTag('');
+    setNewContent('');
+    setNewIsNotice(false);
+    setNewIsEvent(false);
+    setNewIsRecommended(false);
+    setMedia([]);
+  };
+
+  useEffect(() => {
+    console.log("DEBUG: CommunityBoard userProfile:", userProfile);
+  }, [userProfile]);
 
   const handleInsertImage = () => {
       fileInputRef.current?.click();
@@ -302,10 +370,18 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
       }
       return;
     }
+    setEditingPost(null);
+    setNewTitle('');
+    setNewTag('');
+    setNewContent('');
+    setNewIsNotice(false);
+    setNewIsEvent(false);
+    setNewIsRecommended(false);
+    setMedia([]);
     setIsWriting(true);
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
+  const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userProfile) {
       alert('로그인이 필요한 서비스입니다.');
@@ -320,35 +396,50 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
       return;
     }
 
-    const nextNumber = posts.length > 0 ? Math.max(...posts.map(p => p.number)) + 1 : 1;
-
     const finalContent = newContent + '\n' + media.map(m => m.type === 'image' ? `![Image](${m.url})` : `${m.url}`).join('\n');
 
-    const newPostData = {
-      number: nextNumber,
-      title: newTitle,
-      content: finalContent,
-      tag: newTag,
-      author: userProfile?.nickname || '익명게스트',
-      createdAt: new Date().toISOString().split('T')[0],
-      timestamp: Date.now(),
-      views: 1,
-      likes: 0,
-      likedBy: [],
-      isNotice: newIsNotice,
-      isRecommended: newIsRecommended
-    };
-
     try {
+      if (editingPost) {
+         await updateDoc(doc(db, collectionName, editingPost.id), {
+           title: newTitle,
+           content: finalContent,
+           tag: newTag,
+           isNotice: newIsNotice,
+           isRecommended: newIsRecommended,
+           isEvent: newIsEvent
+         });
+         alert("게시글이 수정되었습니다.");
+         setSelectedPost({ ...editingPost, title: newTitle, content: finalContent, tag: newTag, isNotice: newIsNotice, isRecommended: newIsRecommended, isEvent: newIsEvent });
+      } else {
+        const nextNumber = posts.length > 0 ? Math.max(...posts.map(p => p.number)) + 1 : 1;
+        const newPostData = {
+          number: nextNumber,
+          title: newTitle,
+          content: finalContent,
+          tag: newTag,
+          author: userProfile?.nickname || '익명게스트',
+          createdAt: new Date().toISOString().split('T')[0],
+          timestamp: Date.now(),
+          views: 1,
+          likes: 0,
+          likedBy: [],
+          isNotice: newIsNotice,
+          isRecommended: newIsRecommended,
+          isEvent: newIsEvent
+        };
         await addDoc(collection(db, collectionName), newPostData);
         if (onQuestProgress) onQuestProgress('post');
+      }
+
         setNewTitle('');
         setNewTag('');
         setNewContent('');
         setMedia([]); // Clear media
         setNewIsNotice(false);
+        setNewIsEvent(false);
         setNewIsRecommended(false);
         setIsWriting(false);
+        setEditingPost(null);
         
         // Switch to appropriate tab
         if (newIsNotice) {
@@ -535,11 +626,45 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
     }
   };
 
+  useEffect(() => {
+    if (initialSelectedPostId && posts.length > 0) {
+      const found = posts.find(p => p.id === initialSelectedPostId);
+      if (found) {
+        handleViewPost(found);
+        if (onClearInitialSelectedPostId) {
+          onClearInitialSelectedPostId();
+        }
+      }
+    }
+  }, [initialSelectedPostId, posts, onClearInitialSelectedPostId]);
+
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-8 font-sans">
+    <div className="w-full max-w-7xl mx-auto px-0 md:px-4 py-0 md:py-8 font-sans">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+      />
+      
+      {/* Board Title Header (Highly visible on both mobile and desktop) */}
+      <div className="mx-2 md:mx-0 px-4 py-3.5 mb-4 bg-gradient-to-r from-[#141417] to-[#1a1a20] rounded-xl border border-neutral-900 flex items-center justify-between">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-1.5 h-4.5 bg-[#d11822] rounded-full"></div>
+          <h2 className="text-sm md:text-base font-black text-white tracking-tight">
+            {title === '공지사항' || boardType === 'notice' ? '공지사항' : 
+             title === '유머게시판' || boardType === 'humor' ? '커뮤니티 - 유머게시판' : 
+             '커뮤니티 - 자유게시판'}
+          </h2>
+        </div>
+        <span className="text-[10px] font-black italic tracking-wide text-rose-500 bg-rose-950/25 border border-rose-900/30 px-2 py-0.5 rounded-full select-none">
+          CHOICE KOREA
+        </span>
+      </div>
       
       {/* Intro banner styling */}
-      <div className="mb-6 bg-gradient-to-r from-[#171717] to-[#1d1d1d] p-6 rounded-lg border border-[#2b2b2b] shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center">
+      <div className="hidden md:flex mb-6 bg-gradient-to-r from-[#171717] to-[#1d1d1d] p-6 rounded-lg border border-[#2b2b2b] shadow-xl flex-col md:flex-row justify-between items-start md:items-center">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center space-x-2">
             <span className="text-[#d11822]">CHOICE</span>
@@ -557,12 +682,12 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
       </div>
 
       {/* Ad Banner */}
-      <div className="mb-6 p-4 bg-[#141414] border border-dashed border-neutral-700 rounded-lg flex items-center justify-center">
+      <div className="hidden md:flex mb-6 p-4 bg-[#141414] border border-dashed border-neutral-700 rounded-lg items-center justify-center">
         <span className="text-xs text-neutral-500 font-bold">AD 광고 영역</span>
       </div>
 
       {/* DETAILED POST READING VIEW */}
-      {selectedPost ? (
+      {selectedPost && !isWriting ? (
         <div className="bg-[#141414] rounded-2xl border border-neutral-800 shadow-2xl overflow-hidden text-neutral-200 transition-all duration-300">
           
           {/* Post Header */}
@@ -720,6 +845,14 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
                 <ThumbsUp className="h-3.5 w-3.5" />
                 <span>추천하기</span>
               </button>
+              {(userProfile?.loginId === 'sinpotnf@gmail.com' || userProfile?.nickname === '최고관리자' || userProfile?.nickname === selectedPost.author) && (
+                <button
+                  onClick={() => handleEditClick(selectedPost)}
+                  className="flex items-center space-x-1.5 px-5 py-2 bg-neutral-600 hover:bg-neutral-500 text-white rounded-md text-xs font-black shadow-md transition"
+                >
+                  <span>수정하기</span>
+                </button>
+              )}
               {(userProfile?.loginId === 'sinpotnf@gmail.com' || userProfile?.nickname === '최고관리자') && (
                 <button
                   onClick={() => handleDeletePost(selectedPost.id)}
@@ -738,264 +871,265 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
           <div className="bg-[#1a1a1a] border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
             <h2 className="text-sm font-black text-white flex items-center space-x-2">
               <Pencil className="h-4 w-4 text-[#d11822]" />
-              <span>자유 커뮤니티 새 글 작성</span>
+              <span>{editingPost ? '게시글 수정' : (boardType === 'notice' ? '공지사항 새 글 작성' : '커뮤니티 새 글 작성')}</span>
             </h2>
             <button 
-              onClick={() => setIsWriting(false)}
+              onClick={handleCancelWrite}
               className="text-neutral-400 hover:text-white text-xs font-bold transition"
             >
               취소하기
             </button>
           </div>
 
-          <form onSubmit={handleCreatePost} className="p-6 space-y-6">
-            <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-neutral-400">글 태그 선택 (또는 직접입력)</label>
-              <div className="flex flex-wrap items-center gap-2">
+          <form onSubmit={handleSubmitPost} className="p-4 space-y-4">
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-neutral-400">태그</label>
+              <div className="flex flex-wrap gap-1.5">
                 {['#코인', '#잡담', '#주식', '#해외주식'].map(tag => (
                   <button
                     key={tag}
                     type="button"
                     onClick={() => setNewTag(newTag === tag ? '' : tag)}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
+                    className={`px-2 py-1 rounded text-[10px] font-bold border transition ${
                       newTag === tag 
                         ? 'bg-[#d11822] text-white border-[#d11822]' 
-                        : 'bg-[#1c1c1e] text-neutral-400 border-neutral-700 hover:text-white hover:border-neutral-500'
+                        : 'bg-[#1c1c1e] text-neutral-400 border-neutral-700'
                     }`}
                   >
                     {tag}
                   </button>
                 ))}
-                <input
-                  type="text"
-                  placeholder="직접 입력 (예: #알트코인)"
-                  value={newTag}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val && !val.startsWith('#')) {
-                      val = '#' + val;
-                    }
-                    setNewTag(val);
-                  }}
-                  className="bg-[#1c1c1e] border border-neutral-800 rounded-full px-3 py-1.5 text-[11px] text-white placeholder-neutral-600 outline-none focus:border-[#d11822] focus:ring-1 focus:ring-[#d11822]/20 transition w-36"
-                />
+                <div className="flex items-center bg-[#1c1c1e] border border-neutral-600 rounded px-2 py-1.5 w-full sm:w-32 focus-within:border-[#d11822]">
+                  <span className="text-white text-[11px] mr-1">#</span>
+                  <input
+                    type="text"
+                    placeholder="태그"
+                    value={newTag.startsWith('#') ? newTag.substring(1) : newTag}
+                    onChange={(e) => {
+                      setNewTag('#' + e.target.value.replace(/#/g, ''));
+                    }}
+                    className="bg-transparent text-[11px] text-white outline-none w-full placeholder:text-neutral-500"
+                  />
+                </div>
               </div>
             </div>
             
-            <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-neutral-400">글 제목</label>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-neutral-400">제목</label>
               <input
                 type="text"
-                placeholder="제목을 입력하세요 (예: [스포츠] 이번주 토트넘 경기 진짜 기대되네요)"
+                placeholder="제목을 입력하세요"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full bg-[#1c1c1e] border border-neutral-800 rounded-md px-3.5 py-2 text-sm text-white outline-none focus:border-[#d11822] focus:ring-1 focus:ring-[#d11822]/20 transition"
+                className="w-full bg-[#1c1c1e] border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white outline-none"
                 required
               />
             </div>
 
-            <div className="space-y-0">
-                <div className="flex flex-wrap gap-1 bg-[#161616] p-1.5 rounded-t-lg border border-neutral-800 border-b-0">
-                    <button type="button" onClick={handleInsertImage} className="flex items-center gap-1.5 bg-[#1a1a1a] hover:bg-[#2b2b2b] text-neutral-300 px-3 py-1.5 rounded text-[11px] font-bold border border-neutral-700">
-                      <ImageIcon className="h-3.5 w-3.5" /> 이미지
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <input
-                            placeholder="유튜브 링크 URL"
-                            value={youtubeUrl}
-                            onChange={(e) => setYoutubeUrl(e.target.value)}
-                            className="bg-[#1c1c1e] border border-neutral-800 rounded px-2 py-1 text-xs text-white"
-                        />
-                        <button type="button" onClick={() => {
-                            if (youtubeUrl) {
-                                setMedia(prev => [...prev, { type: 'youtube', url: youtubeUrl }]);
-                                setYoutubeUrl('');
-                            }
-                        }} className="flex items-center gap-1.5 bg-[#1a1a1a] hover:bg-[#2b2b2b] text-neutral-300 px-3 py-1.5 rounded text-[11px] font-bold border border-neutral-700">
-                          <Youtube className="h-3.5 w-3.5" /> 유튜브 추가
-                        </button>
-                    </div>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-neutral-400">내용</label>
               <textarea
-                placeholder="건전하고 유익한 마켓 생태계를 위해 도배, 욕설, 타인 비방, 광고 홍보는 전격 차단 및 계정 제재 처리가 진행됩니다."
+                placeholder="내용을 입력하세요."
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
-                rows={10}
-                className="w-full bg-[#1c1c1e] border border-neutral-800 rounded-b-lg px-3.5 py-3 text-sm text-white outline-none focus:border-[#d11822] focus:ring-1 focus:ring-[#d11822]/20 transition resize-none"
+                rows={6}
+                className="w-full bg-[#1c1c1e] border border-neutral-800 rounded-lg px-3 py-3 text-sm text-white outline-none resize-none"
                 required
               />
-              {/* Attachments */}
-              {media.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {media.map((item, index) => (
-                        <div key={index} className="relative bg-[#111111] p-1 rounded border border-neutral-700">
-                            {item.type === 'image' ? (
-                                <img src={item.url} className="w-16 h-16 object-cover rounded" alt="Attachment" />
-                            ) : (
-                                <div className="w-16 h-16 flex items-center justify-center bg-neutral-800 text-white text-[10px]">YT</div>
-                            )}
-                            <button 
-                                type="button"
-                                onClick={() => setMedia(prev => prev.filter((_, i) => i !== index))}
-                                className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px]"
-                            >
-                                x
-                            </button>
-                        </div>
+              
+              <div className="flex flex-col gap-2 pt-2 border-t border-neutral-800">
+                {media.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pb-2">
+                    {media.map((item, idx) => (
+                      <div key={idx} className="relative group bg-neutral-900 border border-neutral-800 rounded px-2.5 py-1.5 flex items-center space-x-2">
+                        {item.type === 'image' ? (
+                          <span className="text-[10px] text-neutral-300 flex items-center gap-1">
+                            <span className="text-emerald-500">🖼️</span> 이미지 첨부됨
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-neutral-300 flex items-center gap-1">
+                            <span className="text-red-500">📺</span> 유튜브 링크됨
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setMedia(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-neutral-500 hover:text-rose-500 transition-colors text-xs font-black px-1"
+                          title="삭제"
+                        >
+                          ×
+                        </button>
+                      </div>
                     ))}
                   </div>
-              )}
+                )}
+                 <button type="button" onClick={handleInsertImage} className="w-full flex items-center justify-center gap-2 bg-[#1a1a1a] text-neutral-300 py-2.5 rounded-lg text-[11px] font-bold border border-neutral-700 hover:border-neutral-500 transition-colors">
+                  <ImageIcon className="h-4 w-4" /> 이미지 첨부
+                </button>
+                
+                <div className="flex gap-2">
+                   <input
+                      placeholder="유튜브 링크 입력"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      className="flex-1 bg-[#1c1c1e] border border-neutral-800 rounded-lg px-3 py-2.5 text-[11px] text-white outline-none"
+                   />
+                   <button type="button" onClick={() => {
+                       if (youtubeUrl) {
+                          setMedia(prev => [...prev, { type: 'youtube', url: youtubeUrl }]);
+                          setYoutubeUrl('');
+                       }
+                   }} className="bg-[#1a1a1a] text-neutral-300 px-3 py-2.5 rounded-lg border border-neutral-700 hover:border-neutral-500 transition-colors flex items-center justify-center">
+                     <Youtube className="h-5 w-5 text-red-500" />
+                   </button>
+                </div>
+              </div>
             </div>
 
-            {/* Special category checkbox triggers (Allows users to pin or flag during test mockups optionally) */}
-            <div className="flex flex-wrap items-center gap-6 bg-[#181818] p-3.5 rounded-lg border border-neutral-800">
-              <span className="text-xs font-extrabold text-neutral-400">배지 옵션 (임시 관리자 권한 포함)</span>
-              
-              <label className="flex items-center space-x-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={newIsNotice}
-                  onChange={(e) => setNewIsNotice(e.target.checked)}
-                  className="rounded text-[#d11822] focus:ring-[#d11822] bg-neutral-900 border-neutral-800 h-4 w-4"
-                />
-                <span className="text-xs font-extrabold text-neutral-300 flex items-center space-x-1 bg-transparent">
-                  <Megaphone className="h-3.5 w-3.5 text-[#d11822]" />
-                  <span>{boardType === 'notice' ? '이벤트 지정 (상단 고정)' : '공지글 지정 (상단 고정)'}</span>
-                </span>
-              </label>
-
-              <label className="flex items-center space-x-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={newIsRecommended}
-                  onChange={(e) => setNewIsRecommended(e.target.checked)}
-                  className="rounded text-amber-500 focus:ring-amber-500 bg-neutral-900 border-neutral-800 h-4 w-4"
-                />
-                <span className="text-xs font-extrabold text-neutral-300 flex items-center space-x-1 bg-transparent">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  <span>{boardType === 'notice' ? '공지사항 지정 (추천 필터 적용)' : '추천글 지정 (추천 필터 적용)'}</span>
-                </span>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-end space-x-2 pt-4 border-t border-neutral-800">
+            <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setIsWriting(false)}
-                className="px-5 py-2 border border-neutral-800 rounded-md text-xs font-bold text-neutral-400 bg-[#222222] hover:bg-[#2b2b2b] transition"
+                onClick={handleCancelWrite}
+                className="flex-1 px-4 py-3 border border-neutral-800 rounded-lg text-xs font-bold text-neutral-400 bg-[#222222]"
               >
-                뒤로가기
+                취소
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-[#d11822] hover:bg-[#b0141c] text-white rounded-md text-xs font-black shadow-md shadow-[#d11822]/10 transition"
+                className="flex-[2] px-4 py-3 bg-[#d11822] text-white rounded-lg text-xs font-black shadow-md"
               >
-                게시물 공론화 및 등록
+                등록
               </button>
             </div>
+            
+            {(() => {
+              const loginLower = (userProfile?.loginId || '').toLowerCase().trim();
+              const nickLower = (userProfile?.nickname || '').toLowerCase().trim();
+              const isAdmin = loginLower === 'sinpotnf@gmail.com' || nickLower === 'sinpotnf@gmail.com' || loginLower === 'admin' || nickLower === 'admin';
+              return isAdmin && (
+              <div className="flex flex-wrap items-center gap-4 bg-[#181818] p-3 rounded-lg border border-neutral-800 my-2">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newIsNotice}
+                    onChange={(e) => setNewIsNotice(e.target.checked)}
+                    className="rounded text-[#d11822] focus:ring-[#d11822] bg-neutral-900 border-neutral-800 h-4 w-4"
+                  />
+                  <span className="text-[11px] font-bold text-neutral-300 flex items-center gap-1">
+                    <Megaphone className="h-3.5 w-3.5 text-[#d11822]" />
+                    공지글 지정
+                  </span>
+                </label>
+
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newIsEvent}
+                    onChange={(e) => setNewIsEvent(e.target.checked)}
+                    className="rounded text-orange-500 focus:ring-orange-500 bg-neutral-900 border-neutral-800 h-4 w-4"
+                  />
+                  <span className="text-[11px] font-bold text-neutral-300 flex items-center gap-1">
+                    <Megaphone className="h-3.5 w-3.5 text-orange-500" />
+                    이벤트 지정
+                  </span>
+                </label>
+
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newIsRecommended}
+                    onChange={(e) => setNewIsRecommended(e.target.checked)}
+                    className="rounded text-amber-500 focus:ring-amber-500 bg-neutral-900 border-neutral-800 h-4 w-4"
+                  />
+                  <span className="text-[11px] font-bold text-neutral-300 flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    추천글 지정
+                  </span>
+                </label>
+              </div>
+            );
+            })()}
           </form>
         </div>
       ) : (
         /* STANDARD COMMUNITY BOARD LIST (MATCHING THE SCREENSHOT EXACTLY WITH STRIKING DARK THEME) */
         <div className="bg-[#141414] rounded-2xl border border-neutral-800 shadow-2xl overflow-hidden text-neutral-200">
           
-          {/* Top Panel: Navigation Tabs and Item count + Write Button */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-[#141414] px-5 py-4 border-b border-neutral-800 gap-4">
-            
-            {/* Top Left Navigation Tabs */}
-            <div className="flex bg-[#1c1c1e] p-1.5 rounded-lg border border-neutral-800 space-x-1 self-start">
-              <button
-                onClick={() => setActiveTab('all')}
-                className={`px-4 py-2 text-xs font-black rounded-md transition-all ${
-                  activeTab === 'all' 
-                    ? 'bg-[#d11822] text-white shadow-sm' 
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-855'
-                }`}
-              >
-                전체글
-              </button>
-              <button
-                onClick={() => setActiveTab('recommended')}
-                className={`px-4 py-2 text-xs font-black rounded-md transition-all ${
-                  activeTab === 'recommended' 
-                    ? 'bg-[#d11822] text-white shadow-sm' 
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-855'
-                }`}
-              >
-                {boardType === 'notice' ? '공지사항' : '추천글'}
-              </button>
-              <button
-                onClick={() => setActiveTab('notice')}
-                className={`px-4 py-2 text-xs font-black rounded-md transition-all ${
-                  activeTab === 'notice' 
-                    ? 'bg-[#d11822] text-white shadow-sm' 
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-855'
-                }`}
-              >
-                {boardType === 'notice' ? '이벤트' : '공지'}
-              </button>
-            </div>
-
-            {/* Top Right: Page size select & Write board button */}
-            <div className="flex items-center space-x-2 justify-end self-end sm:self-auto">
-                {isManagementMode && selectedPostIds.length > 0 && (
-                  <button
-                    onClick={async () => {
-                        console.log("DEBUG: Bulk delete clicked.");
-                        try {
-                          await Promise.all(selectedPostIds.map(id => deleteDoc(doc(db, collectionName, id))));
-                          setSelectedPostIds([]);
-                          alert(`${selectedPostIds.length}개의 게시글이 삭제되었습니다.`);
-                        } catch (error) {
-                          handleFirestoreError(error, OperationType.DELETE, 'posts/bulk');
-                        }
-                    }}
-                    className="flex items-center space-x-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-black transition shadow-sm"
-                  >
-                    삭제({selectedPostIds.length})
-                  </button>
-                )}
-              {/* Range Select Dropdown */}
-              <div className="relative">
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="appearance-none bg-[#1c1c1e] border border-neutral-800 rounded-md py-2 pl-3.5 pr-8 text-xs font-extrabold text-neutral-350 outline-none hover:border-neutral-700 focus:border-[#d11822] focus:ring-1 focus:ring-[#d11822]/20 transition cursor-pointer"
-                >
-                  <option value={10}>10개씩</option>
-                  <option value={30}>30개씩</option>
-                  <option value={50}>50개씩</option>
-                </select>
-                <ChevronDown className="h-3 w-3 text-neutral-400 absolute right-3 top-3 pointer-events-none" />
-              </div>
-
-            {/* White Post writing button (Exactly matching screenshot layout top button in Dark mode colors) */}
-              {(userProfile?.loginId === 'sinpotnf@gmail.com' || userProfile?.nickname === '최고관리자') && (
-                <button
-                  onClick={() => setIsManagementMode(!isManagementMode)}
-                  className={`flex items-center space-x-1 px-4 py-2 border rounded-md text-xs font-black transition shadow-sm ${
-                    isManagementMode 
-                      ? 'bg-rose-900 border-rose-800 text-white' 
-                      : 'bg-[#222222] hover:bg-[#2e2e2e] border-neutral-800 text-neutral-300'
+          {/* Top Panel: Simplified for better mobile visibility */}
+          <div className="hidden md:block bg-[#141414] px-4 py-3 border-b border-neutral-800">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {/* Tabs */}
+               <button
+                  onClick={() => setActiveTab('all')}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    activeTab === 'all' 
+                      ? 'bg-[#d11822] text-white' 
+                      : 'bg-neutral-800 text-neutral-400'
                   }`}
                 >
-                  {isManagementMode ? '관리모드 종료' : '관리'}
+                  전체글
                 </button>
-              )}
-              <button
+                <button
+                  onClick={() => setActiveTab('recommended')}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    activeTab === 'recommended' 
+                      ? 'bg-[#d11822] text-white' 
+                      : 'bg-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  {boardType === 'notice' ? '공지사항' : '추천글'}
+                </button>
+                <button
+                  onClick={() => setActiveTab('notice')}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    activeTab === 'notice' 
+                      ? 'bg-[#d11822] text-white' 
+                      : 'bg-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  {boardType === 'notice' ? '이벤트' : '공지'}
+                </button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+                <form onSubmit={handleSearchSubmit} className="flex flex-1 items-center gap-1.5">
+                  <select
+                    value={searchType}
+                    onChange={(e) => setSearchType(e.target.value as any)}
+                    className="bg-[#1c1c1e] border border-neutral-700 rounded-lg py-2 pl-2 pr-6 text-[10px] font-bold text-neutral-300 outline-none"
+                  >
+                    <option value="titleContext">제목+내용</option>
+                    <option value="title">제목</option>
+                    <option value="author">글쓴이</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="flex-1 bg-[#1c1c1e] border border-neutral-700 rounded-lg px-2 py-2 text-xs text-white"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-[#d11822] text-white p-2 rounded-lg"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </form>
+                
+                <button
                 onClick={handleWriteClick}
-                className="flex items-center space-x-1 px-4 py-2 bg-[#222222] hover:bg-[#2e2e2e] border border-neutral-800 text-[#ff7135] rounded-md text-xs font-black transition shadow-sm"
+                className="flex items-center justify-center p-2.5 bg-[#d11822] text-white rounded-lg shadow-md"
               >
-                <Pencil className="h-3.5 w-3.5 text-[#ff7135] fill-[#ff7135]" />
-                <span>글쓰기</span>
+                <Pencil className="h-4 w-4" />
               </button>
             </div>
-
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto hidden md:block">
+
+            {/* Desktop Table View (Only visible on md screens and up) */}
             <table className="w-full text-left border-collapse min-w-[700px]">
               
               {/* Header Columns */}
@@ -1121,7 +1255,7 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
                     </tr>
                   ))
                 ) : (
-                  /* EMPTY STATE EXACT COPIED LAYOUT */
+                  /* EMPTY STATE */
                   <tr>
                     <td colSpan={isManagementMode ? 8 : 7} className="py-24 text-center">
                       <div className="flex flex-col items-center justify-center space-y-3.5">
@@ -1134,12 +1268,188 @@ export default function CommunityBoard({ userProfile, onOpenLoginModal, title = 
                   </tr>
                 )}
               </tbody>
-
             </table>
           </div>
 
+          {/* Toss Community Mobile Style Feed List View (Only visible on mobile) */}
+          <div className="block md:hidden bg-black min-h-[500px] flex flex-col justify-between pb-3" id="toss-mobile-empty-redesign">
+            
+            {/* Feed list matching user screenshot 3 */}
+            <div className="flex-1 space-y-3 p-4 pb-24 bg-black overflow-y-auto max-h-[75vh]">
+              {currentPagedPosts.length > 0 ? (
+                currentPagedPosts.map((post) => {
+                  const isFollowed = followedUsers[post.author] || false;
+                  return (
+                    <div
+                      key={post.id}
+                      className="bg-[#16161a] border border-neutral-900 rounded-2xl p-4 flex flex-col space-y-3 transition hover:bg-[#1a1a20]"
+                    >
+                      {/* Top Row: Author profile info */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          {/* Avatar */}
+                          <div className="relative">
+                            {getUserProfileByNickname(post.author)?.profileImageUrl ? (
+                              <img 
+                                src={getUserProfileByNickname(post.author)!.profileImageUrl} 
+                                alt="avatar" 
+                                className="w-10 h-10 rounded-full object-cover border border-neutral-800"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-neutral-800 text-neutral-400 text-lg flex items-center justify-center border border-neutral-750 font-bold select-none">
+                                👽
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-[15px] text-neutral-100 leading-tight">
+                              {post.author}
+                            </span>
+                            <span className="text-[11px] text-neutral-500 font-bold mt-0.5">
+                              {formatDisplayDate(post)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Middle Block: Title & Content body */}
+                      <div 
+                        onClick={() => {
+                          if (isManagementMode) return;
+                          handleViewPost(post);
+                        }}
+                        className="cursor-pointer space-y-2 pt-0.5"
+                      >
+                        <h3 className="text-[15.5px] text-neutral-100 font-bold leading-relaxed break-all">
+                          {post.title}
+                        </h3>
+                        
+                        {(() => {
+                          const cleanText = post.content.replace(/!\[Image\]\((https?:\/\/[^\)]+)\)/g, '').trim();
+                          if (cleanText) {
+                            return (
+                              <p className="text-[14px] text-neutral-300 font-medium whitespace-pre-wrap leading-relaxed break-all">
+                                {cleanText.length > 200 ? `${cleanText.substring(0, 200)}...` : cleanText}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {/* Inline Images Extraction and Display */}
+                        {(() => {
+                          const imgRegex = /!\[Image\]\((https?:\/\/[^\)]+)\)/g;
+                          const images: string[] = [];
+                          let match;
+                          while ((match = imgRegex.exec(post.content)) !== null) {
+                            images.push(match[1]);
+                          }
+                          
+                          if (images.length > 0) {
+                            return (
+                              <div className="grid grid-cols-1 gap-2 mt-2">
+                                {images.map((url, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={url}
+                                    alt="attachment"
+                                    className="w-full max-h-[350px] object-cover rounded-xl border border-neutral-800"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ))}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+
+                      {/* Bottom Line: Social Action Bar */}
+                      <div className="flex items-center justify-between pt-2.5 text-xs text-neutral-500 select-none border-t border-neutral-900">
+                        <div className="flex items-center space-x-6">
+                          {/* Like/Heart */}
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLikePost(post.id).catch(console.error);
+                            }}
+                            className="flex items-center space-x-1.5 hover:text-rose-500 transition duration-150 py-1"
+                          >
+                            <Heart className={`h-[18px] w-[18px] ${post.likes > 0 ? 'text-rose-500 fill-rose-500' : 'opacity-75'}`} />
+                            <span className={`text-[12px] font-bold ${post.likes > 0 ? 'text-rose-500' : ''}`}>
+                              {post.likes || 0}
+                            </span>
+                          </button>
+
+                          {/* Comment/Chatbubble */}
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (isManagementMode) return;
+                              handleViewPost(post);
+                            }}
+                            className="flex items-center space-x-1.5 hover:text-neutral-300 transition duration-150 py-1"
+                          >
+                            <MessageCircle className="h-[18px] w-[18px] opacity-75" />
+                            <span className="text-[12px] font-bold">
+                              {post.commentCount || 0}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* More Menu */}
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewPost(post);
+                          }}
+                          className="hover:text-neutral-300 transition duration-150 py-1"
+                        >
+                          <MoreHorizontal className="h-4 w-4 opacity-75" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-24 text-center">
+                  <span className="text-neutral-500 text-[14px] font-bold">
+                    등록된 게시글이 없습니다. 첫 글을 작성해 보세요!
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Dark & Fully Grounded Floating / Fixed Bottom Writer pill */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 pb-5 pt-3 px-4 bg-[#121212] border-t border-neutral-800 shadow-[0_-4px_24px_rgba(0,0,0,0.8)] flex items-center space-x-3 select-none">
+              {userProfile?.profileImageUrl ? (
+                <img 
+                  src={userProfile.profileImageUrl} 
+                  alt="avatar" 
+                  className="w-9 h-9 rounded-full object-cover border border-neutral-850 shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center border border-neutral-750 shadow-sm select-none shrink-0 text-md">
+                  👽
+                </div>
+              )}
+              <div 
+                onClick={handleWriteClick}
+                className="flex-1 bg-neutral-900 hover:bg-neutral-850 text-neutral-400 border border-neutral-800 text-[13.5px] py-2 px-4 rounded-full cursor-pointer transition duration-150 font-bold"
+                id="toss-mobile-composer-pill"
+              >
+                무슨 생각을 하고 있나요?
+              </div>
+            </div>
+          </div>
+
           {/* Bottom Action Area: Tab-controls + Search Bar + Write button & Pagination */}
-          <div className="bg-[#161616] px-5 py-5 border-t border-neutral-800">
+          <div className="hidden md:block bg-[#161616] px-5 py-5 border-t border-neutral-800">
             
             {/* Top row: Tab indicators and Dark Write Button */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">

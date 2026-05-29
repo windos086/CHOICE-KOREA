@@ -1673,6 +1673,10 @@ export default function AiAutoManager({
                               const data = await res.json();
                               console.log(`DEBUG: [${i+1}/${expired.length}] Result for ${p.id}:`, data);
                               if (data.success && data.data && data.data.winningOption) {
+                                if (data.data.winningOption === '경기 진행 중 (미결정)') {
+                                  console.log(`DEBUG: [${i+1}/${expired.length}] Game ${p.id} is still in progress, skipping.`);
+                                  continue;
+                                }
                                 await onResolvePrediction(p.id, data.data.winningOption, data.data.evidence);
                                 confirmedCount++;
                               } else {
@@ -1840,9 +1844,13 @@ export default function AiAutoManager({
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                setResolveWinningOption(data.data.winningOption);
-                                                setResolveEvidence(data.data.evidence);
-                                                alert(`AI 판단 결과:\n${data.data.winningOption}\n\n${data.data.evidence}`);
+                                                if (data.data.winningOption === '경기 진행 중 (미결정)') {
+                                                    alert("현재 이 경기는 아직 진행 중입니다. 판정을 확정할 수 없습니다.");
+                                                } else {
+                                                    setResolveWinningOption(data.data.winningOption);
+                                                    setResolveEvidence(data.data.evidence);
+                                                    alert(`AI 판단 결과:\n${data.data.winningOption}\n\n${data.data.evidence}`);
+                                                }
                                             } else {
                                                 alert(`AI 판단 실패: ${data.error}`);
                                             }

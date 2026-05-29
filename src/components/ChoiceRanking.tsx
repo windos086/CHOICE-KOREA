@@ -25,50 +25,53 @@ export default function ChoiceRanking({ allUsers }: ChoiceRankingProps) {
         <p className="text-neutral-400 text-sm">회원들의 예측 적중 랭킹을 확인하세요.</p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {sortedUsers.map((user, index) => {
           const isTop3 = index < 3;
           return (
             <div 
               key={user.uid}
-              className={`flex items-center justify-between p-4 rounded-xl border ${
-                isTop3 ? 'bg-[#1a1c24] border-neutral-700' : 'bg-[#111111] border-neutral-800'
+              className={`flex items-center justify-between p-3.5 md:p-4 rounded-xl border transition-all ${
+                isTop3 ? 'bg-[#161822] border-neutral-800' : 'bg-[#0f1014] border-neutral-900/80'
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-black shrink-0 ${
-                  index === 0 ? 'bg-amber-500 text-black' :
-                  index === 1 ? 'bg-gray-300 text-black' :
-                  index === 2 ? 'bg-amber-700 text-white' :
-                  'text-neutral-500 bg-neutral-800'
+              <div className="flex items-center gap-2.5 md:gap-4 min-w-0 flex-1">
+                <div className={`w-7.5 h-7.5 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black shrink-0 ${
+                  index === 0 ? 'bg-amber-500 text-black shadow-md' :
+                  index === 1 ? 'bg-gray-300 text-black shadow-md' :
+                  index === 2 ? 'bg-amber-700 text-white shadow-md' :
+                  'text-neutral-500 bg-neutral-900'
                 }`}>
-                  {index < 3 ? <Trophy className="w-4 h-4" /> : index + 1}
+                  {index < 3 ? <Trophy className="w-3.5 h-3.5" /> : index + 1}
                 </div>
                 
                 {user.profileImageUrl ? (
                   <img 
                     src={user.profileImageUrl} 
                     alt="avatar" 
-                    className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
+                    className="w-8 h-8 rounded-full object-cover border border-neutral-800 shrink-0"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="w-8 h-8 rounded-full bg-neutral-800 text-xs flex items-center justify-center border border-neutral-700 shrink-0 select-none">👤</span>
+                  <span className="w-8 h-8 rounded-full bg-neutral-900 text-xs flex items-center justify-center border border-neutral-800 shrink-0 select-none">👤</span>
                 )}
                 
-                <div className="font-bold text-white tracking-wide flex items-center gap-1.5">
-                  {renderMilitaryBadge(user.activeBadge, "shrink-0 mr-0.5")}
-                  <span>{user.nickname}</span>
+                <div className="font-extrabold text-[14.5px] md:text-[15.5px] text-white tracking-tight flex items-center gap-1.5 min-w-0">
+                  {renderMilitaryBadge(user.activeBadge, "shrink-0")}
+                  <span className="truncate whitespace-nowrap" title={user.nickname}>
+                    {user.nickname}
+                  </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 font-mono text-sm min-w-[140px]">
-                <div className="text-center">
-                  <span className="text-neutral-400 block text-[10px]">적중</span>
-                  <span className="text-green-500 font-black text-lg">{user.successCount || 0}건</span>
+              
+              <div className="grid grid-cols-2 gap-2 md:gap-4 font-mono text-xs md:text-sm shrink-0 pl-2 select-none">
+                <div className="text-center min-w-[50px] md:min-w-[65px]">
+                  <span className="text-neutral-500 block text-[9px] md:text-[10px] font-bold">적중</span>
+                  <span className="text-emerald-500 font-extrabold text-[15px] md:text-[17px]">{user.successCount || 0}건</span>
                 </div>
-                <div className="text-center">
-                  <span className="text-neutral-400 block text-[10px]">참여</span>
-                  <span className="text-blue-500 font-black text-lg">{user.predictsCount || 0}건</span>
+                <div className="text-center min-w-[50px] md:min-w-[65px]">
+                  <span className="text-neutral-500 block text-[9px] md:text-[10px] font-bold">참여</span>
+                  <span className="text-sky-500 font-extrabold text-[15px] md:text-[17px]">{user.predictsCount || 0}건</span>
                 </div>
               </div>
             </div>

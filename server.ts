@@ -315,12 +315,15 @@ Search Reference: "${sourceUrl}"
 Available Options of Prediction: ${JSON.stringify(options)}
 
 Use Google Search to active check the actual, real-world result of this event. 
+CRITICAL: If the game or event is still currently in progress and the final result is not yet decided, return '경기 진행 중 (미결정)' as the winningOption.
+
 Return the output in JSON format with KOREAN explanation:
 {
-  "winningOption": "options 배열 항목 중 정확히 매칭하는 승리한 단 하나의 옵션 문자열 (예: 'YES (득점 기록)')",
+  "winningOption": "options 배열 항목 중 정확히 매칭하는 승리한 단 하나의 옵션 문자열 (예: 'YES (득점 기록)'). IF THE GAME IS IN PROGRESS, MUST RETURN: '경기 진행 중 (미결정)'",
   "evidence": "구체적인 인터넷 뉴스 검색 결과 및 입증된 사실을 서술한 근거 한마디 (한국어)",
   "source": "참조한 뉴스 기사나 사이트 제목"
 }`;
+
 
       const response = await getAI().models.generateContent({
         model: "gemini-3.5-flash",
