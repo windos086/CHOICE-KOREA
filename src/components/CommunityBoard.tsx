@@ -499,11 +499,16 @@ export default function CommunityBoard({
     const newLikedBy = [...(post.likedBy || []), userProfile.uid];
 
     try {
-        await updateDoc(doc(db, collectionName, postId), {
+        // Fire and forget so that UI update and completed notification is instantaneous
+        updateDoc(doc(db, collectionName, postId), {
           likes: newLikes,
           likedBy: newLikedBy,
           isRecommended: newLikes >= 10 ? true : post.isRecommended
+        }).catch((error) => {
+          console.error("Failed to update post likes:", error);
         });
+        
+        alert("추천이 완료되었습니다.");
     } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `posts/${postId}`);
     }

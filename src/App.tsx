@@ -127,6 +127,7 @@ export default function App() {
     }
   });
   const [isMobileGameListVisible, setIsMobileGameListVisible] = React.useState(false);
+  const [expandedCards, setExpandedCards] = React.useState<Record<string, boolean>>({});
 
 
   const [toasts, setToasts] = React.useState<{id: string; message: string; type: 'success' | 'info' | 'error'}[]>([]);
@@ -3190,52 +3191,77 @@ export default function App() {
                               <span className="text-[10px]">👥 참여: {participantCounts[card.id] || 0}</span>
                           </div>
                       </div>
-                      <div className={`grid gap-2 mb-4 relative z-20 ${card.options.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
-                          {card.options.map((opt, i) => {
-                             const realTotalCount = allBets.filter(b => b.predictionId === card.id).length;
-                             const realOptCount = allBets.filter(b => b.predictionId === card.id && b.option === opt).length;
-                             const pOpt = realTotalCount > 0 ? Math.round((realOptCount / realTotalCount) * 100) : 0;
-                             const colors = [
-                               'from-red-500 to-red-700 border-red-900 shadow-[0_4px_10px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_15px_rgba(220,38,38,0.4)]',
-                               'from-blue-600 to-blue-800 border-blue-950 shadow-[0_4px_10px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_15px_rgba(37,99,235,0.4)]',
-                               'from-green-500 to-green-700 border-green-900 shadow-[0_4px_10px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_15px_rgba(34,197,94,0.4)]',
-                               'from-purple-500 to-purple-700 border-purple-900 shadow-[0_4px_10px_rgba(168,85,247,0.3)] hover:shadow-[0_6px_15px_rgba(168,85,247,0.4)]',
-                               'from-amber-500 to-amber-700 border-amber-900 shadow-[0_4px_10px_rgba(245,158,11,0.3)] hover:shadow-[0_6px_15px_rgba(245,158,11,0.4)]',
-                               'from-pink-500 to-pink-700 border-pink-900 shadow-[0_4px_10px_rgba(236,72,153,0.3)] hover:shadow-[0_6px_15px_rgba(236,72,153,0.4)]'
-                             ];
-                             const color = colors[i % colors.length];
+                      {(() => {
+                        const isExpanded = expandedCards[card.id] || false;
+                        const isMobile = window.innerWidth < 768;
+                        const limit = isMobile ? 4 : 6;
+                        const hasMore = card.options.length > limit;
+                        const slicedOptions = isExpanded ? card.options : card.options.slice(0, limit);
 
-                             return (
-                               <button 
-                                 key={i}
-                                 onClick={() => {
-                                   if (!isClosed) {
-                                     if (!userProfile) {
-                                       setIsLoginModalOpen(true);
-                                       return;
-                                     }
-                                     const hasAlreadyPredicted = allBets.some(
-                                       b => b.userId === userProfile.uid && b.predictionId === card.id
-                                     );
-                                     if (hasAlreadyPredicted) {
-                                       alert("이미 예측에 참여하였습니다.");
-                                       return;
-                                     }
-                                     setSelectedCardForBet(card);
-                                     setBetOption(opt);
-                                     setBetAmount(100);
-                                   }
-                                 }}
-                                 disabled={isClosed}
-                                 className={`bg-gradient-to-b ${color} border-b-[4px] transition-all flex-1 text-white py-3 rounded-xl text-xs font-bold flex flex-col justify-center items-center gap-1 ${
-                                 isClosed ? 'cursor-not-allowed opacity-80' : 'hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] active:border-b-0 active:translate-y-[4px]'
-                               }`}>
-                                   <span className="drop-shadow-md text-center whitespace-normal break-words">{opt}</span>
-                                   <span className="drop-shadow-md">{pOpt}%</span>
-                               </button>
-                             );
-                          })}
-                      </div>
+                        return (
+                          <>
+                            <div className={`grid gap-2 mb-4 relative z-20 ${card.options.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
+                                {slicedOptions.map((opt, i) => {
+                                   const realTotalCount = allBets.filter(b => b.predictionId === card.id).length;
+                                   const realOptCount = allBets.filter(b => b.predictionId === card.id && b.option === opt).length;
+                                   const pOpt = realTotalCount > 0 ? Math.round((realOptCount / realTotalCount) * 100) : 0;
+                                   const colors = [
+                                     'from-red-500 to-red-700 border-red-900 shadow-[0_4px_10px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_15px_rgba(220,38,38,0.4)]',
+                                     'from-blue-600 to-blue-800 border-blue-950 shadow-[0_4px_10px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_15px_rgba(37,99,235,0.4)]',
+                                     'from-green-500 to-green-700 border-green-900 shadow-[0_4px_10px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_15px_rgba(34,197,94,0.4)]',
+                                     'from-purple-500 to-purple-700 border-purple-900 shadow-[0_4px_10px_rgba(168,85,247,0.3)] hover:shadow-[0_6px_15px_rgba(168,85,247,0.4)]',
+                                     'from-amber-500 to-amber-700 border-amber-900 shadow-[0_4px_10px_rgba(245,158,11,0.3)] hover:shadow-[0_6px_15px_rgba(245,158,11,0.4)]',
+                                     'from-pink-500 to-pink-700 border-pink-900 shadow-[0_4px_10px_rgba(236,72,153,0.3)] hover:shadow-[0_6px_15px_rgba(236,72,153,0.4)]'
+                                   ];
+                                   const color = colors[card.options.indexOf(opt) % colors.length];
+
+                                   return (
+                                     <button 
+                                       key={i}
+                                       onClick={() => {
+                                         if (!isClosed) {
+                                           if (!userProfile) {
+                                             setIsLoginModalOpen(true);
+                                             return;
+                                           }
+                                           const hasAlreadyPredicted = allBets.some(
+                                             b => b.userId === userProfile.uid && b.predictionId === card.id
+                                           );
+                                           if (hasAlreadyPredicted) {
+                                             alert("이미 예측에 참여하였습니다.");
+                                             return;
+                                           }
+                                           setSelectedCardForBet(card);
+                                           setBetOption(opt);
+                                           setBetAmount(100);
+                                         }
+                                       }}
+                                       disabled={isClosed}
+                                       className={`bg-gradient-to-b ${color} border-b-[4px] transition-all flex-1 text-white py-3 rounded-xl text-xs font-bold flex flex-col justify-center items-center gap-1 ${
+                                       isClosed ? 'cursor-not-allowed opacity-80' : 'hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] active:border-b-0 active:translate-y-[4px]'
+                                     }`}>
+                                         <span className="drop-shadow-md text-center whitespace-normal break-words">{opt}</span>
+                                         <span className="drop-shadow-md">{pOpt}%</span>
+                                     </button>
+                                   );
+                                })}
+                            </div>
+                            {hasMore && (
+                              <div className="flex justify-center -mt-1 mb-4 relative z-30">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedCards(prev => ({ ...prev, [card.id]: !prev[card.id] }));
+                                  }}
+                                  className="px-6 py-2 bg-[#1f2029] hover:bg-[#2e303d] border border-neutral-800 hover:border-neutral-700 active:scale-95 text-white rounded-xl text-xs font-extrabold shadow-lg flex items-center gap-1.5 transition-all w-full md:w-auto justify-center"
+                                >
+                                  <span>{isExpanded ? '접기 ▲' : `더보기 (${card.options.length - limit}개 더 있음) ▼`}</span>
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       <div className="flex items-center text-neutral-500 border-t border-neutral-800 pt-3">
                            <div className="flex items-center gap-3">
                                <button onClick={(e) => handleLike(card.id, e)} className={`flex items-center gap-1 transition ${likedByUser[card.id] ? 'text-red-500' : 'hover:text-white'}`}>
