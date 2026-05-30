@@ -17,6 +17,11 @@ interface PoliticsPortalProps {
   subcategoryLogos?: Record<string, string>;
   predictionCommentCounts?: Record<string, number>;
   addToast: (message: string, type: 'success' | 'info' | 'error') => void;
+  likes: Record<string, number>;
+  likedByUser: Record<string, boolean>;
+  onLike: (cardId: string, e: React.MouseEvent) => void;
+  bookmarkedIds?: string[];
+  onToggleBookmark?: (id: string, e: React.MouseEvent) => void;
 }
 
 export default function PoliticsPortal({
@@ -33,7 +38,12 @@ export default function PoliticsPortal({
   onDeletePrediction,
   subcategoryLogos = {},
   predictionCommentCounts = {},
-  addToast
+  addToast,
+  likes,
+  likedByUser,
+  onLike,
+  bookmarkedIds,
+  onToggleBookmark
 }: PoliticsPortalProps) {
   const isAdmin = userProfile?.loginId === 'sinpotnf@gmail.com' || userProfile?.nickname === '최고관리자';
 
@@ -83,7 +93,7 @@ export default function PoliticsPortal({
   };
   const [activeCategory, setActiveCategory] = React.useState<string>('all');
   const [searchQuery, setSearchQuery] = React.useState<string>('');
-  const [bookmarkedIds, setBookmarkedIds] = React.useState<string[]>(() => {
+  const [localBookmarkedIds, setLocalBookmarkedIds] = React.useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('CHOICE_KOREA_BOOKMARKS');
       return saved ? JSON.parse(saved) : [];
@@ -91,49 +101,8 @@ export default function PoliticsPortal({
       return [];
     }
   });
+  const activeBookmarkedIds = bookmarkedIds || localBookmarkedIds;
   const [mainViewFilter, setMainViewFilter] = React.useState<'ongoing' | 'closed' | 'bookmarked'>('ongoing');
-
-  const [likes, setLikes] = React.useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('CHOICE_KOREA_LIKES_MAP');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-  const [likedByUser, setLikedByUser] = React.useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('CHOICE_KOREA_USER_LIKES');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  const handleLike = (cardId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!userProfile && onOpenLoginModal) {
-      onOpenLoginModal();
-      return;
-    }
-    
-    const isLiked = likedByUser[cardId];
-    let newLiked: Record<string, boolean>;
-    let newLikes: Record<string, number>;
-    
-    if (isLiked) {
-      newLiked = { ...likedByUser, [cardId]: false };
-      newLikes = { ...likes, [cardId]: Math.max(0, (likes[cardId] || 0) - 1) };
-    } else {
-      newLiked = { ...likedByUser, [cardId]: true };
-      newLikes = { ...likes, [cardId]: (likes[cardId] || 0) + 1 };
-    }
-    
-    setLikedByUser(newLiked);
-    setLikes(newLikes);
-    localStorage.setItem('CHOICE_KOREA_USER_LIKES', JSON.stringify(newLiked));
-    localStorage.setItem('CHOICE_KOREA_LIKES_MAP', JSON.stringify(newLikes));
-  };
 
   const getRemainingTimeMsg = (endAt?: string) => {
     if (!endAt) return '마감: 일정 미정';
@@ -160,11 +129,15 @@ export default function PoliticsPortal({
   // Toggle bookmark function
   const toggleBookmark = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setBookmarkedIds(prev => {
-      const updated = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
-      localStorage.setItem('CHOICE_KOREA_BOOKMARKS', JSON.stringify(updated));
-      return updated;
-    });
+    if (onToggleBookmark) {
+      onToggleBookmark(id, e);
+    } else {
+      setLocalBookmarkedIds(prev => {
+        const updated = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+        localStorage.setItem('CHOICE_KOREA_BOOKMARKS', JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const getInitialSubcategories = (cat: string) => {
@@ -267,7 +240,7 @@ export default function PoliticsPortal({
         const calcProb = totalBets > 0 ? Math.round((optYesCount / totalBets) * 100) : 0;
 
         return {
-          id: `dynamic_group_${p.id}`,
+          id: p.id,
           type: 'composite' as const,
           title: p.title,
           categoryKey: p.subCategory || 'all',
@@ -294,7 +267,7 @@ export default function PoliticsPortal({
       const likesB = likes?.[b.id] || 0;
       return likesB - likesA;
     });
-  }, [category, predictions, allBets, likes]);
+  }, [category, predictions, allBets, likes, participantCounts]);
 
   // Helper to render circle badge depending on design category in screenshot
   const renderCircleBadge = (type: string) => {
@@ -470,13 +443,13 @@ export default function PoliticsPortal({
 
   const ongoingCount = baseFilteredComposites.filter(c => !getIsClosed(c)).length;
   const closedCount = baseFilteredComposites.filter(c => getIsClosed(c)).length;
-  const bookmarkedCount = bookmarkedIds.length;
+  const bookmarkedCount = activeBookmarkedIds.length;
 
   const filteredComposites = baseFilteredComposites.filter(card => {
     const isClosed = getIsClosed(card);
     if (mainViewFilter === 'ongoing' && isClosed) return false;
     if (mainViewFilter === 'closed' && !isClosed) return false;
-    if (mainViewFilter === 'bookmarked' && !bookmarkedIds.includes(card.id)) return false;
+    if (mainViewFilter === 'bookmarked' && !activeBookmarkedIds.includes(card.id)) return false;
 
     return true;
   });
@@ -841,7 +814,7 @@ export default function PoliticsPortal({
                         onClick={(e) => toggleBookmark(card.id, e)}
                         className="text-neutral-600 hover:text-amber-500 transition cursor-pointer"
                       >
-                        <Bookmark className={`h-4.5 w-4.5 ${bookmarkedIds.includes(card.id) ? 'fill-amber-500 text-amber-500' : ''}`} />
+                        <Bookmark className={`h-4.5 w-4.5 ${activeBookmarkedIds.includes(card.id) ? 'fill-amber-500 text-amber-500' : ''}`} />
                       </button>
                     </div>
 
@@ -933,7 +906,7 @@ export default function PoliticsPortal({
                       </button>
                     )}
                     <button onClick={(e) => toggleBookmark(card.id, e)} className="p-1 hover:bg-neutral-800 rounded">
-                      <span className={`text-[14px] ${bookmarkedIds.includes(card.id) ? 'grayscale-0' : 'grayscale opacity-50'}`}>🔔</span>
+                      <span className={`text-[14px] ${activeBookmarkedIds.includes(card.id) ? 'grayscale-0' : 'grayscale opacity-50'}`}>🔔</span>
                     </button>
                   </div>
 
@@ -1039,10 +1012,10 @@ export default function PoliticsPortal({
 
                   <div className="flex items-center text-neutral-500 border-t border-neutral-800 pt-3">
                        <div className="flex items-center gap-3">
-                           <button onClick={(e) => handleLike(card.id, e)} className={`flex items-center gap-1 transition ${likedByUser[card.id] ? 'text-red-500' : 'hover:text-white'}`}>
+                           <button onClick={(e) => onLike(card.id, e)} className={`flex items-center gap-1 transition ${likedByUser[card.id] ? 'text-red-500' : 'hover:text-white'}`}>
                              <span className="text-[12px]">{likedByUser[card.id] ? '❤️' : '🤍'} {likes[card.id] || 0}</span>
                            </button>
-                           <button onClick={() => onOpenComments && onOpenComments(card)} className="flex items-center gap-1 hover:text-white transition">
+                           <button onClick={() => { if (onOpenComments) { const raw = predictions.find(p => p.id === card.id); if (raw) onOpenComments(raw); } }} className="flex items-center gap-1 hover:text-white transition">
                              <span className="text-[12px]">💬 댓글 {predictionCommentCounts[card.id] || 0}</span>
                            </button>
                        </div>

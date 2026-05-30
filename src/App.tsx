@@ -2541,6 +2541,19 @@ export default function App() {
           <div className="block lg:hidden mb-4 space-y-4">
             {renderMobileLoginOrProfileBox()}
             <KakaoCustomerCenterBanner />
+            <a 
+              href="https://www.pandalive.co.kr/channel/uuu981214/notice"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full max-w-[306px] mx-auto overflow-hidden rounded-xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 group border border-neutral-800"
+            >
+              <img 
+                src="https://mblogthumb-phinf.pstatic.net/MjAyNjA1MzBfMTkz/MDAxNzgwMTM5NzIwODkw.OCv97aqTrFlBjBr8zjes3D4Heo2nVzIPLCC1DIGEY04g.YPbmQgW88CKKAjyIpSmzN6-Vk-RnToYAYFpj-ez3eKgg.GIF/%EC%9C%A0%EC%9D%80.gif?type=w800" 
+                alt="Partner Advertisement" 
+                referrerPolicy="no-referrer"
+                className="w-full h-auto object-cover rounded-xl"
+              />
+            </a>
           </div>
         )}
 
@@ -2570,6 +2583,11 @@ export default function App() {
             onDeletePrediction={handleDeletePrediction}
             subcategoryLogos={subcategoryLogos}
             predictionCommentCounts={predictionCommentCounts}
+            likes={likes}
+            likedByUser={likedByUser}
+            onLike={handleLike}
+            bookmarkedIds={homeBookmarkedIds}
+            onToggleBookmark={toggleHomeBookmark}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -2588,22 +2606,21 @@ export default function App() {
             </div>
 
             {/* 2. AD 광고 제휴 문의 배너 */}
-            <div className={`border border-dashed rounded-md p-5 text-center flex flex-col items-center justify-center min-h-[110px] transition-all duration-300 relative select-none ${
-              theme === 'light' 
-                ? 'bg-gray-50/50 border-gray-300 hover:bg-gray-50' 
-                : 'bg-[#0f0f11] border-neutral-800 hover:bg-[#131317]'
-            }`}>
-              <div className={`text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded mb-2 ${
-                theme === 'light' ? 'bg-gray-200/60 text-gray-400' : 'bg-neutral-900 text-neutral-500'
-              }`}>
-                AD
-              </div>
-              <span className={`font-black text-xs block tracking-tight ${theme === 'light' ? 'text-gray-500' : 'text-neutral-400'}`}>
-                AD 광고 제휴 문의
-              </span>
-              <p className={`text-[10px] mt-1 font-medium ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                windos086@naver.com
-              </p>
+            <div className="hidden lg:block">
+              <a 
+                href="https://www.pandalive.co.kr/channel/uuu981214/notice"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full max-w-[306px] mx-auto overflow-hidden rounded-xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 group border border-neutral-800"
+              >
+                <img 
+                  src="https://mblogthumb-phinf.pstatic.net/MjAyNjA1MzBfMTkz/MDAxNzgwMTM5NzIwODkw.OCv97aqTrFlBjBr8zjes3D4Heo2nVzIPLCC1DIGEY04g.YPbmQgW88CKKAjyIpSmzN6-Vk-RnToYAYFpj-ez3eKgg.GIF/%EC%9C%A0%EC%9D%80.gif?type=w800" 
+                  alt="Partner Advertisement" 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-auto object-cover rounded-xl"
+                  style={{ height: '148.97px' }}
+                />
+              </a>
             </div>
 
             {/* 3. 라이브 채팅 위젯 - 모바일 환경에서는 숨김 */}
@@ -2945,7 +2962,7 @@ export default function App() {
                   }`}>
                     AD 광고 제휴 문의
                   </h3>
-                  <p className={`text-xs mt-1.5 font-semibold ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-605'}`}>
+                  <p className={`text-xs mt-1.5 font-semibold ${theme === 'light' ? 'text-neutral-400' : 'text-neutral-600'}`}>
                     배너 광고 및 파트너 제휴 입점 문의: <span className="text-[#d11822] font-black">windos086@naver.com</span>
                   </p>
                 </div>
