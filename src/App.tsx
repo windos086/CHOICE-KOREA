@@ -118,7 +118,14 @@ export default function App() {
   const [activeUserCount, setActiveUserCount] = React.useState<number>(1);
   const [participantCounts, setParticipantCounts] = React.useState<Record<string, number>>({});
   const [mainViewFilter, setMainViewFilter] = React.useState<'ongoing' | 'closed' | 'bookmarked'>('ongoing');
-  const [homeBookmarkedIds, setHomeBookmarkedIds] = React.useState<string[]>([]);
+  const [homeBookmarkedIds, setHomeBookmarkedIds] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('CHOICE_KOREA_BOOKMARKS');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isMobileGameListVisible, setIsMobileGameListVisible] = React.useState(false);
 
 
@@ -195,18 +202,19 @@ export default function App() {
 
   const toggleHomeBookmark = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setHomeBookmarkedIds(prev => {
-      const isBookmarked = prev.includes(id);
-      let updated;
-      if (isBookmarked) {
-        updated = prev.filter(bId => bId !== id);
-        addToast("북마크가 해제되었습니다", 'info');
-      } else {
-        updated = [...prev, id];
-        addToast("북마크에 등록되었습니다", 'success');
-      }
-      return updated;
-    });
+    const isBookmarked = homeBookmarkedIds.includes(id);
+    const updated = isBookmarked 
+      ? homeBookmarkedIds.filter(bId => bId !== id)
+      : [...homeBookmarkedIds, id];
+    
+    setHomeBookmarkedIds(updated);
+    localStorage.setItem('CHOICE_KOREA_BOOKMARKS', JSON.stringify(updated));
+    
+    if (isBookmarked) {
+      addToast("북마크가 해제되었습니다", 'info');
+    } else {
+      addToast("북마크에 등록되었습니다", 'success');
+    }
   };
 
   const speakText = (text: string) => {
@@ -480,7 +488,7 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = React.useState<boolean>(false);
   const [isEventModalOpen, setIsEventModalOpen] = React.useState<boolean>(true);
   const [isQuestModalOpen, setIsQuestModalOpen] = React.useState<boolean>(false);
-  const [rightBoardTab, setRightBoardTab] = React.useState<'sports_analysis' | 'notice' | 'event' | 'free_board' | 'humor_board'>('notice');
+  const [rightBoardTab, setRightBoardTab] = React.useState<'sports_analysis' | 'notice' | 'event' | 'free_board' | 'humor_board'>('event');
   const isAdmin = userProfile?.loginId === 'sinpotnf@gmail.com' || userProfile?.nickname === '최고관리자';
   const [suggestionTitle, setSuggestionTitle] = React.useState<string>('');
   const [suggestionEndAt, setSuggestionEndAt] = React.useState<string>('');
@@ -2823,7 +2831,7 @@ export default function App() {
                     <div className="space-y-2.5 mt-3 flex-1 pt-5 pb-5 font-medium">
                       {rightBoardTab === 'notice' ? (
                         <>
-                          {postsNotice.filter(p => p.isRecommended).slice(0, 4).map((post, index) => (
+                          {postsNotice.filter(p => !p.isEvent && p.tag !== '#이벤트' && !(p.tag || '').includes('이벤트') && !p.title.includes('이벤트')).slice(0, 4).map((post, index) => (
                             <div 
                               key={post.id} 
                               className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
@@ -2840,13 +2848,13 @@ export default function App() {
                               <span className="text-[#ff9033] font-mono shrink-0 font-bold">{new Date(post.timestamp || post.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace('.', '-').replace('.', '')}</span>
                             </div>
                           ))}
-                          {postsNotice.filter(p => p.isRecommended).length === 0 && (
+                          {postsNotice.filter(p => !p.isEvent && p.tag !== '#이벤트' && !(p.tag || '').includes('이벤트') && !p.title.includes('이벤트')).length === 0 && (
                              <div className="text-gray-500 text-sm text-center pt-4">등록된 공지사항이 없습니다.</div>
                           )}
                         </>
                       ) : rightBoardTab === 'event' ? (
                         <>
-                          {postsNotice.filter(p => p.isNotice).slice(0, 4).map((post, index) => (
+                          {postsNotice.filter(p => p.isEvent || p.tag === '#이벤트' || (p.tag || '').includes('이벤트') || p.title.includes('이벤트')).slice(0, 4).map((post, index) => (
                             <div 
                               key={post.id} 
                               className="flex items-center justify-between hover:text-white cursor-pointer transition-colors group"
@@ -2863,7 +2871,7 @@ export default function App() {
                               <span className="text-[#ff9033] font-mono shrink-0 font-bold">{new Date(post.timestamp || post.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace('.', '-').replace('.', '')}</span>
                             </div>
                           ))}
-                          {postsNotice.filter(p => p.isNotice).length === 0 && (
+                          {postsNotice.filter(p => p.isEvent || p.tag === '#이벤트' || (p.tag || '').includes('이벤트') || p.title.includes('이벤트')).length === 0 && (
                              <div className="text-gray-500 text-sm text-center pt-4">등록된 이벤트가 없습니다.</div>
                           )}
                         </>

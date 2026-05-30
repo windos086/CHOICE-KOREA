@@ -83,7 +83,14 @@ export default function PoliticsPortal({
   };
   const [activeCategory, setActiveCategory] = React.useState<string>('all');
   const [searchQuery, setSearchQuery] = React.useState<string>('');
-  const [bookmarkedIds, setBookmarkedIds] = React.useState<string[]>([]);
+  const [bookmarkedIds, setBookmarkedIds] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('CHOICE_KOREA_BOOKMARKS');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [mainViewFilter, setMainViewFilter] = React.useState<'ongoing' | 'closed' | 'bookmarked'>('ongoing');
 
   const [likes, setLikes] = React.useState<Record<string, number>>(() => {
@@ -153,9 +160,11 @@ export default function PoliticsPortal({
   // Toggle bookmark function
   const toggleBookmark = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setBookmarkedIds(prev => 
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    setBookmarkedIds(prev => {
+      const updated = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+      localStorage.setItem('CHOICE_KOREA_BOOKMARKS', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const getInitialSubcategories = (cat: string) => {

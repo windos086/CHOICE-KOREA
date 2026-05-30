@@ -60,7 +60,7 @@ import ReactMarkdown from 'react-markdown';
 
 const ContentRenderer = ({ content }: { content: string }) => {
   return (
-    <div className="prose prose-sm md:prose-base max-w-none text-neutral-300">
+    <div className="prose prose-sm md:prose-base max-w-none text-neutral-300 whitespace-pre-wrap">
       <ReactMarkdown
         components={{
           img: ({ node, ...props }) => (
@@ -93,7 +93,7 @@ const ContentRenderer = ({ content }: { content: string }) => {
                 );
               }
             }
-            return <p {...props} />;
+            return <p {...props} className="whitespace-pre-wrap mb-4" />;
           }
         }}
       >
@@ -174,6 +174,11 @@ export default function CommunityBoard({
   onClearInitialSelectedPostId
 }: CommunityBoardProps) {
   const [posts, setPosts] = React.useState<CommunityPost[]>([]);
+
+  const loginLower = (userProfile?.loginId || '').toLowerCase().trim();
+  const nickLower = (userProfile?.nickname || '').toLowerCase().trim();
+  const isAdmin = loginLower === 'sinpotnf@gmail.com' || nickLower === 'sinpotnf@gmail.com' || loginLower === 'admin' || nickLower === 'admin' || userProfile?.nickname === '최고관리자';
+
   
   const getUserProfileByNickname = (nickname: string) => {
     if (!allUsers) return null;
@@ -320,10 +325,20 @@ export default function CommunityBoard({
     let result = [...posts];
 
     // Tab filter
-    if (activeTab === 'recommended') {
-      result = result.filter(p => p.isRecommended);
-    } else if (activeTab === 'notice') {
-      result = result.filter(p => p.isNotice);
+    if (boardType === 'notice') {
+      if (activeTab === 'recommended') {
+        // 공지사항 (only notices, not events)
+        result = result.filter(p => p.isNotice && !p.isEvent && p.tag !== '#이벤트' && !(p.tag || '').includes('이벤트') && !p.title.includes('이벤트'));
+      } else if (activeTab === 'notice') {
+        // 이벤트 (isEvent, #이벤트, or post containing '이벤트' tag/title)
+        result = result.filter(p => p.isEvent || p.tag === '#이벤트' || (p.tag || '').includes('이벤트') || p.title.includes('이벤트'));
+      }
+    } else {
+      if (activeTab === 'recommended') {
+        result = result.filter(p => p.isRecommended);
+      } else if (activeTab === 'notice') {
+        result = result.filter(p => p.isNotice);
+      }
     }
 
     // Search filter
@@ -368,6 +383,10 @@ export default function CommunityBoard({
       if (onOpenLoginModal) {
         onOpenLoginModal();
       }
+      return;
+    }
+    if (boardType === 'notice' && !isAdmin) {
+      alert("⚠️ 공지사항 및 이벤트 게시판은 관리자만 글을 등록할 수 있습니다.");
       return;
     }
     setEditingPost(null);
@@ -1117,12 +1136,14 @@ export default function CommunityBoard({
                   </button>
                 </form>
                 
-                <button
-                onClick={handleWriteClick}
-                className="flex items-center justify-center p-2.5 bg-[#d11822] text-white rounded-lg shadow-md"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
+                {!(boardType === 'notice' && !isAdmin) && (
+                  <button
+                    onClick={handleWriteClick}
+                    className="flex items-center justify-center p-2.5 bg-[#d11822] text-white rounded-lg shadow-md"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
             </div>
           </div>
 
@@ -1425,27 +1446,29 @@ export default function CommunityBoard({
             </div>
 
             {/* Dark & Fully Grounded Floating / Fixed Bottom Writer pill */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 pb-5 pt-3 px-4 bg-[#121212] border-t border-neutral-800 shadow-[0_-4px_24px_rgba(0,0,0,0.8)] flex items-center space-x-3 select-none">
-              {userProfile?.profileImageUrl ? (
-                <img 
-                  src={userProfile.profileImageUrl} 
-                  alt="avatar" 
-                  className="w-9 h-9 rounded-full object-cover border border-neutral-850 shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center border border-neutral-750 shadow-sm select-none shrink-0 text-md">
-                  👽
+            {!(boardType === 'notice' && !isAdmin) && (
+              <div className="fixed bottom-0 left-0 right-0 z-40 pb-5 pt-3 px-4 bg-[#121212] border-t border-neutral-800 shadow-[0_-4px_24px_rgba(0,0,0,0.8)] flex items-center space-x-3 select-none">
+                {userProfile?.profileImageUrl ? (
+                  <img 
+                    src={userProfile.profileImageUrl} 
+                    alt="avatar" 
+                    className="w-9 h-9 rounded-full object-cover border border-neutral-850 shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center border border-neutral-750 shadow-sm select-none shrink-0 text-md">
+                    👽
+                  </div>
+                )}
+                <div 
+                  onClick={handleWriteClick}
+                  className="flex-1 bg-neutral-900 hover:bg-neutral-850 text-neutral-400 border border-neutral-800 text-[13.5px] py-2 px-4 rounded-full cursor-pointer transition duration-150 font-bold"
+                  id="toss-mobile-composer-pill"
+                >
+                  무슨 생각을 하고 있나요?
                 </div>
-              )}
-              <div 
-                onClick={handleWriteClick}
-                className="flex-1 bg-neutral-900 hover:bg-neutral-850 text-neutral-400 border border-neutral-800 text-[13.5px] py-2 px-4 rounded-full cursor-pointer transition duration-150 font-bold"
-                id="toss-mobile-composer-pill"
-              >
-                무슨 생각을 하고 있나요?
               </div>
-            </div>
+            )}
           </div>
 
           {/* Bottom Action Area: Tab-controls + Search Bar + Write button & Pagination */}
@@ -1489,13 +1512,15 @@ export default function CommunityBoard({
               </div>
 
               {/* Bottom Right writer button (matching screenshot layout) */}
-              <button
-                onClick={handleWriteClick}
-                className="flex items-center space-x-1 px-5 py-2.5 bg-[#d11822] hover:bg-[#b0141c] text-white rounded-md text-xs font-black shadow-md transition w-full sm:w-auto justify-center"
-              >
-                <Pencil className="h-3.5 w-3.5 text-[#ff7135] fill-[#ff7135]" />
-                <span>글쓰기</span>
-              </button>
+              {!(boardType === 'notice' && !isAdmin) && (
+                <button
+                  onClick={handleWriteClick}
+                  className="flex items-center space-x-1 px-5 py-2.5 bg-[#d11822] hover:bg-[#b0141c] text-white rounded-md text-xs font-black shadow-md transition w-full sm:w-auto justify-center"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-[#ff7135] fill-[#ff7135]" />
+                  <span>글쓰기</span>
+                </button>
+              )}
 
             </div>
 
