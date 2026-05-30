@@ -536,19 +536,12 @@ export default function App() {
       const postId = path.replace('/post/', '');
       setSelectedCommunityPostId(postId);
       
-      const inNotice = postsNotice.some(p => p.id === postId);
-      const inHumor = postsHumor.some(p => p.id === postId);
-      const inFree = posts.some(p => p.id === postId);
-      
-      if (inNotice) {
-        setCurrentTab('community_notice');
-      } else if (inHumor) {
-        setCurrentTab('community_humor');
-      } else if (inFree) {
-        setCurrentTab('community');
-      } else {
-        setCurrentTab('community');
-      }
+      setCurrentTab(prev => {
+        if (prev === 'community_notice' || prev === 'community_humor' || prev === 'community') {
+          return prev;
+        }
+        return 'community';
+      });
     } else {
       setSelectedCommunityPostId(null);
       if (path === '/' || path === '/predict') {
@@ -579,7 +572,7 @@ export default function App() {
         setCurrentTab('predict');
       }
     }
-  }, [posts, postsHumor, postsNotice]);
+  }, []);
 
   // Initial and popstate effect
   React.useEffect(() => {

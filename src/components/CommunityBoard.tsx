@@ -217,8 +217,13 @@ export default function CommunityBoard({
   const [appliedSearchQuery, setAppliedSearchQuery] = React.useState<string>('');
   
   // Create / View Post States
-  const [selectedPost, setSelectedPost] = React.useState<CommunityPost | null>(null);
   const lastIncrementedPostId = React.useRef<string | null>(null);
+  
+  // Single source of truth: selectedPost is derived directly from list and selected ID prop
+  const selectedPost = React.useMemo(() => {
+    if (!initialSelectedPostId) return null;
+    return posts.find(p => p.id === initialSelectedPostId) || null;
+  }, [initialSelectedPostId, posts]);
   const [editingPost, setEditingPost] = React.useState<CommunityPost | null>(null);
   const [isWriting, setIsWriting] = React.useState<boolean>(false);
   const [newTitle, setNewTitle] = React.useState<string>('');
@@ -431,7 +436,6 @@ export default function CommunityBoard({
            isEvent: newIsEvent
          });
          alert("게시글이 수정되었습니다.");
-         setSelectedPost({ ...editingPost, title: newTitle, content: finalContent, tag: newTag, isNotice: newIsNotice, isRecommended: newIsRecommended, isEvent: newIsEvent });
       } else {
         const nextNumber = posts.length > 0 ? Math.max(...posts.map(p => p.number)) + 1 : 1;
         const newPostData = {
@@ -541,7 +545,9 @@ export default function CommunityBoard({
         }
 
         await deleteDoc(doc(db, collectionName, postId));
-        setSelectedPost(null);
+        if (onSelectPost) {
+          onSelectPost(null);
+        }
         alert("게시글이 삭제되었습니다.");
     } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, `posts/${postId}`);
@@ -636,50 +642,32 @@ export default function CommunityBoard({
   };
 
   const handleViewPost = async (post: CommunityPost) => {
-    // Increment views
-    lastIncrementedPostId.current = post.id;
-    try {
-        await updateDoc(doc(db, collectionName, post.id), {
-          views: post.views + 1
-        });
-        setSelectedPost({ ...post, views: post.views + 1 });
-        window.scrollTo({ top: 350, behavior: 'smooth' });
-    } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `posts/${post.id}`);
+    if (onSelectPost) {
+      onSelectPost(post.id);
     }
   };
 
-  // Sync selectedPost with prop initialSelectedPostId (single source of truth)
+  // Effect to automatically increment view count exactly once when a post is opened
   useEffect(() => {
     if (initialSelectedPostId) {
-      if (!selectedPost || selectedPost.id !== initialSelectedPostId) {
-        if (posts.length > 0) {
+      if (posts.length > 0) {
+        if (lastIncrementedPostId.current !== initialSelectedPostId) {
+          lastIncrementedPostId.current = initialSelectedPostId;
           const found = posts.find(p => p.id === initialSelectedPostId);
           if (found) {
-            // If we haven't incremented views for this post session yet, increment it
-            if (lastIncrementedPostId.current !== initialSelectedPostId) {
-              lastIncrementedPostId.current = initialSelectedPostId;
-              handleViewPost(found);
-            } else {
-              // Otherwise just set selection state without double-incrementing views
-              setSelectedPost(found);
-            }
+            updateDoc(doc(db, collectionName, found.id), {
+              views: found.views + 1
+            }).catch((error) => {
+              console.error("Failed to increment views:", error);
+            });
+            window.scrollTo({ top: 350, behavior: 'smooth' });
           }
         }
       }
     } else {
-      // If initialSelectedPostId is null/undefined, close the post view
-      if (selectedPost) {
-        setSelectedPost(null);
-      }
+      lastIncrementedPostId.current = null;
     }
-  }, [initialSelectedPostId, posts, selectedPost]);
-
-  useEffect(() => {
-    if (onSelectPost) {
-      onSelectPost(selectedPost ? selectedPost.id : null);
-    }
-  }, [selectedPost, onSelectPost]);
+  }, [initialSelectedPostId, posts, collectionName]);
 
   return (
     <div className="w-full max-w-7xl mx-auto px-0 md:px-4 py-0 md:py-8 font-sans">
@@ -873,7 +861,7 @@ export default function CommunityBoard({
           {/* Post Footer Actions */}
           <div className="bg-[#161616] border-t border-neutral-800 px-6 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <button
-              onClick={() => setSelectedPost(null)}
+              onClick={() => { if (onSelectPost) onSelectPost(null); }}
               className="flex items-center justify-center space-x-1.5 px-4 py-2 border border-neutral-800 rounded-md text-xs font-bold text-neutral-300 bg-[#222222] hover:bg-[#2e2e2e] transition"
             >
               <ArrowLeft className="h-4 w-4" />
