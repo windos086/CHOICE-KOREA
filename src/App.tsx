@@ -2107,7 +2107,7 @@ export default function App() {
       }
     }
 
-    sendChatMessage(`🎉 신규회원 [${nickname}](아이디: ${id})님이 회원가입을 무사히 마치고 가입 보너스 1,000 P가 즉시 적립되어 입장하셨습니다! 🥳`, 'system');
+    sendChatMessage(`🎉 신규회원 [${nickname}]님이 회원가입을 무사히 마치고 가입 보너스 1,000 P가 즉시 적립되어 입장하셨습니다! 🥳`, 'system');
     alert(`회원가입이 완료되었습니다!\n방금 생성하신 ${nickname} 계정으로 자동 연동 로그인이 완료되었으며, 신규 보상 1,000 P가 성공적으로 발급되었습니다.`);
     setCurrentTab('predict');
   };
