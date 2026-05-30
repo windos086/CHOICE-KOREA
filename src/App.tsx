@@ -3496,7 +3496,7 @@ export default function App() {
 
       {/* 모달 2. 구체적 배팅 대화상자 */}
       {selectedCardForBet && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50 backdrop-blur-md">
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50 backdrop-blur-md overflow-y-auto">
           <div className="bg-gradient-to-b from-[#141822] to-[#0b0d14] border border-[#ff4e4e]/15 rounded-2xl max-w-md w-full p-6 md:p-7 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),0_0_30px_rgba(255,78,78,0.08)] relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#ff4e4e] via-[#e53e3e] to-[#b71c1c]" />
             
@@ -3517,9 +3517,18 @@ export default function App() {
               <div className="text-gray-400 text-xs font-black uppercase tracking-widest flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-[#ff4e4e] rounded-full inline-block animate-pulse"></span>
                 선택한 예측 항목 (CHOOSE YOUR DECISION)
+                {selectedCardForBet.options.length > 6 && (
+                  <span className="text-[10px] text-gray-500 font-extrabold ml-auto animate-pulse flex items-center gap-1">
+                    ↕ Scroll Down
+                  </span>
+                )}
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid grid-cols-2 gap-3 ${
+                selectedCardForBet.options.length > 6 
+                  ? 'max-h-[260px] md:max-h-[300px] overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-[#0b0d14]/50 [&::-webkit-scrollbar-thumb]:bg-neutral-800 hover:[&::-webkit-scrollbar-thumb]:bg-neutral-700 [&::-webkit-scrollbar-thumb]:rounded-full' 
+                  : ''
+              }`}>
                 {selectedCardForBet.options.map((opt) => {
                   const isSelected = betOption === opt;
                   const isYes = opt === '예' || opt?.toLowerCase() === 'yes';
