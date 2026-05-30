@@ -69,6 +69,7 @@ const IconMap: Record<string, any> = {
 
 interface AiAutoManagerProps {
   predictionCards: any[];
+  allBets?: any[];
   onAddPrediction: any;
   onResolvePrediction: any;
   dynamicMenus: DynamicMenuItem[];
@@ -86,6 +87,7 @@ interface AiAutoManagerProps {
 
 export default function AiAutoManager({ 
   predictionCards, 
+  allBets = [],
   onAddPrediction, 
   onResolvePrediction, 
   dynamicMenus, 
@@ -1549,6 +1551,180 @@ export default function AiAutoManager({
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Operational 4: Member Prediction & Hit History Checking */}
+                  <div className="bg-[#10131d] border border-gray-850 p-4 rounded-xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-850 pb-2 mb-1">
+                      <h4 className="text-white font-extrabold text-xs flex items-center gap-1.5">
+                        <Trophy className="h-4 w-4 text-amber-500" />
+                        🎯 적중 심사 및 예측 참여 내역 (실시간)
+                      </h4>
+                      <span className="text-[10px] text-amber-400 font-bold bg-amber-950/20 border border-amber-500/20 px-1.5 py-0.5 rounded select-none flex items-center gap-1">
+                        <span>Event Auditor</span>
+                      </span>
+                    </div>
+
+                    {/* Simple computation of streaks */}
+                    {(() => {
+                      const memberBets = allBets.filter(b => b.userId === selectedMember.uid);
+                      const completedBets = [...memberBets]
+                        .filter(b => b.status === 'won' || b.status === 'lost')
+                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+                      let maxStreak = 0;
+                      let currentStreak = 0;
+
+                      for (const bet of completedBets) {
+                        if (bet.status === 'won') {
+                          currentStreak++;
+                          if (currentStreak > maxStreak) {
+                            maxStreak = currentStreak;
+                          }
+                        } else if (bet.status === 'lost') {
+                          currentStreak = 0;
+                        }
+                      }
+
+                      let latestStreak = 0;
+                      const reversedCompleted = [...completedBets].reverse();
+                      for (const bet of reversedCompleted) {
+                        if (bet.status === 'won') {
+                          latestStreak++;
+                        } else if (bet.status === 'lost') {
+                          break;
+                        }
+                      }
+
+                      const totalWins = memberBets.filter(b => b.status === 'won').length;
+                      const winRate = completedBets.length > 0 
+                        ? Math.round((totalWins / completedBets.length) * 100) 
+                        : 0;
+
+                      return (
+                        <div className="space-y-4">
+                          {/* Streak Dashboard */}
+                          <div className="grid grid-cols-4 gap-2 text-center text-[11px]">
+                            <div className="bg-[#181d2a] border border-gray-800 p-2 rounded-lg">
+                              <div className="text-gray-500 text-[10px] font-bold">총 참여/결과</div>
+                              <div className="text-white font-extrabold mt-0.5 font-mono">
+                                {memberBets.length}회 / {completedBets.length}회
+                              </div>
+                            </div>
+                            <div className="bg-[#181d2a] border border-gray-800 p-2 rounded-lg">
+                              <div className="text-gray-500 text-[10px] font-bold">적중률</div>
+                              <div className="text-emerald-400 font-extrabold mt-0.5 font-mono">
+                                {winRate}%
+                              </div>
+                            </div>
+                            <div className="bg-[#181d2a] border border-gray-800 p-2 rounded-lg">
+                              <div className="text-gray-500 text-[10px] font-bold">최고 연승</div>
+                              <div className="text-amber-400 font-extrabold mt-0.5 font-mono flex items-center justify-center gap-0.5">
+                                {maxStreak}연승
+                                {maxStreak >= 10 && (
+                                  <span className="text-[12px]" title="10연승 이상 달성자! 🍗">🍗</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="bg-[#181d2a] border border-amber-900/30 p-2 rounded-lg">
+                              <div className="text-amber-400 text-[10px] font-bold">현재 연승</div>
+                              <div className="text-yellow-400 font-extrabold mt-0.5 font-mono">
+                                {latestStreak}연승
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Consecutive Streak alert banner if they met the 10-win criteria */}
+                          {maxStreak >= 10 ? (
+                            <div className="bg-amber-950/45 border border-amber-500/30 p-2.5 rounded-lg text-amber-300 font-bold text-[11px] leading-relaxed flex items-start gap-2 animate-pulse">
+                              <span className="text-base text-amber-400">🍗</span>
+                              <div>
+                                <p className="font-extrabold text-amber-200">축하합니다! 10연승 적중 조건 충족됨</p>
+                                <p className="text-stone-400 font-medium text-[10px] mt-0.5">
+                                  이 사용자는 역대 최고 <span className="text-amber-350 font-bold">{maxStreak}연승</span>을 적중하여 치킨 이벤트 수여 대상입니다.
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-neutral-900/40 border border-gray-800 p-2.5 rounded-lg text-gray-400 font-medium text-[10.5px] leading-relaxed">
+                              💡 10연승 챌린지 획득을 위해서는 적중(종료된 퀴즈)이 <span className="text-stone-200 font-bold">연속 10회</span> 발생해야 합니다. (도중 미적중 시 리셋)
+                            </div>
+                          )}
+
+                          {/* Bets List */}
+                          <div className="space-y-2">
+                            <div className="text-[10px] text-gray-500 font-bold">최근 참여 내역 (최신순)</div>
+                            
+                            {memberBets.length > 0 ? (
+                              <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+                                {[...memberBets].reverse().map((bet, idx) => {
+                                  const card = predictionCards.find(p => p.id === bet.predictionId);
+                                  const cardTitle = card ? card.title : `예측 토픽 ID: ${bet.predictionId}`;
+                                  const categoryName = card ? card.category : '';
+                                  
+                                  let statusBadge = null;
+                                  if (bet.status === 'won') {
+                                    statusBadge = (
+                                      <span className="bg-emerald-950/60 border border-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded text-[9.5px] font-black">
+                                        적중 (+{bet.payout?.toLocaleString() || 0} P)
+                                      </span>
+                                    );
+                                  } else if (bet.status === 'lost') {
+                                    statusBadge = (
+                                      <span className="bg-rose-950/60 border border-rose-500/20 text-rose-450 px-1.5 py-0.5 rounded text-[9.5px] font-black">
+                                        미적중
+                                      </span>
+                                    );
+                                  } else if (bet.status === 'refunded') {
+                                    statusBadge = (
+                                      <span className="bg-blue-950/60 border border-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[9.5px] font-black">
+                                        취소/환불
+                                      </span>
+                                    );
+                                  } else {
+                                    statusBadge = (
+                                      <span className="bg-[#1f2330] border border-gray-800 text-amber-500 px-1.5 py-0.5 rounded text-[9.5px] font-black animate-pulse font-sans">
+                                        진행 대기중
+                                      </span>
+                                    );
+                                  }
+
+                                  return (
+                                    <div key={bet.id || idx} className="bg-[#171c28] border border-gray-850 p-2.5 rounded-lg text-[11px] hover:border-gray-800 transition-all">
+                                      <div className="flex items-center justify-between gap-2.5">
+                                        <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider font-mono">
+                                          {categoryName || '기타'}
+                                        </span>
+                                        <span className="text-[10px] text-gray-550 font-mono">
+                                          {bet.createdAt ? new Date(bet.createdAt).toLocaleString([], {month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit'}) : '-'}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="font-bold text-gray-200 mt-1 leading-snug line-clamp-1 text-left" title={cardTitle}>
+                                        {cardTitle}
+                                      </div>
+                                      
+                                      <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-gray-850/50">
+                                        <div className="text-[10.5px]">
+                                          배팅 선택: <span className="text-amber-400 font-extrabold">{bet.option}</span>
+                                        </div>
+                                        <div>
+                                          {statusBadge}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 border border-dashed border-gray-850 rounded-lg text-gray-500 text-[11px]">
+                                참여한 세부 배팅 내역이 전혀 검출되지 않았습니다.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                 </div>

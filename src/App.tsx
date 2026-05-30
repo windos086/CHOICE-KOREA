@@ -6,6 +6,7 @@ import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, addDoc
 import { UserProfile, PredictionCard, BetRecord, ChatMessage, DynamicMenuItem, CommunityPost, getApiUrl } from './types';
 import { DEFAULT_DYNAMIC_MENUS } from './constants';
 import { stripChildTag } from './utils';
+import KakaoCustomerCenterBanner from './components/KakaoCustomerCenterBanner';
 import Header from './components/Header';
 import LiveChat from './components/LiveChat';
 import Dashboard from './components/Dashboard';
@@ -20,6 +21,7 @@ import UserRanking from './components/UserRanking';
 import ChoiceRanking from './components/ChoiceRanking';
 import LoginModal from './components/LoginModal';
 import PredictionCommentsModal from './components/PredictionCommentsModal';
+import EventModal from './components/EventModal';
 import { ChoiceKoreaIcon, ChoiceKoreaDarkLogo } from './components/ChoiceKoreaLogo';
 import { Gamepad2, Hourglass, Landmark, Trophy, ArrowRight, UserCheck, Flame, CircleDollarSign, ShieldCheck, Power, KeyRound, LogIn, Gift, X, CalendarCheck, SquarePen, MessageSquare, Target, ArrowUp, Lightbulb, Store } from 'lucide-react';
 
@@ -476,6 +478,7 @@ export default function App() {
   const [loginId, setLoginId] = React.useState<string>('');
   const [loginPw, setLoginPw] = React.useState<string>('');
   const [isLoginModalOpen, setIsLoginModalOpen] = React.useState<boolean>(false);
+  const [isEventModalOpen, setIsEventModalOpen] = React.useState<boolean>(true);
   const [isQuestModalOpen, setIsQuestModalOpen] = React.useState<boolean>(false);
   const [rightBoardTab, setRightBoardTab] = React.useState<'sports_analysis' | 'notice' | 'event' | 'free_board' | 'humor_board'>('notice');
   const isAdmin = userProfile?.loginId === 'sinpotnf@gmail.com' || userProfile?.nickname === '최고관리자';
@@ -2152,6 +2155,38 @@ export default function App() {
     return card && card.status !== 'resolved';
   }).length;
 
+  const getStreakInfo = () => {
+    const completedBets = [...bets]
+      .filter(b => b.status === 'won' || b.status === 'lost')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    let maxStreak = 0;
+    let currentStreak = 0;
+
+    for (const bet of completedBets) {
+      if (bet.status === 'won') {
+        currentStreak++;
+        if (currentStreak > maxStreak) {
+          maxStreak = currentStreak;
+        }
+      } else if (bet.status === 'lost') {
+        currentStreak = 0;
+      }
+    }
+
+    let latestStreak = 0;
+    const reversedCompleted = [...completedBets].reverse();
+    for (const bet of reversedCompleted) {
+      if (bet.status === 'won') {
+        latestStreak++;
+      } else if (bet.status === 'lost') {
+        break;
+      }
+    }
+
+    return { maxStreak, latestStreak };
+  };
+
   const renderDesktopLoginOrProfileBox = () => {
     return (
       <div className="bg-[#1c1c1e] border border-[#2c2d33] rounded-xl p-4 text-xs font-sans shadow-lg">
@@ -2225,10 +2260,22 @@ export default function App() {
               </div>
               <div className="flex justify-between mt-1">
                 <span className="text-gray-400">현재 보유 포인트:</span>
-                <span className="text-amber-400 font-extrabold">
+                <span className="text-amber-400 font-extrabold font-mono">
                   {userProfile.points?.toLocaleString() || 0} P
                 </span>
               </div>
+              {(() => {
+                const { maxStreak, latestStreak } = getStreakInfo();
+                return (
+                  <div className="flex justify-between mt-1 border-t border-[#2b2b2b]/40 pt-1">
+                    <span className="text-gray-400">나의 챌린지 연승:</span>
+                    <span className="text-emerald-400 font-extrabold flex items-center gap-1 font-mono">
+                      <span>{latestStreak} 연승</span>
+                      <span className="text-neutral-500 font-medium text-[9.5px]">(최고 {maxStreak}승)</span>
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="pt-2 space-y-2">
@@ -2363,11 +2410,11 @@ export default function App() {
                 </label>
               </div>
               
-              <div className="col-span-8 space-y-2 text-left px-2">
+              <div className="col-span-8 space-y-1.5 text-left px-2">
                 <div className="flex justify-between items-center text-[12px] gap-2">
                   <span className="text-gray-400 font-medium shrink-0">닉네임</span>
                   <button 
-                    className="text-white font-black hover:underline cursor-pointer flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5 truncate max-w-[120px]" 
+                    className="text-white font-black hover:underline cursor-pointer flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 truncate max-w-[110px]" 
                     onClick={handleTriggerRename}
                   >
                     <span className="truncate">{userProfile.nickname}</span> 
@@ -2376,10 +2423,22 @@ export default function App() {
                 </div>
                 <div className="flex justify-between items-center text-[12px] gap-2">
                   <span className="text-gray-400 font-medium shrink-0">포인트</span>
-                  <span className="text-amber-400 font-extrabold bg-amber-400/10 px-2 py-1 rounded-lg border border-amber-450/10 whitespace-nowrap">
+                  <span className="text-amber-400 font-extrabold bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-450/10 whitespace-nowrap font-mono">
                     {userProfile.points?.toLocaleString() || 0} P
                   </span>
                 </div>
+                {(() => {
+                  const { maxStreak, latestStreak } = getStreakInfo();
+                  return (
+                    <div className="flex justify-between items-center text-[12px] gap-2 border-t border-neutral-800/40 pt-1">
+                      <span className="text-gray-400 font-medium shrink-0">연승</span>
+                      <span className="text-emerald-400 font-black flex items-center gap-1 font-mono">
+                        <span>{latestStreak} 연승</span>
+                        <span className="text-neutral-500 font-normal text-[9.5px]">(최고 {maxStreak}승)</span>
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -2471,8 +2530,9 @@ export default function App() {
       <main className="max-w-[1600px] mx-auto px-4 py-4">
         {/* 모바일 환경에서만 최상단에 노출되는 회원정보/로그인 영역 */}
         {!currentTab.startsWith('community') && (
-          <div className="block lg:hidden mb-4">
+          <div className="block lg:hidden mb-4 space-y-4">
             {renderMobileLoginOrProfileBox()}
+            <KakaoCustomerCenterBanner />
           </div>
         )}
 
@@ -2512,6 +2572,11 @@ export default function App() {
             {/* 1. 로그인 박스 (로그인 폼 / 연동 프로필) - 데스크톱에서만 노출 */}
             <div className="hidden lg:block">
               {renderDesktopLoginOrProfileBox()}
+            </div>
+
+            {/* 카카오톡 고객센터 배너 - 데스크톱에서 항상 노출 */}
+            <div className="hidden lg:block">
+              <KakaoCustomerCenterBanner />
             </div>
 
             {/* 2. AD 광고 제휴 문의 배너 */}
@@ -3058,6 +3123,7 @@ export default function App() {
             {currentTab === 'ai-manager' && (
               <AiAutoManager 
                 predictionCards={predictions}
+                allBets={allBets}
                 onAddPrediction={handleAddPrediction}
                 onResolvePrediction={handleResolvePrediction}
                 setCurrentTab={setCurrentTab}
@@ -3627,6 +3693,16 @@ export default function App() {
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         allBets={allBets}
         allUsers={allUsers}
+      />
+
+      <EventModal
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
+        onChallenge={() => {
+          setIsEventModalOpen(false);
+          setCurrentTab('predict');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* 실시간 알림 토스트 메시지 컨테이너 */}

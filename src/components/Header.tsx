@@ -33,6 +33,7 @@ import {
 import { UserProfile, DynamicMenuItem } from '../types';
 import { ChoiceKoreaHeaderLogo } from './ChoiceKoreaLogo';
 import { renderMilitaryBadge } from './MilitaryBadge';
+import KakaoCustomerCenterBanner from './KakaoCustomerCenterBanner';
 
 const IconMap: Record<string, any> = {
   Scale,
@@ -337,6 +338,9 @@ export default function Header({
                     </div>
                   </div>
                   <div className="p-4">
+                    <div className="mb-4">
+                      <KakaoCustomerCenterBanner />
+                    </div>
                     <button 
                       onClick={() => {
                         onLogout();
