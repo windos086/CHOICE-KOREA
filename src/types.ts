@@ -43,6 +43,8 @@ export interface PredictionCard {
   createdAt: string;
   sourceUrl: string;
   proposerUid?: string;
+  likes?: number;
+  likedBy?: string[];
 }
 
 export interface BetRecord {

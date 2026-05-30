@@ -494,22 +494,22 @@ export default function App() {
   const [suggestionEndAt, setSuggestionEndAt] = React.useState<string>('');
   const [suggestionOptions, setSuggestionOptions] = React.useState<string[]>(['']);
   const [suggestedPredictions, setSuggestedPredictions] = React.useState<PredictionCard[]>([]);
-  const [likes, setLikes] = React.useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('CHOICE_KOREA_LIKES_MAP');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-  const [likedByUser, setLikedByUser] = React.useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('CHOICE_KOREA_USER_LIKES');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const likes = React.useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    predictions.forEach(p => {
+      map[p.id] = p.likes || 0;
+    });
+    return map;
+  }, [predictions]);
+
+  const likedByUser = React.useMemo<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {};
+    predictions.forEach(p => {
+      const likedList = p.likedBy || [];
+      map[p.id] = userProfile ? likedList.includes(userProfile.uid) : false;
+    });
+    return map;
+  }, [predictions, userProfile]);
 
   const popularPredictionGames = React.useMemo(() => {
     return [...predictions]
@@ -536,27 +536,42 @@ export default function App() {
     }
   }, [selectedCardForBet, betOption]);
 
-  const handleLike = (cardId: string, e: React.MouseEvent) => {
+  const handleLike = async (cardId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!userProfile) {
       setIsLoginModalOpen(true);
       return;
     }
     
-    const isLiked = likedByUser[cardId];
-    let newLiked: Record<string, boolean>;
-    let newLikes: Record<string, number>;
+    const card = predictions.find(p => p.id === cardId);
+    if (!card) return;
+
+    const currentLikedBy = card.likedBy || [];
+    const isLiked = currentLikedBy.includes(userProfile.uid);
+    
+    let nextLikedBy: string[];
+    let nextLikes: number;
+    
     if (isLiked) {
-      newLiked = { ...likedByUser, [cardId]: false };
-      newLikes = { ...likes, [cardId]: Math.max(0, (likes[cardId] || 0) - 1) };
+      nextLikedBy = currentLikedBy.filter(uid => uid !== userProfile.uid);
+      nextLikes = Math.max(0, (card.likes || 0) - 1);
     } else {
-      newLiked = { ...likedByUser, [cardId]: true };
-      newLikes = { ...likes, [cardId]: (likes[cardId] || 0) + 1 };
+      nextLikedBy = [...currentLikedBy, userProfile.uid];
+      nextLikes = (card.likes || 0) + 1;
     }
-    setLikedByUser(newLiked);
-    setLikes(newLikes);
-    localStorage.setItem('CHOICE_KOREA_USER_LIKES', JSON.stringify(newLiked));
-    localStorage.setItem('CHOICE_KOREA_LIKES_MAP', JSON.stringify(newLikes));
+
+    setPredictions(prev => prev.map(p => p.id === cardId ? { ...p, likes: nextLikes, likedBy: nextLikedBy } : p));
+
+    if (firebaseAvailable && db) {
+      try {
+        await setDoc(doc(db, "predictions", cardId), {
+          likes: nextLikes,
+          likedBy: nextLikedBy
+        }, { merge: true });
+      } catch (err) {
+        console.error("Failed to update prediction likes in Firestore:", err);
+      }
+    }
   };
 
   const getRemainingTimeMsg = (endAt?: string) => {
