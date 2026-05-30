@@ -218,6 +218,7 @@ export default function CommunityBoard({
   
   // Create / View Post States
   const [selectedPost, setSelectedPost] = React.useState<CommunityPost | null>(null);
+  const lastIncrementedPostId = React.useRef<string | null>(null);
   const [editingPost, setEditingPost] = React.useState<CommunityPost | null>(null);
   const [isWriting, setIsWriting] = React.useState<boolean>(false);
   const [newTitle, setNewTitle] = React.useState<string>('');
@@ -636,6 +637,7 @@ export default function CommunityBoard({
 
   const handleViewPost = async (post: CommunityPost) => {
     // Increment views
+    lastIncrementedPostId.current = post.id;
     try {
         await updateDoc(doc(db, collectionName, post.id), {
           views: post.views + 1
@@ -647,17 +649,31 @@ export default function CommunityBoard({
     }
   };
 
+  // Sync selectedPost with prop initialSelectedPostId (single source of truth)
   useEffect(() => {
-    if (initialSelectedPostId && posts.length > 0) {
-      const found = posts.find(p => p.id === initialSelectedPostId);
-      if (found) {
-        handleViewPost(found);
-        if (onClearInitialSelectedPostId) {
-          onClearInitialSelectedPostId();
+    if (initialSelectedPostId) {
+      if (!selectedPost || selectedPost.id !== initialSelectedPostId) {
+        if (posts.length > 0) {
+          const found = posts.find(p => p.id === initialSelectedPostId);
+          if (found) {
+            // If we haven't incremented views for this post session yet, increment it
+            if (lastIncrementedPostId.current !== initialSelectedPostId) {
+              lastIncrementedPostId.current = initialSelectedPostId;
+              handleViewPost(found);
+            } else {
+              // Otherwise just set selection state without double-incrementing views
+              setSelectedPost(found);
+            }
+          }
         }
       }
+    } else {
+      // If initialSelectedPostId is null/undefined, close the post view
+      if (selectedPost) {
+        setSelectedPost(null);
+      }
     }
-  }, [initialSelectedPostId, posts, onClearInitialSelectedPostId]);
+  }, [initialSelectedPostId, posts, selectedPost]);
 
   useEffect(() => {
     if (onSelectPost) {
