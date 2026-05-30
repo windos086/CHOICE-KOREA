@@ -528,6 +528,140 @@ export default function App() {
     return list;
   }, [popularPredictionGames]);
 
+  // --- CLIENT-SIDE ROUTING (History API / popstate) ---
+  const handlePopState = React.useCallback(() => {
+    const path = window.location.pathname;
+    
+    if (path.startsWith('/post/')) {
+      const postId = path.replace('/post/', '');
+      setSelectedCommunityPostId(postId);
+      
+      const inNotice = postsNotice.some(p => p.id === postId);
+      const inHumor = postsHumor.some(p => p.id === postId);
+      const inFree = posts.some(p => p.id === postId);
+      
+      if (inNotice) {
+        setCurrentTab('community_notice');
+      } else if (inHumor) {
+        setCurrentTab('community_humor');
+      } else if (inFree) {
+        setCurrentTab('community');
+      } else {
+        setCurrentTab('community');
+      }
+    } else {
+      setSelectedCommunityPostId(null);
+      if (path === '/' || path === '/predict') {
+        setCurrentTab('predict');
+      } else if (path === '/register') {
+        setCurrentTab('register');
+      } else if (path === '/dashboard') {
+        setCurrentTab('dashboard');
+      } else if (path === '/shop') {
+        setCurrentTab('shop');
+      } else if (path === '/results') {
+        setCurrentTab('results');
+      } else if (path === '/ai-manager') {
+        setCurrentTab('ai-manager');
+      } else if (path === '/community') {
+        setCurrentTab('community');
+      } else if (path === '/community/humor') {
+        setCurrentTab('community_humor');
+      } else if (path === '/community/notice') {
+        setCurrentTab('community_notice');
+      } else if (path === '/community/ranking') {
+        setCurrentTab('community_ranking');
+      } else if (path === '/customer-center') {
+        setCurrentTab('customer-center');
+      } else if (path === '/suggestion') {
+        setCurrentTab('suggestion');
+      } else {
+        setCurrentTab('predict');
+      }
+    }
+  }, [posts, postsHumor, postsNotice]);
+
+  // Initial and popstate effect
+  React.useEffect(() => {
+    handlePopState();
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [handlePopState]);
+
+  // Lazy tab match effect when asynchronous posts update
+  React.useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/post/')) {
+      const postId = path.replace('/post/', '');
+      const inNotice = postsNotice.some(p => p.id === postId);
+      const inHumor = postsHumor.some(p => p.id === postId);
+      const inFree = posts.some(p => p.id === postId);
+      
+      if (inNotice) {
+        setCurrentTab('community_notice');
+      } else if (inHumor) {
+        setCurrentTab('community_humor');
+      } else if (inFree) {
+        setCurrentTab('community');
+      }
+    }
+  }, [posts, postsHumor, postsNotice]);
+
+  // Push state of current view to window location history
+  React.useEffect(() => {
+    let targetPath = '/';
+    if (selectedCommunityPostId) {
+      targetPath = `/post/${selectedCommunityPostId}`;
+    } else {
+      switch (currentTab) {
+        case 'predict':
+          targetPath = '/';
+          break;
+        case 'register':
+          targetPath = '/register';
+          break;
+        case 'dashboard':
+          targetPath = '/dashboard';
+          break;
+        case 'shop':
+          targetPath = '/shop';
+          break;
+        case 'results':
+          targetPath = '/results';
+          break;
+        case 'ai-manager':
+          targetPath = '/ai-manager';
+          break;
+        case 'community':
+          targetPath = '/community';
+          break;
+        case 'community_humor':
+          targetPath = '/community/humor';
+          break;
+        case 'community_notice':
+          targetPath = '/community/notice';
+          break;
+        case 'community_ranking':
+          targetPath = '/community/ranking';
+          break;
+        case 'customer-center':
+          targetPath = '/customer-center';
+          break;
+        case 'suggestion':
+          targetPath = '/suggestion';
+          break;
+        default:
+          targetPath = `/${currentTab}`;
+      }
+    }
+
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ tab: currentTab, postId: selectedCommunityPostId }, '', targetPath);
+    }
+  }, [currentTab, selectedCommunityPostId]);
+
   React.useEffect(() => {
     if (selectedCardForBet) {
       if (!betOption || !selectedCardForBet.options.includes(betOption)) {
@@ -3204,6 +3338,7 @@ export default function App() {
                 allUsers={allUsers}
                 initialSelectedPostId={selectedCommunityPostId}
                 onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
+                onSelectPost={setSelectedCommunityPostId}
               />
             )}
             
@@ -3217,6 +3352,7 @@ export default function App() {
                 allUsers={allUsers}
                 initialSelectedPostId={selectedCommunityPostId}
                 onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
+                onSelectPost={setSelectedCommunityPostId}
               />
             )}
 
@@ -3230,6 +3366,7 @@ export default function App() {
                 allUsers={allUsers}
                 initialSelectedPostId={selectedCommunityPostId}
                 onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
+                onSelectPost={setSelectedCommunityPostId}
               />
             )}
 

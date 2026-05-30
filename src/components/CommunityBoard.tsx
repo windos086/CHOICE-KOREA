@@ -35,6 +35,7 @@ interface CommunityBoardProps {
   allUsers?: UserProfile[];
   initialSelectedPostId?: string | null;
   onClearInitialSelectedPostId?: () => void;
+  onSelectPost?: (postId: string | null) => void;
 }
 
 // Utility to format dates: "X hours ago" or "YYYY/MM/DD"
@@ -171,7 +172,8 @@ export default function CommunityBoard({
   onQuestProgress, 
   allUsers = [],
   initialSelectedPostId,
-  onClearInitialSelectedPostId
+  onClearInitialSelectedPostId,
+  onSelectPost
 }: CommunityBoardProps) {
   const [posts, setPosts] = React.useState<CommunityPost[]>([]);
 
@@ -657,6 +659,12 @@ export default function CommunityBoard({
     }
   }, [initialSelectedPostId, posts, onClearInitialSelectedPostId]);
 
+  useEffect(() => {
+    if (onSelectPost) {
+      onSelectPost(selectedPost ? selectedPost.id : null);
+    }
+  }, [selectedPost, onSelectPost]);
+
   return (
     <div className="w-full max-w-7xl mx-auto px-0 md:px-4 py-0 md:py-8 font-sans">
       <input
@@ -707,10 +715,10 @@ export default function CommunityBoard({
 
       {/* DETAILED POST READING VIEW */}
       {selectedPost && !isWriting ? (
-        <div className="bg-[#141414] rounded-2xl border border-neutral-800 shadow-2xl overflow-hidden text-neutral-200 transition-all duration-300">
+        <article className="bg-[#141414] rounded-2xl border border-neutral-800 shadow-2xl overflow-hidden text-neutral-200 transition-all duration-300">
           
           {/* Post Header */}
-          <div className="bg-[#1a1a1a] border-b border-neutral-800 px-6 py-6 md:px-8">
+          <header className="bg-[#1a1a1a] border-b border-neutral-800 px-6 py-6 md:px-8">
             <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-400 mb-2">
               {selectedPost.isNotice && (
                 <span className="bg-[#d11822] text-white px-2 py-0.5 rounded text-[10px] font-black whitespace-nowrap">{boardType === 'notice' ? '이벤트' : '공지'}</span>
@@ -764,12 +772,12 @@ export default function CommunityBoard({
                 </span>
               </div>
             </div>
-          </div>
+          </header>
 
           {/* Post Content Body */}
-          <div className="px-6 py-8 md:px-8 md:py-10 text-neutral-300 text-sm md:text-base leading-relaxed whitespace-normal font-sans min-h-[250px] bg-[#111111]">
+          <section className="px-6 py-8 md:px-8 md:py-10 text-neutral-300 text-sm md:text-base leading-relaxed whitespace-normal font-sans min-h-[250px] bg-[#111111]">
             <ContentRenderer content={selectedPost.content} />
-          </div>
+          </section>
 
           {/* Comments Section */}
           <div className="bg-[#181818] border-t border-neutral-800 px-6 py-6 space-y-4">
@@ -883,7 +891,7 @@ export default function CommunityBoard({
             </div>
           </div>
 
-        </div>
+        </article>
       ) : isWriting ? (
         /* WRITE NEW POST LAYOUT */
         <div className="bg-[#141414] rounded-2xl border border-neutral-800 shadow-2xl overflow-hidden text-neutral-200">
