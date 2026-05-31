@@ -2731,10 +2731,11 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
-              className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-bold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl"
+              className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-bold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl relative overflow-hidden"
             >
-              <Power className="h-4.5 w-4.5 text-white" strokeWidth={2.5} />
-              <span>초이스 코리아 로그인</span>
+              <Power className="h-4.5 w-4.5 text-white relative z-10" strokeWidth={2.5} />
+              <span className="relative z-10">초이스 코리아 로그인</span>
+              <span className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-12 animate-shimmer pointer-events-none" />
             </button>
 
             {/* 하단 유틸 링크 */}
@@ -2895,10 +2896,11 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
-              className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-extrabold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl"
+              className="w-full bg-gradient-to-r from-[#e11d48] to-[#b91c1c] hover:brightness-110 active:scale-[0.99] text-white font-extrabold py-3.5 flex items-center justify-center space-x-2 shadow-sm transition-all text-[14px] cursor-pointer rounded-2xl relative overflow-hidden"
             >
-              <Power className="h-4.5 w-4.5 text-white animate-pulse" strokeWidth={2.5} />
-              <span>초이스 코리아 로그인</span>
+              <Power className="h-4.5 w-4.5 text-white animate-pulse relative z-10" strokeWidth={2.5} />
+              <span className="relative z-10">초이스 코리아 로그인</span>
+              <span className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-12 animate-shimmer pointer-events-none" />
             </button>
 
             {/* 하단 유틸 링크 (비밀번호찾기, 회원가입) */}
