@@ -2805,7 +2805,7 @@ export default function App() {
                 src="https://mblogthumb-phinf.pstatic.net/MjAyNjA1MzBfMTkz/MDAxNzgwMTM5NzIwODkw.OCv97aqTrFlBjBr8zjes3D4Heo2nVzIPLCC1DIGEY04g.YPbmQgW88CKKAjyIpSmzN6-Vk-RnToYAYFpj-ez3eKgg.GIF/%EC%9C%A0%EC%9D%80.gif?type=w800" 
                 alt="Partner Advertisement" 
                 referrerPolicy="no-referrer"
-                className="w-full h-auto object-cover rounded-xl"
+                className="w-[300.792px] h-[80.969px] object-cover rounded-xl"
               />
             </a>
           </div>
@@ -2859,21 +2859,25 @@ export default function App() {
               <KakaoCustomerCenterBanner />
             </div>
 
-            {/* 2. AD 광고 제휴 문의 배너 */}
+            {/* AD 광고 제휴 문의 배너 */}
             <div className="hidden lg:block">
               <a 
-                href="https://www.pandalive.co.kr/channel/uuu981214/notice"
-                target="_blank"
+                href="https://open.kakao.com/o/s9a4Pgxi"
+                target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full max-w-[306px] mx-auto overflow-hidden rounded-xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 group border border-neutral-800"
+                className="block w-[306px] max-w-full mx-auto bg-neutral-800 rounded-xl p-3.5 shadow-md hover:bg-neutral-700 transition-all group relative overflow-hidden active:scale-95 border border-neutral-700"
               >
-                <img 
-                  src="https://mblogthumb-phinf.pstatic.net/MjAyNjA1MzBfMTkz/MDAxNzgwMTM5NzIwODkw.OCv97aqTrFlBjBr8zjes3D4Heo2nVzIPLCC1DIGEY04g.YPbmQgW88CKKAjyIpSmzN6-Vk-RnToYAYFpj-ez3eKgg.GIF/%EC%9C%A0%EC%9D%80.gif?type=w800" 
-                  alt="Partner Advertisement" 
-                  referrerPolicy="no-referrer"
-                  className="w-full h-auto object-cover rounded-xl"
-                  style={{ height: '148.97px' }}
-                />
+                <div className="flex items-center relative z-10 select-none">
+                  <div className="mr-3 shrink-0">
+                    <div className="h-10 w-10 bg-neutral-700 rounded-full flex items-center justify-center text-neutral-400">
+                      <MessageSquare className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="flex-grow">
+                    <h3 className="text-white font-bold text-base tracking-tight leading-tight">AD 광고 제휴 문의</h3>
+                    <p className="text-white/60 text-[10px] font-semibold tracking-tight mt-0.5 uppercase">AD PARTNERSHIP INQUIRY</p>
+                  </div>
+                </div>
               </a>
             </div>
 
