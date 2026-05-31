@@ -187,14 +187,14 @@ export default function RegisterForm({ onRegisterSuccess, onCancel }: RegisterFo
     <div className="bg-[#1a1a1a] border border-[#2b2b2b] rounded-md p-5 font-sans text-xs text-gray-300">
       
       {/* Page Title Row */}
-      <div className="flex items-center justify-between border-b border-[#2b2b2b] pb-3 mb-5 animate-fade-in">
-        <div className="flex items-center space-x-2">
-          <span className="text-[#22c55e] text-lg font-black font-sans">👤 초이스 코리아 회원 가입</span>
-          <span className="text-[10px] text-gray-500 font-medium">| 가입 방식 분류 및 연동 최적화</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2b2b2b] pb-3 mb-5 animate-fade-in">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="text-[#22c55e] text-lg font-black font-sans whitespace-nowrap">👤 초이스 코리아 회원 가입</span>
+          <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">| 가입 방식 분류 및 연동 최적화</span>
         </div>
         <button 
           onClick={onCancel}
-          className="bg-transparent text-gray-500 hover:text-white transition cursor-pointer font-bold border border-[#2c2d33] px-2.5 py-1 rounded"
+          className="self-end sm:self-auto bg-transparent text-gray-500 hover:text-white transition cursor-pointer font-bold border border-[#2c2d33] px-2.5 py-1 rounded text-xs whitespace-nowrap"
         >
           돌아가기
         </button>
@@ -433,17 +433,17 @@ export default function RegisterForm({ onRegisterSuccess, onCancel }: RegisterFo
           </div>
 
           {/* Buttons Row with matching style */}
-          <div className="flex items-center justify-center space-x-3 pt-2">
+          <div className="flex items-center justify-center gap-3 pt-2">
             <button 
               type="submit"
-              className="bg-[#22c55e] hover:bg-[#1db053] active:scale-[0.98] transition text-black font-black py-3 px-10 rounded text-xs cursor-pointer"
+              className="flex-1 sm:flex-initial bg-[#22c55e] hover:bg-[#1db053] active:scale-[0.98] transition text-black font-black py-3 px-4 sm:px-10 rounded text-xs cursor-pointer whitespace-nowrap text-center"
             >
               회원가입 완료
             </button>
             <button 
               type="button"
               onClick={onCancel}
-              className="bg-[#2a2a2b] hover:bg-gray-700 active:scale-[0.98] transition text-white font-bold py-3 px-10 rounded text-xs cursor-pointer"
+              className="flex-1 sm:flex-initial bg-[#2a2a2b] hover:bg-gray-700 active:scale-[0.98] transition text-white font-bold py-3 px-4 sm:px-10 rounded text-xs cursor-pointer whitespace-nowrap text-center"
             >
               취소 / 돌아가기
             </button>

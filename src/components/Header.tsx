@@ -74,6 +74,8 @@ interface HeaderProps {
   onToggleTheme: () => void;
   onLogout: () => void;
   onOpenLoginModal: () => void;
+  notifications?: any[];
+  setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 export default function Header({ 
@@ -87,7 +89,9 @@ export default function Header({
   theme,
   onToggleTheme,
   onLogout,
-  onOpenLoginModal
+  onOpenLoginModal,
+  notifications: propNotifications,
+  setNotifications: propSetNotifications
 }: HeaderProps) {
   // Track currently hovered/clicked dropdown menu id
   const [activeDropdown, setActiveDropdown] = React.useState<string | null>(null);
@@ -96,9 +100,12 @@ export default function Header({
   const timeoutRef = React.useRef<any>(null);
 
   // Notification lists backed with interactive actions
-  const [notifications, setNotifications] = React.useState([
+  const [internalNotifications, setInternalNotifications] = React.useState([
     { id: 4, title: '🎉 일일 보장 보급 완료', text: '회원 연동 감사 일일 출석 1,000 P가 보너스로 자동 승인 처리되었습니다.', time: '어제', unread: false }
   ]);
+
+  const notifications = propNotifications !== undefined ? propNotifications : internalNotifications;
+  const setNotifications = propSetNotifications !== undefined ? propSetNotifications : setInternalNotifications;
   const [showNotifications, setShowNotifications] = React.useState(false);
 
   const unreadCount = notifications.filter(n => n.unread).length;

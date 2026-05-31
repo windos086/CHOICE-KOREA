@@ -129,6 +129,117 @@ export default function App() {
   const [isMobileGameListVisible, setIsMobileGameListVisible] = React.useState(false);
   const [expandedCards, setExpandedCards] = React.useState<Record<string, boolean>>({});
 
+  // Synchronized notifications state with local storage fallback
+  const [notifications, setNotifications] = React.useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('CHOICE_KOREA_NOTIFICATIONS');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [
+      { id: 'initial-boot-default', title: '🎉 일일 보장 보급 완료', text: '회원 연동 감사 일일 출석 1,000 P가 보너스로 자동 승인 처리되었습니다.', time: '어제', unread: false, createdAt: new Date(Date.now() - 86400000).toISOString() }
+    ];
+  });
+
+  // Keep local storage in sync (fallback listener)
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('CHOICE_KOREA_NOTIFICATIONS', JSON.stringify(notifications));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [notifications]);
+
+  // Synchronize with database if logged in
+  React.useEffect(() => {
+    if (!firebaseAvailable || !db || !userProfile?.uid) {
+      return;
+    }
+    const unsubNotifs = onSnapshot(
+      collection(db, "users", userProfile.uid, "notifications"),
+      (snapshot) => {
+        const list: any[] = [];
+        snapshot.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() });
+        });
+        // Sort newest first
+        list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setNotifications(list);
+      },
+      (error) => {
+        console.error("Firestore onSnapshot error for notifications:", error);
+      }
+    );
+    return () => unsubNotifs();
+  }, [firebaseAvailable, db, userProfile?.uid]);
+
+  const handleSetNotifications = async (updateArg: any) => {
+    // Calculate next notifications state
+    let nextNotifs: any[] = [];
+    if (typeof updateArg === 'function') {
+      nextNotifs = updateArg(notifications);
+    } else {
+      nextNotifs = updateArg;
+    }
+
+    // Sync to Firestore if logged in
+    if (firebaseAvailable && db && userProfile?.uid) {
+      try {
+        const currentUId = userProfile.uid;
+        
+        // Find deleted ones
+        const currentIds = notifications.map(n => String(n.id));
+        const nextIds = nextNotifs.map(n => String(n.id));
+        const deletedIds = currentIds.filter(id => !nextIds.includes(id));
+        
+        for (const dId of deletedIds) {
+          await deleteDoc(doc(db, "users", currentUId, "notifications", dId));
+        }
+
+        // Find modified unread status on remaining ones
+        for (const nextN of nextNotifs) {
+          const prevN = notifications.find(n => String(n.id) === String(nextN.id));
+          if (prevN && prevN.unread !== nextN.unread) {
+            await updateDoc(doc(db, "users", currentUId, "notifications", String(nextN.id)), {
+              unread: nextN.unread
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error updating Firestore notifications:", err);
+      }
+    }
+
+    setNotifications(nextNotifs);
+  };
+
+  const sendNotification = async (userId: string, title: string, text: string) => {
+    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const newNotif = {
+      id: notifId,
+      title,
+      text,
+      time: '방금 전',
+      unread: true,
+      createdAt: new Date().toISOString()
+    };
+
+    if (firebaseAvailable && db) {
+      try {
+        await setDoc(doc(db, "users", userId, "notifications", notifId), newNotif);
+      } catch (err) {
+        console.error("Error setting notice in firestore:", err);
+      }
+    }
+    
+    if (userId === (userProfile?.uid || '')) {
+      setNotifications(prev => {
+        if (prev.some(n => n.id === notifId)) return prev;
+        return [newNotif, ...prev];
+      });
+    }
+  };
 
   const [toasts, setToasts] = React.useState<{id: string; message: string; type: 'success' | 'info' | 'error'}[]>([]);
 
@@ -1662,6 +1773,31 @@ export default function App() {
             console.error(`Error updating bet status for betId ${bet.id}:`, err);
           }
         }
+
+        // Send notifications for retroactive corrections
+        const categoryMap: Record<string, string> = {
+          politics: '정치',
+          sports: '스포츠',
+          esports: 'E스포츠',
+          economy: '경제',
+          entertainment: '연예',
+          news: '뉴스',
+          broadcast: '방송'
+        };
+        const categoryKor = categoryMap[predictionTarget.category] || predictionTarget.category.toUpperCase();
+        if (newStatus === 'won') {
+          sendNotification(
+            bet.userId, 
+            '🔔 예측 결과 정정 적중', 
+            `[${categoryKor}] ${predictionTarget.title} 게임의 결과 의견이 정정되어 회원님이 예상한 결과가 최종 적중 처리되었습니다.`
+          );
+        } else if (newStatus === 'refunded') {
+          sendNotification(
+            bet.userId,
+            '🔄 예측 연쇄 경기취소',
+            `[${categoryKor}] ${predictionTarget.title} 게임이 최종 무효/경기취소로 정정 처리되었습니다.`
+          );
+        }
       }
     } else {
       // 🟢 최초 신규 결과 확정
@@ -1764,6 +1900,31 @@ export default function App() {
           } catch (err) {
             handleFirestoreError(err, OperationType.UPDATE, `bets/${bet.id}`);
           }
+        }
+
+        // Send notifications for first-time resolutions
+        const categoryMap: Record<string, string> = {
+          politics: '정치',
+          sports: '스포츠',
+          esports: 'E스포츠',
+          economy: '경제',
+          entertainment: '연예',
+          news: '뉴스',
+          broadcast: '방송'
+        };
+        const categoryKor = categoryMap[predictionTarget.category] || predictionTarget.category.toUpperCase();
+        if (betStatus === 'won') {
+          sendNotification(
+            bet.userId,
+            '👑 예측 성공 적중 완료!',
+            `[${categoryKor}] ${predictionTarget.title} 게임의 결과가 확정되었으며, 회원님이 예상한 결과가 최종 적중으로 확인되었습니다!`
+          );
+        } else if (betStatus === 'refunded') {
+          sendNotification(
+            bet.userId,
+            '🔄 예측 무효 경기 알림',
+            `[${categoryKor}] ${predictionTarget.title} 게임이 최종 무효/경기취소 처리되었습니다.`
+          );
         }
       }
     }
@@ -2998,6 +3159,8 @@ export default function App() {
         onToggleTheme={toggleTheme}
         onLogout={handleLogout}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
+        notifications={notifications}
+        setNotifications={handleSetNotifications}
       />
 
 
@@ -3012,7 +3175,7 @@ export default function App() {
         )}
 
         {/* 모바일 환경에서만 노출되는 회원정보/로그인 영역 */}
-        {!currentTab.startsWith('community') && (
+        {!currentTab.startsWith('community') && currentTab !== 'register' && (
           <div className="block lg:hidden mb-4 space-y-4">
             {renderMobileLoginOrProfileBox()}
             <KakaoCustomerCenterBanner />
@@ -3037,7 +3200,17 @@ export default function App() {
           </div>
         )}
 
-        {currentTab === 'predict' && selectedCategory !== 'all' ? (
+        {currentTab === 'register' ? (
+          <div className="max-w-3xl mx-auto px-4 py-8">
+            <RegisterForm 
+              onRegisterSuccess={handleRegisterSuccess}
+              onCancel={() => {
+                setCurrentTab('predict');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          </div>
+        ) : currentTab === 'predict' && selectedCategory !== 'all' ? (
           <PoliticsPortal 
             category={selectedCategory}
             predictions={predictions}
@@ -3515,15 +3688,7 @@ export default function App() {
             </div>
             )}
 
-            {currentTab === 'register' && (
-              <RegisterForm 
-                onRegisterSuccess={handleRegisterSuccess}
-                onCancel={() => {
-                  setCurrentTab('predict');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              />
-            )}
+
 
             {currentTab === 'dashboard' && (
               <Dashboard 
