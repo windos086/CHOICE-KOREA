@@ -1083,6 +1083,72 @@ export default function App() {
     }
   }, [firebaseAvailable]);
 
+  // Mathematically enrich and correct user profiles in the interface based on actual live bets
+  const enrichedUsers = React.useMemo(() => {
+    return allUsers.map(u => {
+      const userBets = allBets.filter(b => b.userId === u.uid);
+      const actualPredictsCount = userBets.length;
+      const actualSuccessCount = userBets.filter(b => b.status === 'won').length;
+      return {
+        ...u,
+        predictsCount: Math.max(u.predictsCount || 0, actualPredictsCount),
+        successCount: Math.max(u.successCount || 0, actualSuccessCount),
+      };
+    });
+  }, [allUsers, allBets]);
+
+  const enrichedUserProfile = React.useMemo(() => {
+    if (!userProfile) return null;
+    const userBets = allBets.filter(b => b.userId === userProfile.uid);
+    const actualPredictsCount = userBets.length;
+    const actualSuccessCount = userBets.filter(b => b.status === 'won').length;
+    return {
+      ...userProfile,
+      predictsCount: Math.max(userProfile.predictsCount || 0, actualPredictsCount),
+      successCount: Math.max(userProfile.successCount || 0, actualSuccessCount),
+    };
+  }, [userProfile, allBets]);
+
+  // Self-Healing Background Sync Task
+  React.useEffect(() => {
+    if (!firebaseAvailable || !db || allUsers.length === 0 || allBets.length === 0) return;
+
+    const runSelfHealingSync = async () => {
+      let updatedCount = 0;
+      for (const user of allUsers) {
+        const userBets = allBets.filter(b => b.userId === user.uid);
+        const actualPredictsCount = userBets.length;
+        const actualSuccessCount = userBets.filter(b => b.status === 'won').length;
+
+        const currentPredicts = user.predictsCount || 0;
+        const currentSuccess = user.successCount || 0;
+
+        if (currentPredicts !== actualPredictsCount || currentSuccess !== actualSuccessCount) {
+          console.log(`[Self-Healing] Syncing ${user.nickname || user.uid}: predicts ${currentPredicts} -> ${actualPredictsCount}, success ${currentSuccess} -> ${actualSuccessCount}`);
+          try {
+            await setDoc(doc(db, "users", user.uid), {
+              predictsCount: actualPredictsCount,
+              successCount: actualSuccessCount
+            }, { merge: true });
+            updatedCount++;
+            if (updatedCount >= 10) {
+              // Limit batch size per run to prevent rate-limiting or heavy writes
+              break;
+            }
+          } catch (e) {
+            console.error(`[Self-Healing] Sync failed for user ${user.uid}:`, e);
+          }
+        }
+      }
+    };
+
+    const timer = setTimeout(() => {
+      runSelfHealingSync();
+    }, 5000); // 5 seconds debounce to let snapshot updates settle
+
+    return () => clearTimeout(timer);
+  }, [allBets, allUsers, firebaseAvailable, db]);
+
   const handleCheckNickname = () => {
     if (!inputNickname.trim()) return;
     const cleanNick = inputNickname.trim().substring(0, 10);
@@ -1631,6 +1697,9 @@ export default function App() {
           localStorage.setItem('PREDICT_USER_POINTS', String(addedPoints));
           localStorage.setItem('PREDICT_USER_SUCCESS', String(addedSuccess));
 
+          // Also update allUsers local state so other lists reflect this immediately
+          setAllUsers(prev => prev.map(u => u.uid === (userProfile?.uid || '') ? { ...u, points: addedPoints, successCount: addedSuccess } : u));
+
           if (firebaseAvailable && db && userProfile?.uid) {
             try {
               await setDoc(doc(db, "users", userProfile.uid), {
@@ -1639,6 +1708,48 @@ export default function App() {
               }, { merge: true });
             } catch (e) {
               handleFirestoreError(e, OperationType.WRITE, `users/${userProfile.uid}`);
+            }
+          }
+        } else {
+          // ⚠️ 타인 계정 정산 누락 버그 완치
+          const targetUserLocal = allUsers.find(u => u.uid === bet.userId);
+          let userCurrentPoints = 0;
+          let userCurrentSuccess = 0;
+
+          if (targetUserLocal) {
+            userCurrentPoints = targetUserLocal.points || 0;
+            userCurrentSuccess = targetUserLocal.successCount || 0;
+          } else {
+            // Find directly from db if not in memory (usually in-memory list has them)
+            if (firebaseAvailable && db) {
+              try {
+                const userDocSnap = await getDoc(doc(db, "users", bet.userId));
+                if (userDocSnap.exists()) {
+                  const uData = userDocSnap.data();
+                  userCurrentPoints = uData.points || 0;
+                  userCurrentSuccess = uData.successCount || 0;
+                }
+              } catch (err) {
+                console.error("Error fetching other user from Firestore:", err);
+              }
+            }
+          }
+
+          const addedPoints = userCurrentPoints + prizeValue;
+          const addedSuccess = betStatus === 'won' ? userCurrentSuccess + 1 : userCurrentSuccess;
+
+          // Update local in-memory states
+          setAllUsers(prev => prev.map(u => u.uid === bet.userId ? { ...u, points: addedPoints, successCount: addedSuccess } : u));
+
+          // Sync with Firestore
+          if (firebaseAvailable && db) {
+            try {
+              await setDoc(doc(db, "users", bet.userId), {
+                points: addedPoints,
+                successCount: addedSuccess
+              }, { merge: true });
+            } catch (e) {
+              console.error(`Error updating other user ${bet.userId} points/success:`, e);
             }
           }
         }
@@ -2772,7 +2883,7 @@ export default function App() {
                 chatMessages={chats}
                 userProfile={userProfile}
                 onSendMessage={(text) => sendChatMessage(text, 'chat')}
-                allUsers={allUsers}
+                allUsers={enrichedUsers}
                 onUpdateUserProfile={handleUpdateUserProfile}
                 onSendSystemMessage={sendChatMessage}
                 activeUserCount={activeUserCount}
@@ -2781,7 +2892,7 @@ export default function App() {
             
             {/* 4. 회원 랭킹 TOP 10 */}
             <div className={currentTab.startsWith('community') ? 'hidden lg:block' : ''}>
-              <UserRanking allUsers={allUsers} />
+              <UserRanking allUsers={enrichedUsers} />
             </div>
 
 
@@ -3335,8 +3446,8 @@ export default function App() {
                 globalSubcategories={globalSubcategories}
                 setGlobalSubcategories={setGlobalSubcategories}
                 allUsers={(() => {
-                  const filtered = allUsers.filter(u => !pendingDeletions.has(u.uid));
-                  console.log("Filtered users for AiAutoManager:", filtered.length, "Total:", allUsers.length, "Pending deletions:", Array.from(pendingDeletions));
+                  const filtered = enrichedUsers.filter(u => !pendingDeletions.has(u.uid));
+                  console.log("Filtered users for AiAutoManager:", filtered.length, "Total:", enrichedUsers.length, "Pending deletions:", Array.from(pendingDeletions));
                   return filtered;
                 })()}
                 onUpdateUser={handleUpdateUserProfile}
@@ -3354,7 +3465,7 @@ export default function App() {
                 onQuestProgress={handleUpdateQuest}
                 title="자유게시판"
                 boardType="free"
-                allUsers={allUsers}
+                allUsers={enrichedUsers}
                 initialSelectedPostId={selectedCommunityPostId}
                 onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
                 onSelectPost={setSelectedCommunityPostId}
@@ -3368,7 +3479,7 @@ export default function App() {
                 onQuestProgress={handleUpdateQuest}
                 title="유머게시판"
                 boardType="humor"
-                allUsers={allUsers}
+                allUsers={enrichedUsers}
                 initialSelectedPostId={selectedCommunityPostId}
                 onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
                 onSelectPost={setSelectedCommunityPostId}
@@ -3382,7 +3493,7 @@ export default function App() {
                 onQuestProgress={handleUpdateQuest}
                 title="공지사항"
                 boardType="notice"
-                allUsers={allUsers}
+                allUsers={enrichedUsers}
                 initialSelectedPostId={selectedCommunityPostId}
                 onClearInitialSelectedPostId={() => setSelectedCommunityPostId(null)}
                 onSelectPost={setSelectedCommunityPostId}
@@ -3390,7 +3501,7 @@ export default function App() {
             )}
 
             {currentTab === 'community_ranking' && (
-              <ChoiceRanking allUsers={allUsers} />
+              <ChoiceRanking allUsers={enrichedUsers} />
             )}
 
             {currentTab === 'customer-center' && (
@@ -3897,7 +4008,7 @@ export default function App() {
         onQuestProgress={handleUpdateQuest}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         allBets={allBets}
-        allUsers={allUsers}
+        allUsers={enrichedUsers}
       />
 
       <EventModal
