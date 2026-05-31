@@ -2768,6 +2768,220 @@ export default function App() {
     );
   };
 
+  const renderSloganBanner = (idSuffix = '') => {
+    return (
+      <div className="bg-[#0b0f19] border border-[#1e293b] rounded-xl p-6 relative overflow-hidden group select-none shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex flex-col justify-between min-h-[225px] w-full">
+        
+        {/* Dynamic Prediction Market & Sports trajectory vector illustration */}
+        <div className="absolute inset-0 z-0 overflow-hidden opacity-[0.35]">
+          <svg className="w-full h-full" viewBox="0 0 1000 225" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id={`prediction-grid-${idSuffix}`} width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1f293d" strokeWidth="0.8" opacity="0.75" />
+              </pattern>
+              <linearGradient id={`redCurveGradient-${idSuffix}`} x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#ff3c4a" stopOpacity="0.1" />
+                <stop offset="100%" stopColor="#ff3c4a" stopOpacity="0.95" />
+              </linearGradient>
+              <linearGradient id={`blueCurveGradient-${idSuffix}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.1" />
+                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.95" />
+              </linearGradient>
+            </defs>
+            
+            {/* Grid Pattern background representing predictive charts */}
+            <rect width="100%" height="100%" fill={`url(#prediction-grid-${idSuffix})`} />
+            
+            {/* Ambient Brand Color Glows */}
+            <circle cx="85%" cy="20%" r="140" fill="#ff3c4a" opacity="0.16" filter="blur(45px)" />
+            <circle cx="15%" cy="80%" r="140" fill="#1d4ed8" opacity="0.16" filter="blur(45px)" />
+            
+            {/* Curves representing sports/prediction decision outcomes */}
+            <path 
+              d="M 50,170 Q 250,175 450,110 T 850,75" 
+              fill="none" 
+              stroke={`url(#redCurveGradient-${idSuffix})`} 
+              strokeWidth="4.5" 
+              strokeLinecap="round"
+              style={{
+                animation: 'pulse-curve-red 3.5s ease-in-out infinite alternate',
+              }}
+            />
+            
+            <path 
+              d="M 50,170 Q 250,120 450,140 T 850,135" 
+              fill="none" 
+              stroke={`url(#blueCurveGradient-${idSuffix})`} 
+              strokeWidth="3.5" 
+              strokeLinecap="round"
+              style={{
+                animation: 'pulse-curve-blue 4.5s ease-in-out infinite alternate',
+              }}
+            />
+
+            {/* Interactive/Glowing prediction nodes */}
+            <circle cx="850" cy="75" r="7" fill="#ff3c4a" className="pulse-node-red" />
+            <circle cx="850" cy="135" r="6" fill="#38bdf8" className="pulse-node-blue" />
+            <circle cx="450" cy="110" r="4.5" fill="#a855f7" className="opacity-75" />
+
+            {/* Floating Sports/Market symbols representing objectives */}
+            {/* 1. Trophy Outline Icon (Sports Victory prediction) */}
+            <g transform="translate(780, 40) scale(0.68)" opacity="0.6" className="floating-trophy">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M4 22h16" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 4.19V12a4 4 0 0 1-8 0V6.19A15.3 15.3 0 0 1 12 2Z" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </g>
+
+            {/* 2. Target/Goal Outline Icon */}
+            <g transform="translate(460, 45) scale(0.7)" opacity="0.5" className="floating-target">
+              <circle cx="12" cy="12" r="10" stroke="#64748b" strokeWidth="2" fill="none" />
+              <circle cx="12" cy="12" r="6" stroke="#64748b" strokeWidth="2" fill="none" />
+              <circle cx="12" cy="12" r="2" fill="#64748b" />
+            </g>
+
+            {/* 3. Ascending Market Trend Arrow */}
+            <g transform="translate(140, 80) scale(0.68)" opacity="0.55" className="floating-arrow">
+              <path d="M22 7H15" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M22 7V14" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M22 7L13 16L9 12L2 19" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </g>
+          </svg>
+        </div>
+
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes pulse-curve-red {
+            0% { stroke-width: 4.5px; filter: drop-shadow(0 0 1px rgba(255, 60, 74, 0.3)); }
+            100% { stroke-width: 6px; filter: drop-shadow(0 0 8px rgba(255, 60, 74, 0.75)); }
+          }
+          @keyframes pulse-curve-blue {
+            0% { stroke-width: 3.5px; filter: drop-shadow(0 0 1px rgba(56, 189, 248, 0.2)); }
+            100% { stroke-width: 5px; filter: drop-shadow(0 0 7px rgba(56, 189, 248, 0.65)); }
+          }
+          @keyframes pulse-node-glow {
+            0% { r: 5.5px; opacity: 0.75; }
+            100% { r: 9.5px; opacity: 1; }
+          }
+          @keyframes float-vertical-slow {
+            0% { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(-7px) rotate(4deg); }
+          }
+          @keyframes float-vertical-alt {
+            0% { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(5px) rotate(-3deg); }
+          }
+          .pulse-node-red {
+            animation: pulse-node-glow 1.6s ease-in-out infinite alternate;
+            transform-origin: center;
+          }
+          .pulse-node-blue {
+            animation: pulse-node-glow 2.2s ease-in-out infinite alternate-reverse;
+            transform-origin: center;
+          }
+          .floating-trophy {
+            animation: float-vertical-slow 3.2s ease-in-out infinite alternate;
+            transform-origin: center;
+          }
+          .floating-target {
+            animation: float-vertical-alt 4s ease-in-out infinite alternate;
+            transform-origin: center;
+          }
+          .floating-arrow {
+            animation: float-vertical-slow 2.8s ease-in-out infinite alternate-reverse;
+            transform-origin: center;
+          }
+          @keyframes marquee-up {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
+          }
+          .mask-fade-vertical {
+            mask-image: linear-gradient(to bottom, transparent, white 15%, white 85%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, white 15%, white 85%, transparent);
+          }
+        `}} />
+        
+        {/* Glowing brand-colored background decor */}
+        <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#ff3c4a]/5 rounded-full blur-[90px] -mr-20 -mt-20 pointer-events-none z-0" />
+        
+        <div className="flex flex-col items-center justify-center text-center z-10 p-2 w-full">
+          <div className="flex items-center justify-center space-x-3">
+            <ChoiceKoreaIcon className="h-12 w-12 transition-transform group-hover:scale-105 duration-500 shrink-0 filter drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)]" />
+            <div className="flex items-baseline">
+              <span className="text-white font-sans font-black text-3xl tracking-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] ml-[-22px]">CHOICE</span>
+              <span className="text-[#ff3845] font-sans font-black text-3xl tracking-tight ml-1.5 drop-shadow-[0_0_12px_rgba(255,56,69,0.35)]">KOREA</span>
+            </div>
+          </div>
+          <span className="text-slate-300 text-[11px] font-extrabold tracking-wider block mt-2.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">국내 공식 유저참여형 예측시장 커뮤니티</span>
+        </div>
+
+        {/* Real-time popular predictions sliding marquee underneath logo */}
+        <div className="w-full overflow-hidden mt-3 pt-1 z-10 select-none">
+          <div className="flex items-center space-x-1.5 mb-2.5 px-1 text-[11px] font-black text-slate-400">
+            <span className="animate-pulse inline-block w-2 h-2 rounded-full bg-red-500"></span>
+            <span>실시간 인기 예측 라이브</span>
+          </div>
+
+          {duplicatedPopularGames.length > 0 ? (
+            <div className="relative w-full h-[96px] overflow-hidden mask-fade-vertical">
+              <div 
+                className="flex flex-col gap-2 w-full py-1"
+                style={{
+                  animation: 'marquee-up 20s linear infinite',
+                }}
+              >
+                {duplicatedPopularGames.map((card, idx) => {
+                  const logo = subcategoryLogos[card.subCategory || ''];
+                  const itemLikes = likes[card.id] || 0;
+                  return (
+                    <div
+                      key={`${card.id}-marquee-${idx}`}
+                      onClick={() => setSelectedCardForBet(card)}
+                      className="flex items-center space-x-3 bg-[#131b2e]/70 hover:bg-[#1b2541]/90 border border-slate-800/80 hover:border-red-500/50 rounded-lg px-4 py-1.5 cursor-pointer transition-all duration-300 w-full shadow-sm select-none shrink-0 h-[42px]"
+                    >
+                      {/* Thumbnail Logo */}
+                      <div className="w-7 h-7 rounded-md bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0">
+                        {logo ? (
+                          <img 
+                            src={logo} 
+                            alt={card.subCategory} 
+                            className="w-full h-full object-contain p-0.5" 
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span className="text-xs">🏆</span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                        <div className="flex items-center space-x-2 truncate">
+                          <span className="text-[9.5px] text-[#38bdf8] font-black uppercase tracking-wide px-1.5 py-0.5 bg-sky-950/40 rounded border border-sky-800/30 shrink-0">
+                            {stripChildTag(getSubcategoryName(card.subCategory, card.category))}
+                          </span>
+                          <span className="text-[11.5px] text-slate-100 font-bold tracking-tight truncate">
+                            {stripChildTag(card.title)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] bg-rose-950/40 text-rose-400 font-extrabold px-2 py-0.5 rounded border border-rose-800/30 shrink-0 flex items-center gap-1">
+                          ❤️ {itemLikes}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-2 text-xs text-slate-500">
+              현재 활성화된 실시간 예측 게임이 없습니다.
+            </div>
+          )}
+        </div>
+
+      </div>
+    );
+  };
+
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'light-theme bg-[#f8f9fa] text-neutral-800' : 'bg-[#050608] text-gray-200'} font-sans selection:bg-rose-600 selection:text-white transition-all duration-300`}>
       
@@ -2790,23 +3004,35 @@ export default function App() {
 
       {/* 메인 레이아웃 본문 (그리드 분할: 좌측 사이드바 / 중앙 메인 / 우측 AD) */}
       <main className="max-w-[1600px] mx-auto px-4 py-4">
-        {/* 모바일 환경에서만 최상단에 노출되는 회원정보/로그인 영역 */}
+        {/* 모바일 환경: 최상단 태극기 슬로건 배너 */}
+        {currentTab === 'predict' && selectedCategory === 'all' && (
+          <div className="block lg:hidden mb-4">
+            {renderSloganBanner('mobile')}
+          </div>
+        )}
+
+        {/* 모바일 환경에서만 노출되는 회원정보/로그인 영역 */}
         {!currentTab.startsWith('community') && (
           <div className="block lg:hidden mb-4 space-y-4">
             {renderMobileLoginOrProfileBox()}
             <KakaoCustomerCenterBanner />
             <a 
-              href="https://www.pandalive.co.kr/channel/uuu981214/notice"
-              target="_blank"
+              href="https://open.kakao.com/o/s9a4Pgxi"
+              target="_blank" 
               rel="noopener noreferrer"
-              className="block w-full max-w-[306px] mx-auto overflow-hidden rounded-xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 group border border-neutral-800"
+              className="block w-full max-w-[333px] mx-auto bg-neutral-900 rounded-xl p-3.5 shadow-md hover:bg-neutral-800 transition-all group relative overflow-hidden active:scale-95 border border-neutral-800"
             >
-              <img 
-                src="https://mblogthumb-phinf.pstatic.net/MjAyNjA1MzBfMTkz/MDAxNzgwMTM5NzIwODkw.OCv97aqTrFlBjBr8zjes3D4Heo2nVzIPLCC1DIGEY04g.YPbmQgW88CKKAjyIpSmzN6-Vk-RnToYAYFpj-ez3eKgg.GIF/%EC%9C%A0%EC%9D%80.gif?type=w800" 
-                alt="Partner Advertisement" 
-                referrerPolicy="no-referrer"
-                className="w-[300.792px] h-[80.969px] object-cover rounded-xl"
-              />
+              <div className="flex items-center relative z-10 select-none">
+                <div className="mr-3 shrink-0">
+                  <div className="h-10 w-10 bg-neutral-800 rounded-full flex items-center justify-center text-neutral-400">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="flex-grow">
+                  <h3 className="text-white font-bold text-base tracking-tight leading-tight">AD 광고 제휴 문의</h3>
+                  <p className="text-white/60 text-[10px] font-semibold tracking-tight mt-0.5 uppercase">AD PARTNERSHIP INQUIRY</p>
+                </div>
+              </div>
             </a>
           </div>
         )}
@@ -2865,7 +3091,7 @@ export default function App() {
                 href="https://open.kakao.com/o/s9a4Pgxi"
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-[306px] max-w-full mx-auto bg-neutral-800 rounded-xl p-3.5 shadow-md hover:bg-neutral-700 transition-all group relative overflow-hidden active:scale-95 border border-neutral-700"
+                className="block w-[333px] max-w-full mx-auto bg-neutral-800 rounded-xl p-3.5 shadow-md hover:bg-neutral-700 transition-all group relative overflow-hidden active:scale-95 border border-neutral-700 mt-[-11px]"
               >
                 <div className="flex items-center relative z-10 select-none">
                   <div className="mr-3 shrink-0">
@@ -2910,124 +3136,8 @@ export default function App() {
               <div className="space-y-4">
                 
                 {/* 1. Choice Korea slogan banner with Waving Taegeukgi Background */}
-                <div className="bg-white border border-gray-200 rounded-xl p-6 relative overflow-hidden group select-none shadow-sm flex flex-col justify-between min-h-[225px]">
-                  
-                  {/* Waving High-Definition Taegeukgi Background */}
-                  <div className="absolute inset-0 z-0 overflow-hidden opacity-[0.25] flex items-center justify-center md:justify-end ml-[10%] md:ml-0 md:pr-[5%]">
-                    <div 
-                      className="w-[150%] md:w-[65%] h-[150%] bg-[url('https://upload.wikimedia.org/wikipedia/commons/0/09/Flag_of_South_Korea.svg')] bg-contain bg-center bg-no-repeat opacity-100"
-                      style={{
-                        animation: 'wave-flag 5s ease-in-out infinite alternate',
-                        transformOrigin: 'center center',
-                        filter: 'brightness(1.1) contrast(1.2) saturate(2.0)'
-                      }}
-                    />
-                    <div 
-                      className="absolute inset-0 w-full h-full pointer-events-none"
-                      style={{
-                        background: 'linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.0) 40%, rgba(255,255,255,0.3) 60%, rgba(255,255,255,0.0) 100%)',
-                        backgroundSize: '200% 100%',
-                        animation: 'wave-shadows 5s ease-in-out infinite alternate',
-                      }}
-                    />
-                  </div>
-
-                  <style dangerouslySetInnerHTML={{__html: `
-                    @keyframes wave-flag {
-                      0% { transform: perspective(800px) rotateY(-12deg) rotateX(3deg) scale(1.0) skewY(2deg); }
-                      100% { transform: perspective(800px) rotateY(12deg) rotateX(-3deg) scale(1.1) skewY(-2deg); }
-                    }
-                    @keyframes wave-shadows {
-                      0% { background-position: 0% 0%; }
-                      100% { background-position: 100% 0%; }
-                    }
-                    @keyframes marquee-up {
-                      0% { transform: translateY(0); }
-                      100% { transform: translateY(-50%); }
-                    }
-                    .mask-fade-vertical {
-                      mask-image: linear-gradient(to bottom, transparent, white 15%, white 85%, transparent);
-                      -webkit-mask-image: linear-gradient(to bottom, transparent, white 15%, white 85%, transparent);
-                    }
-                  `}} />
-                  
-                  {/* Glowing brand-colored background decor */}
-                  <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#d11822]/5 rounded-full blur-[90px] -mr-20 -mt-20 pointer-events-none z-0" />
-                  
-                  <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 text-center md:text-left z-10 p-2">
-                    <ChoiceKoreaIcon className="h-14 w-14 transition-transform group-hover:scale-105 duration-500 shrink-0 filter drop-shadow-[0_2px_15px_rgba(255,255,255,0.8)]" />
-                    <div className="space-y-1 -ml-1 md:-ml-2">
-                      <div className="flex items-baseline justify-center md:justify-start">
-                        <span className="text-gray-900 font-sans font-black text-3xl tracking-tight drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">CHOICE</span>
-                        <span className="text-[#d11822] font-sans font-black text-3xl tracking-tight ml-1 drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">KOREA</span>
-                      </div>
-                      <span className="text-gray-700 text-[10.5px] font-bold tracking-wider block mt-1 drop-shadow-[0_0_5px_rgba(255,255,255,1)]">국내 공식 유저참여형 예측시장 커뮤니티</span>
-                    </div>
-                  </div>
-
-                  {/* Real-time popular predictions sliding marquee underneath logo */}
-                  <div className="w-full overflow-hidden mt-2 pt-1 z-10 select-none">
-                    <div className="flex items-center space-x-1.5 mb-2 px-1 text-[11px] font-extrabold text-gray-500">
-                      <span className="animate-pulse inline-block w-2 h-2 rounded-full bg-red-600"></span>
-                      <span>실시간 인기 예측 라이브</span>
-                    </div>
-
-                    {duplicatedPopularGames.length > 0 ? (
-                      <div className="relative w-full h-[96px] overflow-hidden mask-fade-vertical">
-                        <div 
-                          className="flex flex-col gap-2 w-full py-1"
-                          style={{
-                            animation: 'marquee-up 20s linear infinite',
-                          }}
-                        >
-                          {duplicatedPopularGames.map((card, idx) => {
-                            const logo = subcategoryLogos[card.subCategory || ''];
-                            const itemLikes = likes[card.id] || 0;
-                            return (
-                              <div
-                                key={`${card.id}-marquee-${idx}`}
-                                onClick={() => setSelectedCardForBet(card)}
-                                className="flex items-center space-x-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/50 hover:border-red-400 rounded-lg px-4 py-1.5 cursor-pointer transition-all duration-300 w-full shadow-sm select-none shrink-0 h-[42px]"
-                              >
-                                {/* Thumbnail Logo */}
-                                <div className="w-7 h-7 rounded-md bg-white border border-neutral-200 flex items-center justify-center overflow-hidden shrink-0">
-                                  {logo ? (
-                                    <img 
-                                      src={logo} 
-                                      alt={card.subCategory} 
-                                      className="w-full h-full object-contain p-0.5" 
-                                      referrerPolicy="no-referrer"
-                                    />
-                                  ) : (
-                                    <span className="text-xs">🏆</span>
-                                  )}
-                                </div>
-
-                                <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-                                  <div className="flex items-center space-x-2 truncate">
-                                    <span className="text-[9.5px] text-[#0ea5e9] font-black uppercase tracking-wide px-1.5 py-0.5 bg-sky-50 rounded shrink-0">
-                                      {stripChildTag(getSubcategoryName(card.subCategory, card.category))}
-                                    </span>
-                                    <span className="text-[11.5px] text-gray-700 font-bold tracking-tight truncate">
-                                      {stripChildTag(card.title)}
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] bg-rose-50 text-rose-600 font-extrabold px-2 py-0.5 rounded shrink-0 flex items-center gap-1">
-                                    ❤️ {itemLikes}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-2 text-xs text-gray-400">
-                        현재 활성화된 실시간 예측 게임이 없습니다.
-                      </div>
-                    )}
-                  </div>
-
+                <div className="hidden lg:block">
+                  {renderSloganBanner('desktop')}
                 </div>
 
                 {/* 2. Double Column Bullet Boards (최근 등록글 + 탭 게시판) */}
@@ -3234,12 +3344,21 @@ export default function App() {
                 {/* 모바일 화면에서 게임 리스트 숨김/보기 토글 */}
                 <div className="md:hidden flex justify-center mb-4 w-full px-2">
                    <motion.button 
-                       onClick={() => setIsMobileGameListVisible(!isMobileGameListVisible)} 
+                       onClick={(e) => {
+                          const nextState = !isMobileGameListVisible;
+                          setIsMobileGameListVisible(nextState);
+                          if (nextState) {
+                              const targetButton = e.currentTarget;
+                              setTimeout(() => {
+                                  targetButton.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }, 150);
+                          }
+                      }} 
                        whileHover={{ scale: 1.05 }}
                        whileTap={{ scale: 0.95 }}
                        animate={{ opacity: [1, 0.6, 1] }}
                        transition={{ repeat: Infinity, duration: 2 }}
-                       className="w-full py-5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-[17.5px] font-black flex items-center justify-center gap-2.5 shadow-xl ring-2 ring-orange-400 ring-offset-2 ring-offset-neutral-900 tracking-wide transition-all"
+                       className="w-full py-[25px] bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-[17.5px] font-black flex items-center justify-center gap-2.5 shadow-xl ring-2 ring-orange-400 ring-offset-2 ring-offset-neutral-900 tracking-wide transition-all"
                    >
                        {isMobileGameListVisible ? '▲ 예측 접기' : '▼ 예측참여하기'}
                    </motion.button>

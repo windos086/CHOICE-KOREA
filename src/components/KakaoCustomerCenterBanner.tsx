@@ -23,7 +23,7 @@ export default function KakaoCustomerCenterBanner() {
         href={kakaoLink}
         target="_blank" 
         rel="noopener noreferrer"
-        className="block w-[306px] max-w-full mx-auto bg-[#FAE100] rounded-xl p-3.5 shadow-md hover:bg-[#FDD800] transition-all group relative overflow-hidden active:scale-95"
+        className="block w-[333px] max-w-full mx-auto bg-[#FAE100] rounded-xl p-3.5 shadow-md hover:bg-[#FDD800] transition-all group relative overflow-hidden active:scale-95"
       >
         {/* 번쩍이는 sweep 라이트 효과 */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-xl">

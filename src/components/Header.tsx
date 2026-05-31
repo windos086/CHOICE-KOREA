@@ -333,14 +333,14 @@ export default function Header({
                           {renderMilitaryBadge(userProfile?.activeBadge)}
                           <span>{userProfile?.nickname || '사용자'}</span>
                         </div>
-                        <div className="text-xs text-neutral-400">{userProfile?.loginId || 'guest@example.com'}</div>
+                        <div className="text-[10px] text-neutral-400 mt-1 flex gap-3">
+                            <span className="cursor-pointer hover:text-white" onClick={() => { setCurrentTab('shop'); setShowProfileMenu(false); }}>포인트: {userProfile?.points.toLocaleString()} P</span>
+                            <span className="cursor-pointer hover:text-white" onClick={() => { setCurrentTab('results'); setShowProfileMenu(false); }}>적중내역: {userProfile?.successCount} / {userProfile?.predictsCount}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                   <div className="p-4">
-                    <div className="mb-4">
-                      <KakaoCustomerCenterBanner />
-                    </div>
                     <button 
                       onClick={() => {
                         onLogout();
@@ -535,9 +535,7 @@ export default function Header({
                           key={item.id}
                           onClick={() => {
                             handleDynamicClick(item.tab, item.category);
-                            if (!hasSubmenus) {
-                              setIsMobileMenuOpen(false);
-                            }
+                            setIsMobileMenuOpen(false);
                           }}
                           className={`relative flex flex-col items-center justify-center py-3.5 px-1.5 rounded-xl border text-center transition-all ${
                             isActive
