@@ -2253,11 +2253,13 @@ export default function App() {
 
 
   // 모달 연동 통합 세션 로그인 처리 함수
-  const handleModalLoginSuccess = async (emailOrId: string, password?: string, customNickname?: string, customUid?: string) => {
+  const handleModalLoginSuccess = async (emailOrId: string, password?: string, customNickname?: string, customUid?: string): Promise<boolean> => {
     const cleanId = emailOrId.trim();
     const cleanPw = password ? password.trim() : '1234';
 
-    if (!cleanId) return;
+    if (!cleanId) return false;
+
+    const isSocialLogin = password === 'social_secure_bypass' || !!customUid || !!customNickname;
 
     // Search matches in allUsers first
     const searchUid = customUid || cleanId;
@@ -2293,11 +2295,11 @@ export default function App() {
 
       if (normalizedUser.isBanned) {
         alert(`❌ 해당 계정은 이용이제제(비활성화) 처리된 상태입니다.\n사유: ${normalizedUser.banReason || '운영규칙 위반'}`);
-        return;
+        return false;
       }
       if (cleanPw && cleanPw !== 'social_secure_bypass' && normalizedUser.password && normalizedUser.password !== cleanPw) {
         alert("❌ 기입한 비밀번호가 올바르지 않습니다.");
-        return;
+        return false;
       }
 
       // Successful matching!
@@ -2316,7 +2318,13 @@ export default function App() {
 
       setUserProfile(updatedUser);
       alert(`🎉 웰컴백! [${updatedUser.nickname}]님, 원격 보안 로그인 연동이 완료되었습니다.`);
+      return true;
     } else {
+      if (!isSocialLogin) {
+        alert("❌ 존재하지 않는 회원 아이디이거나 비밀번호가 올바르지 않습니다. 회원가입을 먼저 완료해 주세요!");
+        return false;
+      }
+
       // Create guest-like credentialed account for backward compatibility
       const generatedUid = customUid || 'usr_' + Math.random().toString(36).substring(2, 11);
       const tempNickname = customNickname || (cleanId.includes('@') ? cleanId.split('@')[0] : cleanId);
@@ -2351,6 +2359,7 @@ export default function App() {
         }
       }
       alert(`👤 신규 계정 [${initialProfile.nickname}]이 성공적으로 생성 및 구글 계정과 안전 연동되었습니다!\n(기존 회원 혜택 2,000 P가 즉시 지급되었습니다.)`);
+      return true;
     }
   };
 

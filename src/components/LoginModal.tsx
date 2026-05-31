@@ -5,7 +5,7 @@ import { getApiUrl } from '../types';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (id: string, password?: string, customNickname?: string, customUid?: string) => void;
+  onLoginSuccess: (id: string, password?: string, customNickname?: string, customUid?: string) => Promise<boolean> | void | any;
   onRegisterClick: () => void;
   theme?: string;
   addToast?: (message: string, type: 'success' | 'info' | 'error') => void;
@@ -56,7 +56,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -68,9 +68,24 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       return;
     }
 
-    // Submit using clean helper
-    onLoginSuccess(cleanEmail, cleanPw);
-    onClose();
+    if (!cleanPw) {
+      setErrorMessage('비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    // Submit using clean helper and only close modal if successful
+    try {
+      const outcome = onLoginSuccess(cleanEmail, cleanPw);
+      const isSuccess = outcome instanceof Promise ? await outcome : outcome;
+      if (isSuccess) {
+        onClose();
+      } else {
+        setErrorMessage('로그인 정보가 없거나 패스워드가 올바르지 않습니다.');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage('로그인 중 오류가 발생했습니다.');
+    }
   };
 
   // Social log-in automatic simulation handlers
