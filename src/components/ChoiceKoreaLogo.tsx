@@ -71,15 +71,15 @@ export function ChoiceKoreaFullLogo({ className = "max-w-[200px]" }: { className
       <ChoiceKoreaIcon className="h-24 w-24" />
 
       {/* Primary Brand Text */}
-      <div className="text-[#0d2b5c] font-sans text-[28px] font-black tracking-[0.14em] text-center mt-3 leading-none select-all">
-        CHOICE
+      <div className="text-[#0d2b5c] font-sans text-[24px] font-black tracking-widest text-center mt-3 leading-none select-all">
+        CHOICEKR
       </div>
 
-      {/* Subtitle brand accent (— K O R E A —) */}
+      {/* Subtitle brand accent (— . C O . K R —) */}
       <div className="flex items-center justify-center w-full mt-2.5 space-x-3">
         <div className="h-[1.5px] bg-[#0d2b5c] flex-1"></div>
-        <span className="text-[#d11822] text-[13px] font-black tracking-[0.4em] translate-x-[0.2em] font-sans">
-          KOREA
+        <span className="text-[#d11822] text-[13px] font-black tracking-[0.2em] translate-x-[0.1em] font-sans">
+          .CO.KR
         </span>
         <div className="h-[1.5px] bg-[#0d2b5c] flex-1"></div>
       </div>
@@ -96,14 +96,14 @@ export function ChoiceKoreaDarkLogo({ className = "max-w-[260px]" }: { className
 
       {/* Brand Text */}
       <div className="text-white font-sans text-2xl font-black tracking-widest text-center mt-3.5 leading-none">
-        CHOICE
+        CHOICEKR
       </div>
 
       {/* Subtitle */}
       <div className="flex items-center justify-center w-full mt-2 space-x-2">
         <div className="h-[1px] bg-gray-700 flex-1"></div>
-        <span className="text-[#d11822] text-[11px] font-black tracking-[0.35em] translate-x-[0.18em]">
-          KOREA
+        <span className="text-[#d11822] text-[11px] font-black tracking-[0.2em] translate-x-[0.1em]">
+          .CO.KR
         </span>
         <div className="h-[1px] bg-gray-700 flex-1"></div>
       </div>

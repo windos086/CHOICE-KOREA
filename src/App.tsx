@@ -3068,14 +3068,17 @@ export default function App() {
         <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#ff3c4a]/5 rounded-full blur-[90px] -mr-20 -mt-20 pointer-events-none z-0" />
         
         <div className="flex flex-col items-center justify-center text-center z-10 p-2 w-full">
-          <div className="flex items-center justify-center space-x-3">
-            <ChoiceKoreaIcon className="h-12 w-12 transition-transform group-hover:scale-105 duration-500 shrink-0 filter drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)]" />
-            <div className="flex items-baseline">
-              <span className="text-white font-sans font-black text-3xl tracking-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] ml-[-22px]">CHOICE</span>
-              <span className="text-[#ff3845] font-sans font-black text-3xl tracking-tight ml-1.5 drop-shadow-[0_0_12px_rgba(255,56,69,0.35)]">KOREA</span>
+          <div className="relative overflow-hidden group px-6 py-2 rounded-2xl flex items-center justify-center space-x-3">
+            {/* Elegant Shimmer Sweeper Overlay */}
+            <span className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-12 animate-shimmer pointer-events-none" />
+            
+            <ChoiceKoreaIcon className="h-12 w-12 transition-transform group-hover:scale-105 duration-500 shrink-0 filter drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)] relative z-10" />
+            <div className="flex items-baseline relative z-10">
+              <span className="text-white font-sans font-black text-3xl tracking-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] ml-[-12px]">Choicekr</span>
+              <span className="text-[#ff3845] font-sans font-black text-3xl tracking-tight ml-1 drop-shadow-[0_0_12px_rgba(255,56,69,0.35)]">.co.kr</span>
             </div>
           </div>
-          <span className="text-slate-300 text-[11px] font-extrabold tracking-wider block mt-2.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">국내 공식 유저참여형 예측시장 커뮤니티</span>
+          <span className="text-slate-300 text-[11px] font-extrabold tracking-wider block mt-[-3px] w-[208.177px] h-[16.5px] px-0 pb-0 mx-0 mb-0 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">국내 공식 유저참여형 예측시장 커뮤니티</span>
         </div>
 
         {/* Real-time popular predictions sliding marquee underneath logo */}
