@@ -544,7 +544,7 @@ export default function Header({
                             handleDynamicClick(item.tab, item.category);
                             setIsMobileMenuOpen(false);
                           }}
-                          className={`relative flex flex-col items-center justify-center py-3.5 px-1.5 rounded-xl border text-center transition-all ${
+                          className={`group relative overflow-hidden flex flex-col items-center justify-center py-3.5 px-1.5 rounded-xl border text-center transition-all ${
                             isActive
                               ? theme === 'light'
                                 ? 'bg-red-50/70 border-red-500/30 text-[#d11822] shadow-sm font-black scale-[0.98]'
@@ -554,6 +554,8 @@ export default function Header({
                                 : 'bg-[#1b1b1b] border-neutral-800/80 hover:bg-neutral-900 text-gray-300 font-bold'
                           }`}
                         >
+                          {/* Premium touch/hover shimmer effect */}
+                          <span className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 translate-x-[-150%] group-hover:animate-shimmer group-active:animate-shimmer pointer-events-none" />
                           {/* Premium Icon Badge style */}
                           <div className={`p-2 rounded-xl mb-1.5 flex items-center justify-center transition-all duration-200 ${
                             isActive
