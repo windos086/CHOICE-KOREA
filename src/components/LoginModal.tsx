@@ -118,6 +118,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
     if (platform === 'google') {
       // 1. Try backend-driven Google OAuth redirect FIRST (Highly reliable, WebView-safe storage/partition immunity in production)
+      let backendFailed = false;
+      let backendErrorMsg = "";
+
       try {
         const originUrl = window.location.origin;
         const apiTarget = getApiUrl(`/api/auth/google/url?origin=${encodeURIComponent(originUrl)}`);
@@ -180,34 +183,57 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
               window.location.href = resData.url;
             }
             return;
+          } else {
+            backendFailed = true;
+            backendErrorMsg = resData.error || "환경변수 미등록";
           }
+        } else {
+          backendFailed = true;
+          backendErrorMsg = `HTTP Error ${response.status}`;
         }
       } catch (backendErr) {
         console.warn("Backend-driven Google Redirect auth target skipped, checking fallbacks.", backendErr);
+        backendFailed = true;
+        backendErrorMsg = backendErr instanceof Error ? backendErr.message : String(backendErr);
       }
 
       // 2. Fallback: If backend environment is a WebView and error happens, show custom dialog warning/mock login
       if (isWebView()) {
-        const proceed = window.confirm(
-          "⚠️ [알림] 구글 로그인을 진행합니다.\n\n" +
-          "현재 앱(WebView) 환경에서 구글 보안 정책 때문에 흰색 오류('missing initial state' 에러)가 발생하는 경우, 아래 '확인'을 누르시면 즉시 정상 사용이 가능한 가상 모의 로그인을 실행하실 수 있습니다.\n\n" +
-          "가상 가입/로그인으로 빠르게 테스트해보시겠습니까?"
-        );
-        if (proceed) {
-          const googleName = window.prompt("💬 [구글 가상 보안 로그인]\n로그인 및 가입에 사용하고 싶은 이메일 주소 또는 성함을 입력해 주세요:", "tester@gmail.com");
-          if (googleName && googleName.trim()) {
-            const cleanName = googleName.trim();
-            const randId = 'google_' + Math.floor(1000 + Math.random() * 9000);
-            const mockEmail = cleanName.includes('@') ? cleanName : `${randId}@gmail.com`;
-            const mockNickname = cleanName.includes('@') ? cleanName.split('@')[0] : cleanName;
-            onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
-            onClose();
-          }
-          return;
+        if (backendFailed) {
+          alert(
+            "⚠️ [구글 간편 로그인 불가 조치안내]\n\n" +
+            "현재 하이브리드 앱(WebView) 또는 인앱 브라우저 테스트 환경입니다.\n" +
+            "이 환경에서 실제 구글 로그인을 작동하려면 구글 클라우드 콘솔의 OAuth '웹 애플리케이션' 클라이언트 정보가 서버 환경 변수에 설정되어야 합니다.\n\n" +
+            "💡 [조치법] 딱 2개의 값만 등록해주시면 모바일 앱에서도 즉시 작동합니다:\n" +
+            "1. 구글 Cloud Console -> API 및 서비스 -> 사용자 인증 정보의 웹 애플리케이션에서 '승인된 리디렉션 URI'에 아래 주소를 등록해 주세요:\n" +
+            `   ${window.location.origin}/api/auth/google/callback\n` +
+            "2. 구글 AI Studio 개발 화면 오른쪽 상단 톱니바퀴 아이콘(Settings) -> Secrets 메뉴에 아래 두 개 항목을 비밀키로 등록해 주세요:\n" +
+            "   - GOOGLE_CLIENT_ID (클라이언트 ID 값)\n" +
+            "   - GOOGLE_CLIENT_SECRET (보안 비밀번호 값)\n\n" +
+            "⚙️ 지금 바로 앱에서 간편 가상 계정 로그인으로 빠르고 완벽하게 테스트하시려면 이 창을 닫고 나오는 입력창에 이름이나 이메일을 적어주세요."
+          );
+        } else {
+          const proceed = window.confirm(
+            "⚠️ [알림] 구글 로그인을 진행합니다.\n\n" +
+            "현재 앱(WebView) 환경에서 구글 보안 정책 때문에 흰색 오류('missing initial state' 에러)가 발생하는 경우, 아래 '확인'을 누르시면 즉시 정상 사용이 가능한 가상 모의 로그인을 실행하실 수 있습니다.\n\n" +
+            "가상 가입/로그인으로 빠르게 테스트해보시겠습니까?"
+          );
+          if (!proceed) return;
         }
+
+        const googleName = window.prompt("💬 [구글 가상 보안 로그인]\n로그인 및 가입에 사용하고 싶은 이메일 주소 또는 성함을 입력해 주세요:", "tester@gmail.com");
+        if (googleName && googleName.trim()) {
+          const cleanName = googleName.trim();
+          const randId = 'google_' + Math.floor(1000 + Math.random() * 9000);
+          const mockEmail = cleanName.includes('@') ? cleanName : `${randId}@gmail.com`;
+          const mockNickname = cleanName.includes('@') ? cleanName.split('@')[0] : cleanName;
+          onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
+          onClose();
+        }
+        return;
       }
 
-      // 3. Fallback: Firebase Web Client SDK Popup Sign-In
+      // 3. Fallback: Firebase Web Client SDK Popup Sign-In (For standard desktop browsers/AI Studio preview when backend is not configured)
       try {
         const { auth, firebaseAvailable } = await import ("../firebase");
         if (firebaseAvailable && auth) {
