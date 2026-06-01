@@ -2363,33 +2363,6 @@ export default function App() {
     }
   };
 
-  // 구글 계정 통합 웹 리다이렉트 로그인 결과 자동 수신 및 통합 세션 파싱 담당
-  React.useEffect(() => {
-    if (!firebaseAvailable || !auth) return;
-
-    const parseRedirectResult = async () => {
-      try {
-        const { getRedirectResult } = await import("firebase/auth");
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          const user = result.user;
-          const userEmail = user.email || '';
-          const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
-          const uid = user.uid;
-          
-          console.log("🎯 [구글 통합 리다이렉트 로그인 성공 감지]:", userEmail, nickname, uid);
-          await handleModalLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
-        }
-      } catch (err: any) {
-        console.error("구글 리다이렉트 로그인 결과를 처리하는 도중 오류가 발생했습니다:", err);
-      }
-    };
-
-    parseRedirectResult();
-  }, [firebaseAvailable]);
-
-
-
   // 실시간 기밀 보안 로그인 인증 전산 함수
   const handleRealLogin = async () => {
     const cleanId = loginId.trim();
@@ -2902,7 +2875,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="pt-2 space-y-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => setIsQuestModalOpen(true)}
                 className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] hover:scale-[1.02] text-black py-2.5 rounded-xl text-xs font-black transition-all duration-200 cursor-pointer text-center block shadow-[0_0_12px_rgba(245,158,11,0.25)]"
@@ -4204,8 +4177,6 @@ export default function App() {
         <p>© 2026 CHOICE KOREA. All Rights Reserved.</p>
         <p className="mt-1">초이스 코리아 실시간 집계 및 예측 분석 플랫폼 정상 작동 중.</p>
       </footer>
-
-
 
       {isQuestModalOpen && userProfile && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
