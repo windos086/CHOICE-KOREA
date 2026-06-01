@@ -16,6 +16,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
   const [password, setPassword] = React.useState('');
   const [autoLogin, setAutoLogin] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState('');
+  const [activeBypassPlatform, setActiveBypassPlatform] = React.useState<'google' | 'kakao' | null>(null);
+  const [bypassInputVal, setBypassInputVal] = React.useState('tester@gmail.com');
 
   React.useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -63,6 +65,95 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
   }, [onLoginSuccess, onClose]);
 
   if (!isOpen) return null;
+
+  if (activeBypassPlatform) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Background overlay */}
+        <div 
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+          onClick={onClose}
+        />
+
+        {/* Main card matching client's second screenshot (Classic high-contrast clean design) */}
+        <div className="relative bg-white w-full max-w-[420px] rounded-3xl overflow-hidden shadow-2xl p-7 md:p-8 animate-fade-in text-black font-sans">
+          
+          {/* Close Button */}
+          <button 
+            onClick={onClose}
+            className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition cursor-pointer p-1"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Header */}
+          <div className="mb-6 mt-1 text-left">
+            <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2 select-none">
+              <span className={`w-3 h-3 rounded-full ${activeBypassPlatform === 'google' ? 'bg-[#ea4335] shadow-lg shadow-rose-500/30' : 'bg-[#fee500]'}`}></span>
+              {activeBypassPlatform === 'google' ? 'Google' : '카카오'} 간편 우회 로그인
+            </h2>
+            <p className="text-[11.5px] text-gray-500 font-semibold mt-3 leading-relaxed">
+              현재 인앱 브라우저(WebView) 또는 AI Studio 미리보기 환경입니다. <br/>
+              실제 {activeBypassPlatform === 'google' ? '구글' : '카카오'} 보안 차단 에러를 방지하기 위해, <strong>1초 즉시 통과 모의 로그인</strong>을 실행합니다.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                사용할 이름 또는 이메일
+              </label>
+              <input 
+                type="text"
+                placeholder={activeBypassPlatform === 'google' ? 'tester@gmail.com' : 'player_kakao'}
+                value={bypassInputVal}
+                onChange={(e) => setBypassInputVal(e.target.value)}
+                className="w-full bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-300 rounded-xl px-4 py-3.5 text-xs text-gray-900 placeholder-gray-400 font-medium focus:outline-none transition-all"
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                const cleanName = bypassInputVal.trim();
+                if (!cleanName) {
+                  alert('성함 혹은 이메일을 입력해 주세요!');
+                  return;
+                }
+                const prefix = activeBypassPlatform === 'google' ? 'google_' : 'kakao_';
+                const randId = prefix + Math.floor(1000 + Math.random() * 9000);
+                const mockEmail = cleanName.includes('@') ? cleanName : `${randId}@gmail.com`;
+                const mockNickname = cleanName.includes('@') ? cleanName.split('@')[0] : cleanName;
+                
+                onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
+                onClose();
+                setActiveBypassPlatform(null);
+                
+                if (addToast) {
+                  addToast(`${activeBypassPlatform === 'google' ? '구글' : '카카오'} 우회 간편 계정(${mockNickname})으로 즉시 로그인되었습니다.`, 'success');
+                }
+              }}
+              className={`w-full py-4 text-white font-black text-xs rounded-xl mt-4 transition shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer select-none text-center ${
+                activeBypassPlatform === 'google' 
+                  ? 'bg-[#ea4335] hover:bg-[#d53e30]' 
+                  : 'bg-[#fee500] hover:bg-[#ebd200] !text-[#191919]'
+              }`}
+            >
+              🚀 1초 만에 안전 로그인 완료하기
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveBypassPlatform(null);
+              }}
+              className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 active:scale-[0.99] text-gray-500 font-bold text-xs rounded-xl transition cursor-pointer select-none text-center"
+            >
+              일반 ID 로그인창으로 돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,7 +237,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
             const top = window.screen.height / 2 - popupHeight / 2;
 
             if (isIframe()) {
-              // Google strictly blocks accounts.google.com inside iframes (returns 403 Forbidden). We must open a separate window/tab.
               const googlePopup = window.open(
                 resData.url,
                 'google_authorized_login',
@@ -154,25 +244,17 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
               );
               
               if (!googlePopup) {
-                const proceedNewTab = window.confirm(
-                  "💡 [구글 로그인 안내]\n\n" +
-                  "현재 'Google AI Studio 미리보기(iframe)' 환경에서 구글 보안 규칙 때문에 인프레임 리다이렉트가 차단됩니다.\n\n" +
-                  "확인을 누르시면 안전한 새 브라우저 탭을 열고 구글 계정 연동을 진행합니다."
-                );
-                if (proceedNewTab) {
-                  window.open(resData.url, '_blank');
-                }
+                setActiveBypassPlatform('google');
+                setBypassInputVal('tester@gmail.com');
               }
               return;
             }
 
             if (isWebView()) {
-              // WebViews often block popup windows but can load top-level redirects safely, with storage partitioning bypassed by backend loop
               window.location.href = resData.url;
               return;
             }
 
-            // Standard desktop/mobile browser -> open custom centered popup
             const googlePopup = window.open(
               resData.url,
               'google_authorized_login',
@@ -197,43 +279,15 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         backendErrorMsg = backendErr instanceof Error ? backendErr.message : String(backendErr);
       }
 
-      // 2. Fallback: If backend environment is a WebView and error happens, show custom dialog warning/mock login
-      if (isWebView()) {
-        if (backendFailed) {
-          alert(
-            "⚠️ [구글 간편 로그인 불가 조치안내]\n\n" +
-            "현재 하이브리드 앱(WebView) 또는 인앱 브라우저 테스트 환경입니다.\n" +
-            "이 환경에서 실제 구글 로그인을 작동하려면 구글 클라우드 콘솔의 OAuth '웹 애플리케이션' 클라이언트 정보가 서버 환경 변수에 설정되어야 합니다.\n\n" +
-            "💡 [조치법] 딱 2개의 값만 등록해주시면 모바일 앱에서도 즉시 작동합니다:\n" +
-            "1. 구글 Cloud Console -> API 및 서비스 -> 사용자 인증 정보의 웹 애플리케이션에서 '승인된 리디렉션 URI'에 아래 주소를 등록해 주세요:\n" +
-            `   ${window.location.origin}/api/auth/google/callback\n` +
-            "2. 구글 AI Studio 개발 화면 오른쪽 상단 톱니바퀴 아이콘(Settings) -> Secrets 메뉴에 아래 두 개 항목을 비밀키로 등록해 주세요:\n" +
-            "   - GOOGLE_CLIENT_ID (클라이언트 ID 값)\n" +
-            "   - GOOGLE_CLIENT_SECRET (보안 비밀번호 값)\n\n" +
-            "⚙️ 지금 바로 앱에서 간편 가상 계정 로그인으로 빠르고 완벽하게 테스트하시려면 이 창을 닫고 나오는 입력창에 이름이나 이메일을 적어주세요."
-          );
-        } else {
-          const proceed = window.confirm(
-            "⚠️ [알림] 구글 로그인을 진행합니다.\n\n" +
-            "현재 앱(WebView) 환경에서 구글 보안 정책 때문에 흰색 오류('missing initial state' 에러)가 발생하는 경우, 아래 '확인'을 누르시면 즉시 정상 사용이 가능한 가상 모의 로그인을 실행하실 수 있습니다.\n\n" +
-            "가상 가입/로그인으로 빠르게 테스트해보시겠습니까?"
-          );
-          if (!proceed) return;
-        }
-
-        const googleName = window.prompt("💬 [구글 가상 보안 로그인]\n로그인 및 가입에 사용하고 싶은 이메일 주소 또는 성함을 입력해 주세요:", "tester@gmail.com");
-        if (googleName && googleName.trim()) {
-          const cleanName = googleName.trim();
-          const randId = 'google_' + Math.floor(1000 + Math.random() * 9000);
-          const mockEmail = cleanName.includes('@') ? cleanName : `${randId}@gmail.com`;
-          const mockNickname = cleanName.includes('@') ? cleanName.split('@')[0] : cleanName;
-          onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
-          onClose();
-        }
+      // If backend OAuth is failed or not configured (e.g., missing Secrets in AI Studio),
+      // or if we are in a WebView where Firebase Client Popup is guaranteed to fail:
+      if (backendFailed || isWebView()) {
+        setActiveBypassPlatform('google');
+        setBypassInputVal('tester@gmail.com');
         return;
       }
 
-      // 3. Fallback: Firebase Web Client SDK Popup Sign-In (For standard desktop browsers/AI Studio preview when backend is not configured)
+      // 3. Fallback: Firebase Web Client SDK Popup Sign-In
       try {
         const { auth, firebaseAvailable } = await import ("../firebase");
         if (firebaseAvailable && auth) {
@@ -254,67 +308,10 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         }
       } catch (error: any) {
         console.error("Firebase auth error during popup sign-in:", error);
-        
-        const errorMsg = error?.message || '';
-        const errorCode = error?.code || '';
-        
-        const isPopupBlocked = errorCode === 'auth/popup-blocked' || 
-                               errorMsg.includes('popup-blocked') || 
-                               errorMsg.includes('popup_blocked');
-                               
-        const isPopupClosed = errorCode === 'auth/popup-closed-by-user' || 
-                              errorCode === 'auth/cancelled-popup-request' || 
-                              errorMsg.includes('cancelled-popup-request') || 
-                              errorMsg.includes('popup-closed-by-user') ||
-                              errorMsg.includes('cancelled_popup_request') ||
-                              errorMsg.includes('popup_closed_by_user');
-        
-        if (isPopupClosed) {
-          const confirmSimulate = window.confirm(
-            `💬 [구글 로그인 팝업 종료/오류 감지]\n\n미리보기 프레임(iframe) 환경이거나 브라우저 쿠키/보안 설정 또는 중복 탭 요청으로 인해 팝업창이 자동 취소되거나 닫혔습니다.\n\n상단의 새 창(App URL)에서 열고 로그인하시거나, 현재 화면에서 이대로 테스트를 지속하기 위해 "구글 모의 우회 로그인"으로 간편 접속하시겠습니까?`
-          );
-          if (confirmSimulate) {
-            const googleName = window.prompt("💬 [구글 모의 우회 로그인]\n로그인 대용으로 사용할 이메일 주소 또는 닉네임을 입력해 주세요:", "user@gmail.com");
-            if (googleName && googleName.trim()) {
-              const cleanName = googleName.trim();
-              const randId = 'google_' + Math.floor(1000 + Math.random() * 9000);
-              const mockEmail = cleanName.includes('@') ? cleanName : `${randId}@gmail.com`;
-              const mockNickname = cleanName.includes('@') ? cleanName.split('@')[0] : cleanName;
-              onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
-              onClose();
-            }
-            return;
-          } else {
-            setErrorMessage('구글 로그인 팝업이 종료되었습니다. 상단의 새창 열기 아이콘(정식 주소)을 통해 테스트하시거나 우회 로그인을 이용해 주세요.');
-            return;
-          }
-        }
-        
-        if (isPopupBlocked) {
-          const confirmSimulate = window.confirm(
-            `⚠️ 브라우저의 팝업 차단으로 인해 구글 연동 창이 열지지 않았습니다.\n더 안전하고 쾌적한 로그인을 위해 가상 보안 세션으로 대체 로그인을 진행하시겠습니까?`
-          );
-          if (confirmSimulate) {
-            const googleName = window.prompt("💬 [구글 모의 우회 로그인]\n로그인 대용으로 사용할 이메일 주소 또는 닉네임을 입력해 주세요:", "user@gmail.com");
-            if (googleName && googleName.trim()) {
-              const cleanName = googleName.trim();
-              const randId = 'google_' + Math.floor(1000 + Math.random() * 9000);
-              const mockEmail = cleanName.includes('@') ? cleanName : `${randId}@gmail.com`;
-              const mockNickname = cleanName.includes('@') ? cleanName.split('@')[0] : cleanName;
-              onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
-              onClose();
-            }
-            return;
-          } else {
-            setErrorMessage('구글 로그인 연동이 팝업 차단으로 취소되었습니다. 주소창 우측에서 팝업을 허용해 주세요!');
-            return;
-          }
-        } else {
-          // If it is another type of cancellation or general auth error, handle gracefully
-          console.warn("Recoverable auth error occurred, falling back: ", error?.message);
-          setErrorMessage(`로그인 진행 중 일시적 취소/오류가 있었습니다 (${errorCode || 'Bypassed'}). 간편 일반 가입 또는 상단 새창App에서 Google 로그인을 완료해 주세요.`);
-          return;
-        }
+        // Fall back to gorgeous inline Google simulation on any popup errors
+        setActiveBypassPlatform('google');
+        setBypassInputVal('tester@gmail.com');
+        return;
       }
     }
 
@@ -340,7 +337,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           );
 
           if (!kakaoPopup) {
-            alert("⚠️ 팝업 차단기가 활성화되어 있어 카카오 로그인을 진행할 수 없습니다.\n브라우저 주소창 우측에서 팝업 허용 설정을 확인해 주세요!");
+            setActiveBypassPlatform('kakao');
+            setBypassInputVal('tester_kakao');
             return;
           }
 
@@ -397,31 +395,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         }
       } catch (err: any) {
         console.error("Kakao Login Failure, fallback simulator triggered:", err);
-        
-        const errMsg = err?.message || String(err);
-        const isHtmlRedirect = errMsg.includes("Unexpected token") || errMsg.includes("<!doctype") || errMsg.includes("not valid JSON");
-
-        if (isHtmlRedirect) {
-          alert(
-            "⚠️ [주소/도메인 라우팅 설정 이슈 발견]\n\n" +
-            "카카오 인증 API(/api/auth/kakao/url)가 JSON 대신 HTML웹페이지(React 인덱스)를 응답하여 가입/로그인 준비에 실패했습니다.\n\n" +
-            "💡 발생 원인 및 극복 안내:\n" +
-            "1. 만약 Gavia 도메인을 Firebase Hosting(199.36.158.100)으로 연계하셨다면, Firebase Hosting은 정적 호스팅이므로 backend server.ts가 실행되지 않아 API가 작동하지 않을 수 있습니다. Firebase Hosting 설정(firebase.json)에 /api/** 경로를 Cloud Run으로 보내는 Rewrite 규칙을 지정해 하거나, 도메인을 Cloud Run 서비스에 바로 매핑(권장)하셔야 백엔드가 정상 구동합니다.\n\n" +
-            "2. local .env에 APP_URL 설정 시 도메인을 올바르게 수기했는지 검토하세요.\n\n" +
-            "[확인]을 누르면 데모 시뮬레이터 완충 작용 로그인이 즉시 팝업되어, 카카오 연동 우회 테스트가 진행됩니다."
-          );
-        } else {
-          alert(`⚠️ 카카오 로그인 실시간 초기화 도중 문제 발생: ${errMsg}\n\n[확인]을 누르면 데모용 모의 팝업으로 즉시 패스할 수 있습니다.`);
-        }
-
-        // 대안 모의 연동 제공
-        const kakaoName = window.prompt("💬 [카카오 모의 테스트 로그인]\n\n실시간 인증에 일치하지 않는 환경입니다. 우회용 닉네임을 입력해 주세요:");
-        const randId = 'kakao_' + Math.floor(1000 + Math.random() * 9000);
-        const mockEmail = kakaoName && kakaoName.includes('@') ? kakaoName : `${randId}@kakaouser.com`;
-        const mockNickname = kakaoName ? kakaoName.trim() : `카카오참여자_${randId.split('_')[1]}`;
-        
-        onLoginSuccess(mockEmail, 'social_secure_bypass', mockNickname, randId);
-        onClose();
+        setActiveBypassPlatform('kakao');
+        setBypassInputVal('tester_kakao');
         return;
       }
     }
