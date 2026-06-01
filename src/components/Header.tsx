@@ -34,6 +34,7 @@ import { UserProfile, DynamicMenuItem } from '../types';
 import { ChoiceKoreaHeaderLogo } from './ChoiceKoreaLogo';
 import { renderMilitaryBadge } from './MilitaryBadge';
 import KakaoCustomerCenterBanner from './KakaoCustomerCenterBanner';
+import MyInfoModal from './MyInfoModal';
 
 const IconMap: Record<string, any> = {
   Scale,
@@ -76,6 +77,7 @@ interface HeaderProps {
   onOpenLoginModal: () => void;
   notifications?: any[];
   setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
+  onDeleteAccount: (uid: string) => Promise<void>;
 }
 
 export default function Header({ 
@@ -91,12 +93,14 @@ export default function Header({
   onLogout,
   onOpenLoginModal,
   notifications: propNotifications,
-  setNotifications: propSetNotifications
+  setNotifications: propSetNotifications,
+  onDeleteAccount
 }: HeaderProps) {
   // Track currently hovered/clicked dropdown menu id
   const [activeDropdown, setActiveDropdown] = React.useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [showMyInfoModal, setShowMyInfoModal] = React.useState(false);
   const timeoutRef = React.useRef<any>(null);
 
   // Notification lists backed with interactive actions
@@ -347,13 +351,24 @@ export default function Header({
                       </div>
                     </div>
                   </div>
-                  <div className="p-4">
+                  <div className="p-4 space-y-2">
+                    <button 
+                      onClick={() => {
+                        setShowMyInfoModal(true);
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full flex items-center justify-center space-x-2 bg-[#d11822] hover:bg-[#b0141c] text-white py-2 rounded-lg text-xs font-bold transition-all"
+                      id="header-my-info-btn"
+                    >
+                      <span>내 정보</span>
+                    </button>
                     <button 
                       onClick={() => {
                         onLogout();
                         setShowProfileMenu(false);
                       }}
                       className="w-full flex items-center justify-center space-x-2 bg-neutral-800 hover:bg-neutral-700 text-white py-2 rounded-lg text-xs font-bold transition-all"
+                      id="header-logout-btn"
                     >
                       <span>로그아웃</span>
                     </button>
@@ -655,6 +670,14 @@ export default function Header({
           </div>
         </div>
       )}
+      
+      <MyInfoModal
+        isOpen={showMyInfoModal}
+        onClose={() => setShowMyInfoModal(false)}
+        userProfile={userProfile}
+        onDeleteAccount={onDeleteAccount}
+        theme={theme}
+      />
     </header>
   );
 }

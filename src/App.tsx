@@ -22,6 +22,10 @@ import ChoiceRanking from './components/ChoiceRanking';
 import LoginModal from './components/LoginModal';
 import PredictionCommentsModal from './components/PredictionCommentsModal';
 import EventModal from './components/EventModal';
+import AccountDeletionHandler from './components/AccountDeletionHandler';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+import PrivacyPolicyModal from './components/PrivacyPolicyModal';
+import InfoTermModal, { InfoTermType } from './components/InfoTermModal';
 import { ChoiceKoreaIcon, ChoiceKoreaDarkLogo } from './components/ChoiceKoreaLogo';
 import { Gamepad2, Hourglass, Landmark, Trophy, ArrowRight, UserCheck, Flame, CircleDollarSign, ShieldCheck, Power, KeyRound, LogIn, Gift, X, CalendarCheck, SquarePen, MessageSquare, Target, ArrowUp, Lightbulb, Store } from 'lucide-react';
 
@@ -97,6 +101,14 @@ function KakaoCallbackHandler() {
 export default function App() {
   if (window.location.pathname === '/api/auth/kakao/callback') {
     return <KakaoCallbackHandler />;
+  }
+
+  if (window.location.pathname === '/delete-account') {
+    return <AccountDeletionHandler />;
+  }
+
+  if (window.location.pathname === '/privacy-policy') {
+    return <PrivacyPolicyPage />;
   }
 
   const [currentTab, setCurrentTab] = React.useState<string>('predict');
@@ -598,6 +610,9 @@ export default function App() {
   const [loginId, setLoginId] = React.useState<string>('');
   const [loginPw, setLoginPw] = React.useState<string>('');
   const [isLoginModalOpen, setIsLoginModalOpen] = React.useState<boolean>(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = React.useState<boolean>(false);
+  const [infoTermType, setInfoTermType] = React.useState<InfoTermType | null>(null);
+  const [isInfoTermModalOpen, setIsInfoTermModalOpen] = React.useState<boolean>(false);
   const [isEventModalOpen, setIsEventModalOpen] = React.useState<boolean>(true);
   const [isQuestModalOpen, setIsQuestModalOpen] = React.useState<boolean>(false);
   const [rightBoardTab, setRightBoardTab] = React.useState<'sports_analysis' | 'notice' | 'event' | 'free_board' | 'humor_board'>('event');
@@ -2221,6 +2236,40 @@ export default function App() {
     const userToDelete = allUsers.find(u => u.uid === uid);
     console.log("Found user to delete:", userToDelete);
 
+    if (userToDelete && userToDelete.loginId) {
+      const lowerId = userToDelete.loginId.toLowerCase();
+      const withdrawnAt = new Date().toISOString();
+      
+      // Save offline trace to localStorage
+      try {
+        const localLogsStr = localStorage.getItem('PREDICT_LOCAL_WITHDRAWALS');
+        let logs: { loginId: string; withdrawnAt: string }[] = [];
+        if (localLogsStr) {
+          logs = JSON.parse(localLogsStr);
+        }
+        // Filter out duplicate or expired items (>30 days) to keep it lightweight
+        const nowMs = Date.now();
+        logs = logs.filter(log => (nowMs - new Date(log.withdrawnAt).getTime()) < 30 * 24 * 60 * 60 * 1000);
+        logs.push({ loginId: lowerId, withdrawnAt });
+        localStorage.setItem('PREDICT_LOCAL_WITHDRAWALS', JSON.stringify(logs));
+      } catch (e) {
+        console.error("Failed to write offline withdrawal tracking logs", e);
+      }
+
+      if (firebaseAvailable && db) {
+        try {
+          await setDoc(doc(db, "withdrawal_logs", lowerId), {
+            loginId: userToDelete.loginId,
+            nickname: userToDelete.nickname,
+            withdrawnAt: withdrawnAt
+          });
+          console.log("Successfully recorded withdrawal log on Firestore for:", lowerId);
+        } catch (err) {
+          console.error("Firestore setDoc on withdrawal_logs failed:", err);
+        }
+      }
+    }
+
     // Mark as pending deletion to filter out of list even if onSnapshot returns it
     updatePendingDeletions(uid, 'add');
     setAllUsers(prev => prev.filter(u => u.uid !== uid));
@@ -2324,6 +2373,10 @@ export default function App() {
         alert("❌ 존재하지 않는 회원 아이디이거나 비밀번호가 올바르지 않습니다. 회원가입을 먼저 완료해 주세요!");
         return false;
       }
+
+      // 30일 이내 탈퇴 여부 검증 (소셜 로그인 자동 회원가입 시)
+      const isAllowed = await checkReRegistrationPermission(cleanId);
+      if (!isAllowed) return false;
 
       // Create guest-like credentialed account for backward compatibility
       const generatedUid = customUid || 'usr_' + Math.random().toString(36).substring(2, 11);
@@ -2490,8 +2543,62 @@ export default function App() {
     }
   }, [allUsers]);
 
+  // 최근 30일 이내 회원탈퇴 여부 검증 함수
+  const checkReRegistrationPermission = async (loginId: string): Promise<boolean> => {
+    const cleanId = loginId.trim().toLowerCase();
+    
+    // 1. localStorage 로컬 빠른 검증
+    try {
+      const localLogsStr = localStorage.getItem('PREDICT_LOCAL_WITHDRAWALS');
+      if (localLogsStr) {
+        const logs = JSON.parse(localLogsStr) as { loginId: string; withdrawnAt: string }[];
+        const matched = logs.find(log => log.loginId.toLowerCase() === cleanId);
+        if (matched) {
+          const withdrawnDate = new Date(matched.withdrawnAt);
+          const limitDate = new Date(withdrawnDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+          const now = new Date();
+          if (now < limitDate) {
+            const daysLeft = Math.ceil((limitDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+            alert(`❌ 회원탈퇴 처리된 지 30일이 경과하기 전에는 재가입이 불가능합니다.\n(재가입 가능일: ${limitDate.toLocaleDateString()} - 약 ${daysLeft}일 대기 필요)`);
+            return false;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Local withdrawal check error:", e);
+    }
+
+    // 2. Firestore 원격 최종 검증 (전산 교차 검증)
+    if (firebaseAvailable && db) {
+      try {
+        const docRef = doc(db, "withdrawal_logs", cleanId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.withdrawnAt) {
+            const withdrawnDate = new Date(data.withdrawnAt);
+            const limitDate = new Date(withdrawnDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            if (now < limitDate) {
+              const daysLeft = Math.ceil((limitDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+              alert(`❌ 회원탈퇴 정책 고지:\n최근 회원탈퇴 이력이 감지되었습니다. 본 서비스는 구글 플레이 개인정보 및 리소보 보호를 위해 회원탈퇴가 진행된 로그인 아이디 및 이메일에 대해 30일 동안 재가입이 전면 불허됩니다.\n(서비스 이용 가능 시기: ${limitDate.getFullYear()}년 ${limitDate.getMonth() + 1}월 ${limitDate.getDate()}일 - 약 ${daysLeft}일 보류 중)`);
+              return false;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Firestore withdrawal check error:", err);
+      }
+    }
+    return true;
+  };
+
   // 회원가입 성공 처리 함수
   const handleRegisterSuccess = async (id: string, password: string, nickname: string) => {
+    // 30일 이내 탈퇴 여부 검증
+    const isAllowed = await checkReRegistrationPermission(id);
+    if (!isAllowed) return;
+
     const generatedUid = 'usr_' + Math.random().toString(36).substring(2, 11);
 
     const initialProfile: UserProfile = {
@@ -3175,6 +3282,7 @@ export default function App() {
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         notifications={notifications}
         setNotifications={handleSetNotifications}
+        onDeleteAccount={handleDeleteUserProfile}
       />
 
 
@@ -4173,9 +4281,75 @@ export default function App() {
       )}
 
       {/* 하단 푸터 바 */}
-      <footer className="border-t border-gray-800 py-6 text-center text-xs text-gray-500 mt-12 bg-[#0a0d13]">
-        <p>© 2026 CHOICE KOREA. All Rights Reserved.</p>
-        <p className="mt-1">초이스 코리아 실시간 집계 및 예측 분석 플랫폼 정상 작동 중.</p>
+      <footer className="border-t border-neutral-800/80 py-8 text-center text-xs text-neutral-500 mt-12 bg-[#060913] space-y-4">
+        <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-2.5 text-[11px] sm:text-xs">
+          <button 
+            onClick={() => { setInfoTermType('about'); setIsInfoTermModalOpen(true); }}
+            className="hover:text-neutral-300 font-bold transition-all hover:underline cursor-pointer"
+          >
+            회사소개
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('partnership-banner-container') || document.getElementById('live-chat-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                alert('📧 광고 및 제휴 상담 안내:\n현재 페이지 최하단 제휴 창구 혹은 이메일 sinpotnf@gmail.com을 통해 24시간 광고 신청 제휴를 접수받고 있습니다.');
+              }
+            }}
+            className="hover:text-neutral-300 font-bold transition-all hover:underline cursor-pointer"
+          >
+            광고/제휴
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button 
+            onClick={() => { setInfoTermType('terms'); setIsInfoTermModalOpen(true); }}
+            className="hover:text-neutral-300 font-bold transition-all hover:underline cursor-pointer"
+          >
+            이용약관
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button 
+            onClick={() => setIsPrivacyModalOpen(true)}
+            className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-black font-extrabold transition-all duration-200 cursor-pointer shadow-[0_0_8px_rgba(245,158,11,0.1)] hover:shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+          >
+            개인정보처리방침
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button 
+            onClick={() => { setInfoTermType('youth'); setIsInfoTermModalOpen(true); }}
+            className="hover:text-neutral-300 font-bold transition-all hover:underline cursor-pointer"
+          >
+            청소년보호정책
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button 
+            onClick={() => { setInfoTermType('email-blocks'); setIsInfoTermModalOpen(true); }}
+            className="hover:text-neutral-300 font-bold transition-all hover:underline cursor-pointer"
+          >
+            이메일무단수집거부
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button 
+            onClick={() => {
+              setCurrentTab('customer-center');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="hover:text-neutral-300 font-bold transition-all hover:underline cursor-pointer"
+          >
+            고객센터
+          </button>
+        </div>
+
+        <div className="space-y-1 text-[11px] text-neutral-600">
+          <p>© 2026 CHOICE KOREA. All Rights Reserved.</p>
+          <p>초이스 코리아 실시간 통계 집계 플랫폼은 구글 플레이 개인정보 및 안전 규정을 100% 준수합니다.</p>
+          <p className="text-[10px] text-neutral-700">
+            개인정보 원격 제어 및 완전 파기가 필요하신 분은 <a href="/delete-account" className="text-neutral-500 underline hover:text-neutral-400 font-semibold" target="_blank" rel="noopener noreferrer">[계정탈퇴 신청 전용 페이지]</a>를 클릭해 주세요.
+          </p>
+        </div>
       </footer>
 
       {isQuestModalOpen && userProfile && (
@@ -4321,6 +4495,22 @@ export default function App() {
           setCurrentTab('predict');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+      />
+
+      <PrivacyPolicyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        theme={theme}
+      />
+
+      <InfoTermModal
+        isOpen={isInfoTermModalOpen}
+        onClose={() => {
+          setIsInfoTermModalOpen(false);
+          setInfoTermType(null);
+        }}
+        type={infoTermType}
+        theme={theme}
       />
 
       {/* 실시간 알림 토스트 메시지 컨테이너 */}
