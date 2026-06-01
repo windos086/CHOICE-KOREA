@@ -95,20 +95,49 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       try {
         const { auth, firebaseAvailable } = await import ("../firebase");
         if (firebaseAvailable && auth) {
-          const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
+          const { signInWithPopup, signInWithCredential, GoogleAuthProvider } = await import("firebase/auth");
           const provider = new GoogleAuthProvider();
           provider.setCustomParameters({ prompt: 'select_account' });
 
-          const result = await signInWithPopup(auth, provider);
-          const user = result.user;
-          const userEmail = user.email || '';
-          const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
-          const uid = user.uid;
+          const { Capacitor } = await import("@capacitor/core");
+          
+          // Environment detection (Capacitor native platform check and isPlatform check)
+          const isApp = Capacitor.isNativePlatform() || (typeof window !== 'undefined' && typeof (window as any).isPlatform === 'function' && (window as any).isPlatform('capacitor'));
 
-          alert(`🎉 구글 계정(${userEmail}) 간편인증 연동 연계가 완료되었습니다.`);
-          onLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
-          onClose();
-          return;
+          if (isApp) {
+            // Native google sign-in on mobile app environment
+            const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
+            
+            const googleUser = await GoogleAuth.signIn();
+            const idToken = googleUser.authentication?.idToken;
+            if (!idToken) {
+              throw new Error("Native Google sign-in did not return a valid ID token.");
+            }
+
+            const credential = GoogleAuthProvider.credential(idToken);
+            const result = await signInWithCredential(auth, credential);
+            const user = result.user;
+            const userEmail = user.email || '';
+            const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
+            const uid = user.uid;
+
+            alert(`🎉 구글 계정(${userEmail}) 간편인증 연동 연계가 완료되었습니다.`);
+            onLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
+            onClose();
+            return;
+          } else {
+            // Existing popup logic on web browser environment
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            const userEmail = user.email || '';
+            const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
+            const uid = user.uid;
+
+            alert(`🎉 구글 계정(${userEmail}) 간편인증 연동 연계가 완료되었습니다.`);
+            onLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
+            onClose();
+            return;
+          }
         }
       } catch (error: any) {
         console.error("Firebase auth error during popup sign-in:", error);
