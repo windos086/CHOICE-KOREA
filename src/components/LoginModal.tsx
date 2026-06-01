@@ -199,7 +199,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         } else {
           // If it is another type of cancellation or general auth error, handle gracefully
           console.warn("Recoverable auth error occurred, falling back: ", error?.message);
-          setErrorMessage(`로그인 진행 중 일시적 취소/오류가 있었습니다 (${errorCode || 'Bypassed'}). 간편 일반 가입 또는 상단 새창App에서 Google 로그인을 완료해 주세요.`);
+          const detailedErr = error?.message || String(error);
+          setErrorMessage(`구글 로그인 실패 (${errorCode || '오류'}): ${detailedErr}. 일반 가입 또는 상단 새창App에서 Google 로그인을 완료해 주세요.`);
           return;
         }
       }
