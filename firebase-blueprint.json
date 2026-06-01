@@ -131,30 +131,12 @@
         "createdAt": { "type": "integer" }
       },
       "required": ["commentId", "predictionId", "author", "authorId", "content", "createdAt"]
-    },
-    "Notification": {
-      "title": "Notification",
-      "description": "User specific notification records.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "text": { "type": "string" },
-        "time": { "type": "string" },
-        "unread": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "title", "text", "unread", "createdAt"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "Individual user accounts with point ledger."
-    },
-    "/users/{userId}/notifications/{notificationId}": {
-      "schema": "Notification",
-      "description": "User specific notifications."
     },
     "/predictions/{predictionId}": {
       "schema": "Prediction",
