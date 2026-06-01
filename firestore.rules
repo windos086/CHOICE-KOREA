@@ -9,6 +9,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
       allow write: if true; // In simple app flow, or when user creates their mock account
+
+      match /notifications/{notificationId} {
+        allow read, write: if true;
+      }
     }
 
     match /predictions/{predictionId} {

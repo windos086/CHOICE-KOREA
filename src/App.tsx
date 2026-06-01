@@ -2488,6 +2488,19 @@ export default function App() {
         window.history.replaceState({}, document.title, newUrl);
       }
     }
+
+    if (searchParams.get('google_login_success') === 'true') {
+      const email = searchParams.get('email') || '';
+      const nickname = searchParams.get('nickname') || '';
+      const id = searchParams.get('id') || '';
+      
+      if (email && id) {
+        console.log("🧩 Direct redirection Google authentication parsed:", { email, nickname, id });
+        handleModalLoginSuccess(email, 'social_secure_bypass', nickname, `google_${id}`);
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
   }, [allUsers]);
 
   // 회원가입 성공 처리 함수
