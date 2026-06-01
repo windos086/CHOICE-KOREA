@@ -117,16 +117,30 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
     };
 
     if (platform === 'google') {
-      // 1. Proactive mobile app / webview block warning to prevent hanging in white error screens
+      // 1. Try backend-driven Google OAuth redirect FIRST (Highly reliable, WebView-safe storage/partition immunity in production)
+      try {
+        const originUrl = window.location.origin;
+        const apiTarget = getApiUrl(`/api/auth/google/url?origin=${encodeURIComponent(originUrl)}`);
+        
+        const response = await fetch(apiTarget);
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.url) {
+            console.log("🚀 [Google Redirect Auth Integration] Activating WebView-safe OAuth flow:", resData.url);
+            window.location.href = resData.url;
+            return;
+          }
+        }
+      } catch (backendErr) {
+        console.warn("Backend-driven Google Redirect auth target skipped, checking fallbacks.", backendErr);
+      }
+
+      // 2. Fallback: If backend is not configured/available and the environment is a WebView, show the troubleshooting warning/mock login
       if (isWebView()) {
         const proceed = window.confirm(
-          "⚠️ [앱/인앱브라우저 환경 - 구글 로그인 안내]\n\n" +
-          "현재 앱 테스터 환경(WebView) 또는 모바일 인앱 뷰어가 감지되었습니다.\n" +
-          "이 환경에서는 구글/파이어베이스의 교차 보안 통제 정책(sessionStorage 파티셔닝) 때문에 팝업/이동 시 흰색 오류 화면('missing initial state' 에러)이 표시될 장벽이 있습니다.\n\n" +
-          "💡 완벽하게 접속하여 테스트하는 해결책:\n" +
-          "1. 모바일 브라우저 우측 상단 메뉴(점 3개 등) 클릭 -> '다른 브라우저로 열기' 또는 'Chrome/Safari로 열기'를 선택하여 진행하시면 정상 접속됩니다.\n" +
-          "2. 이 앱 하단 구글 단추 클릭 시 생성되는 [구글 모의 로그인]을 수락하시면, 즉시 정상 가입 및 포인트가 지급되어 원스톱 테스트가 가능합니다.\n\n" +
-          "지금 바로 앱 내부 가상 모의 로그인을 실행해 1초 만에 테스트하시겠습니까?"
+          "⚠️ [알림] 구글 로그인을 진행합니다.\n\n" +
+          "현재 앱(WebView) 환경에서 구글 보안 정책 때문에 흰색 오류('missing initial state' 에러)가 발생하는 경우, 아래 '확인'을 누르시면 즉시 정상 사용이 가능한 가상 모의 로그인을 실행하실 수 있습니다.\n\n" +
+          "가상 가입/로그인으로 빠르게 테스트해보시겠습니까?"
         );
         if (proceed) {
           const googleName = window.prompt("💬 [구글 가상 보안 로그인]\n로그인 및 가입에 사용하고 싶은 이메일 주소 또는 성함을 입력해 주세요:", "tester@gmail.com");
@@ -140,40 +154,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           }
           return;
         }
-      }
-
-      // 2. Try backend-driven Google OAuth redirect (Perfect for WebView storage/partition immunity in production)
-      try {
-        const originUrl = window.location.origin;
-        const apiTarget = getApiUrl(`/api/auth/google/url?origin=${encodeURIComponent(originUrl)}`);
-        
-        const response = await fetch(apiTarget);
-        if (response.ok) {
-          const resData = await response.json();
-          if (resData.success && resData.url) {
-            console.log("🚀 [Google Redirect Auth Integration] Activating WebView-safe OAuth flow:", resData.url);
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
-            if (isMobile || isWebView()) {
-              window.location.href = resData.url;
-            } else {
-              const popupWidth = 500;
-              const popupHeight = 650;
-              const left = window.screen.width / 2 - popupWidth / 2;
-              const top = window.screen.height / 2 - popupHeight / 2;
-              const googlePopup = window.open(
-                resData.url,
-                'google_authorized_login',
-                `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
-              );
-              if (!googlePopup) {
-                window.location.href = resData.url;
-              }
-            }
-            return;
-          }
-        }
-      } catch (backendErr) {
-        console.warn("Backend-driven Google Redirect auth target skipped, invoking Firebase Popup client handler.", backendErr);
       }
 
       // 3. Fallback: Firebase Web Client SDK Popup Sign-In
