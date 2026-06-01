@@ -2388,6 +2388,8 @@ export default function App() {
     parseRedirectResult();
   }, [firebaseAvailable]);
 
+
+
   // 실시간 기밀 보안 로그인 인증 전산 함수
   const handleRealLogin = async () => {
     const cleanId = loginId.trim();
@@ -2900,7 +2902,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="pt-2 space-y-2">
               <button
                 onClick={() => setIsQuestModalOpen(true)}
                 className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] hover:scale-[1.02] text-black py-2.5 rounded-xl text-xs font-black transition-all duration-200 cursor-pointer text-center block shadow-[0_0_12px_rgba(245,158,11,0.25)]"
@@ -4202,6 +4204,8 @@ export default function App() {
         <p>© 2026 CHOICE KOREA. All Rights Reserved.</p>
         <p className="mt-1">초이스 코리아 실시간 집계 및 예측 분석 플랫폼 정상 작동 중.</p>
       </footer>
+
+
 
       {isQuestModalOpen && userProfile && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">

@@ -351,7 +351,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
               placeholder="비밀번호"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-300 rounded-xl px-4 py-3.5 text-xs text-gray-900 placeholder-gray-400 font-medium focus:outline-none transition-all"
+              className="w-full bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-350 rounded-xl px-4 py-3.5 text-xs text-gray-900 placeholder-gray-400 font-medium focus:outline-none transition-all"
             />
           </div>
 
@@ -452,7 +452,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
             >
               G
             </button>
-
           </div>
         </div>
 
