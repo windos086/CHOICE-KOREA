@@ -123,6 +123,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       
       try {
         const response = await fetch(apiTarget);
+        console.log("🔍 [Debug] Google fetch target:", apiTarget, "Status:", response.status);
 
         if (response.ok) {
           const resData = await response.json();
@@ -138,9 +139,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           console.error("Google Auth API unreachable:", response.status);
           setErrorMessage("로그인 서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Google Auth Exception:", err);
-        setErrorMessage("로그인 처리 중 오류가 발생했습니다.");
+        setErrorMessage(`로그인 처리 중 오류가 발생했습니다: ${err.message || '네트워크 오류'}`);
       }
       return;
     }
@@ -152,6 +153,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       
       try {
         const response = await fetch(apiTarget);
+        console.log("🔍 [Debug] Kakao fetch target:", apiTarget, "Status:", response.status);
 
         if (response.ok) {
           const resData = await response.json();
@@ -167,9 +169,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           console.error("Kakao Auth API unreachable:", response.status);
           setErrorMessage("로그인 서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Kakao Auth Exception:", err);
-        setErrorMessage("로그인 처리 중 오류가 발생했습니다.");
+        setErrorMessage(`로그인 처리 중 오류가 발생했습니다: ${err.message || '네트워크 오류'}`);
       }
       return;
     }
