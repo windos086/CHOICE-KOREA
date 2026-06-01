@@ -127,7 +127,58 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           const resData = await response.json();
           if (resData.success && resData.url) {
             console.log("🚀 [Google Redirect Auth Integration] Activating WebView-safe OAuth flow:", resData.url);
-            window.location.href = resData.url;
+            
+            // Check if we are running in an iframe (e.g. Google AI Studio preview)
+            const isIframe = () => {
+              try {
+                return window.self !== window.top;
+              } catch (e) {
+                return true;
+              }
+            };
+
+            const popupWidth = 500;
+            const popupHeight = 650;
+            const left = window.screen.width / 2 - popupWidth / 2;
+            const top = window.screen.height / 2 - popupHeight / 2;
+
+            if (isIframe()) {
+              // Google strictly blocks accounts.google.com inside iframes (returns 403 Forbidden). We must open a separate window/tab.
+              const googlePopup = window.open(
+                resData.url,
+                'google_authorized_login',
+                `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
+              );
+              
+              if (!googlePopup) {
+                const proceedNewTab = window.confirm(
+                  "💡 [구글 로그인 안내]\n\n" +
+                  "현재 'Google AI Studio 미리보기(iframe)' 환경에서 구글 보안 규칙 때문에 인프레임 리다이렉트가 차단됩니다.\n\n" +
+                  "확인을 누르시면 안전한 새 브라우저 탭을 열고 구글 계정 연동을 진행합니다."
+                );
+                if (proceedNewTab) {
+                  window.open(resData.url, '_blank');
+                }
+              }
+              return;
+            }
+
+            if (isWebView()) {
+              // WebViews often block popup windows but can load top-level redirects safely, with storage partitioning bypassed by backend loop
+              window.location.href = resData.url;
+              return;
+            }
+
+            // Standard desktop/mobile browser -> open custom centered popup
+            const googlePopup = window.open(
+              resData.url,
+              'google_authorized_login',
+              `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
+            );
+
+            if (!googlePopup) {
+              window.location.href = resData.url;
+            }
             return;
           }
         }
@@ -135,7 +186,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         console.warn("Backend-driven Google Redirect auth target skipped, checking fallbacks.", backendErr);
       }
 
-      // 2. Fallback: If backend is not configured/available and the environment is a WebView, show the troubleshooting warning/mock login
+      // 2. Fallback: If backend environment is a WebView and error happens, show custom dialog warning/mock login
       if (isWebView()) {
         const proceed = window.confirm(
           "⚠️ [알림] 구글 로그인을 진행합니다.\n\n" +
