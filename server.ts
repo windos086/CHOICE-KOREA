@@ -466,6 +466,22 @@ Return the output in JSON format with KOREAN explanation:
       appType: "spa",
     });
     app.use(vite.middlewares);
+
+    // 구글 플레이스토어 심사 대비, /privacy-policy /delete-account 등 직접 URL 입력 시 index.html 반환 처리
+    app.get('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api') || url.includes('.')) {
+        return next();
+      }
+      try {
+        const fs = await import("fs");
+        let template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
