@@ -2363,6 +2363,31 @@ export default function App() {
     }
   };
 
+  // 구글 계정 통합 웹 리다이렉트 로그인 결과 자동 수신 및 통합 세션 파싱 담당
+  React.useEffect(() => {
+    if (!firebaseAvailable || !auth) return;
+
+    const parseRedirectResult = async () => {
+      try {
+        const { getRedirectResult } = await import("firebase/auth");
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          const user = result.user;
+          const userEmail = user.email || '';
+          const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
+          const uid = user.uid;
+          
+          console.log("🎯 [구글 통합 리다이렉트 로그인 성공 감지]:", userEmail, nickname, uid);
+          await handleModalLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
+        }
+      } catch (err: any) {
+        console.error("구글 리다이렉트 로그인 결과를 처리하는 도중 오류가 발생했습니다:", err);
+      }
+    };
+
+    parseRedirectResult();
+  }, [firebaseAvailable]);
+
   // 실시간 기밀 보안 로그인 인증 전산 함수
   const handleRealLogin = async () => {
     const cleanId = loginId.trim();

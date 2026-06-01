@@ -95,20 +95,30 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       try {
         const { auth, firebaseAvailable } = await import ("../firebase");
         if (firebaseAvailable && auth) {
-          const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
+          const { signInWithPopup, signInWithRedirect, GoogleAuthProvider } = await import("firebase/auth");
           const provider = new GoogleAuthProvider();
           provider.setCustomParameters({ prompt: 'select_account' });
 
-          const result = await signInWithPopup(auth, provider);
-          const user = result.user;
-          const userEmail = user.email || '';
-          const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
-          const uid = user.uid;
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+          const isWebView = /wv|WebView|Version\/.* Chrome\/.* Mobile/i.test(navigator.userAgent);
 
-          alert(`🎉 구글 계정(${userEmail}) 간편인증 연동 연계가 완료되었습니다.`);
-          onLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
-          onClose();
-          return;
+          if (isMobile || isWebView) {
+            // Mobile or WebView environments: redirect to standard Google accounts login page to bypass popup blocking
+            alert("📱 모바일 기기 또는 하이브리드 앱 환경이 감지되었습니다.\n구글 통합 웹 리다이렉트 안전 로그인 페이지로 원격 연결을 시작합니다. 인증이 끝난 후 본 화면으로 즉시 자동 복귀 및 연동됩니다.");
+            await signInWithRedirect(auth, provider);
+            return;
+          } else {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            const userEmail = user.email || '';
+            const nickname = user.displayName || userEmail.split('@')[0] || '구글참여자';
+            const uid = user.uid;
+
+            alert(`🎉 구글 계정(${userEmail}) 간편인증 연동 연계가 완료되었습니다.`);
+            onLoginSuccess(userEmail, 'social_secure_bypass', nickname, uid);
+            onClose();
+            return;
+          }
         }
       } catch (error: any) {
         console.error("Firebase auth error during popup sign-in:", error);
