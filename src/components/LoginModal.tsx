@@ -108,6 +108,21 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
             // Native google sign-in on mobile app environment
             const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
             
+            // [안드로이드 구글 로그인 중요 설정]
+            // 만약 디바이스/시뮬레이터 테스트 중 "requestIdToken" 또는 "audience" 오류 발생 시,
+            // 아래 주석을 풀고 Android용 Client ID가 아닌 반드시 구글 콘솔의 "웹 애플리케이션 클라이언트 ID"를 지정하여 초기화해 주세요.
+            /*
+            try {
+              await GoogleAuth.initialize({
+                clientId: 'YOUR_FIREBASE_WEB_CLIENT_ID.apps.googleusercontent.com', // ⚠️ Android ID가 아닌 WEB 클라이언트 ID를 입력해야 Firebase 연동에 실패하지 않습니다.
+                scopes: ['profile', 'email'],
+                grantOfflineAccess: true,
+              });
+            } catch (initErr) {
+              console.warn("GoogleAuth already initialized or failed:", initErr);
+            }
+            */
+            
             const googleUser = await GoogleAuth.signIn();
             const idToken = googleUser.authentication?.idToken;
             if (!idToken) {
