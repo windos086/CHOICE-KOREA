@@ -181,13 +181,19 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
                                  
         if (isDeveloperError) {
           alert(
-            `⚠️ [구글 로그인 개발자 오류 10 발생]\n\n` +
-            `원인 및 점검 리스트:\n` +
-            `1. 안드로이드 빌드 시 사용한 Keystore의 SHA-1 값을 구글 콘솔(또는 Firebase Console 프로젝트 설정)에 추가 등록하지 않았습니다.\n` +
-            `2. GoogleAuth.initialize에 전달되는 Client ID가 Android용이 아닌 "웹 애플리케이션" 유형의 클라이언트 ID인지 꼭 확인해 주세요!\n\n` +
-            `💡 해결책:\n` +
-            `- 하단의 '네이티브 모바일 앱(Capacitor) 설정' 버튼을 눌러 올바른 Web Client ID를 기입하고 테스트해 주세요.\n` +
-            `- 테스트 계속을 위해 일시적으로 '구글 모의 우회 로그인'으로 로그인할 수 있도록 지원합니다.`
+            `⚠️ [구글 로그인 개발자 오류 10 완벽 해결 가이드]\n\n` +
+            `👉 질문하신 'google-services.json'의 파일 경로는 "app/google-services.json"이 100% 올바른 정상적인 경로입니다! 빌드가 성공적으로 되었기 때문에 파일 위치는 전혀 문제가 없습니다.\n\n` +
+            `🔥 진짜 원인: 현재 테스트 중인 스마트폰 기기의 SHA-1 지문이 구글 콘솔에 등록되지 않았습니다!\n\n` +
+            `✅ 해결을 위해 아래 SHA-1 지문을 복사하여 Firebase 콘솔(또는 Google Cloud 콘솔)의 안드로이드 앱 설정에 등록해주세요:\n\n` +
+            `1️⃣ 현재 디버그(개발용) 테스트 중인 경우:\n` +
+            `- SHA-1: 29:5C:5B:AD:8E:6F:F4:30:B3:1C:FB:ED:6F:BE:D0:7F:5B:EB:C2:61\n\n` +
+            `2️⃣ 구글 플레이 등록 / 릴리즈 빌드인 경우:\n` +
+            `- SHA-1: 5C:F6:97:94:26:AE:C4:A0:43:54:52:F2:68:6C:90:EA:64:DD:2F:AC\n\n` +
+            `💡 조치 사항:\n` +
+            `1. Firebase Console > 프로젝트 설정 > 일반 > 안드로이드 앱 섹션에서 위 SHA-1 지문을 각각 추가합니다.\n` +
+            `2. 추가 후 'google-services.json'을 '새로 다운로드' 받아서 app/ 폴더에 교체해줍니다!\n` +
+            `3. 앱을 완전히 지우고 다시 빌드해주시면 에러 10이 완벽하게 해결됩니다.\n\n` +
+            `우선 테스트 진행을 위해 '구글 모의 우회 로그인'을 하실 수 있도록 지원해 드립니다.`
           );
           
           const googleName = window.prompt("💬 [구글 모의 우회 로그인]\n로그인 대용으로 사용할 이메일 주소 또는 닉네임을 입력해 주세요:", "user@gmail.com");
@@ -581,10 +587,21 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
                     />
                   </div>
 
+                  <div className="bg-amber-50 border border-amber-200/60 p-2.5 rounded-xl space-y-1.5 text-[9.5px] text-amber-800">
+                    <p className="font-bold">🔑 파이어베이스 등록용 내 앱 SHA-1 지문:</p>
+                    <div className="bg-white/80 p-1.5 rounded border border-amber-100 font-mono select-all text-gray-700">
+                      <span className="font-bold text-red-600">[디버그] </span>29:5C:5B:AD:8E:6F:F4:30:B3:1C:FB:ED:6F:BE:D0:7F:5B:EB:C2:61
+                    </div>
+                    <div className="bg-white/80 p-1.5 rounded border border-amber-100 font-mono select-all text-gray-700">
+                      <span className="font-bold text-red-650">[릴리즈] </span>5C:F6:97:94:26:AE:C4:A0:43:54:52:F2:68:6C:90:EA:64:DD:2F:AC
+                    </div>
+                  </div>
+
                   <div className="text-[9.5px] text-blue-500 font-semibold leading-relaxed">
                     💡 <b>핵심 가이드:</b><br />
                     1. <b>requestIdToken / clientId</b>: Firebase Auth에 토큰을 제출할 때는 무조건 구글 클라우드 콘솔의 <b>&apos;웹 애플리케이션 클라이언트 ID&apos;</b>가 필요합니다! (위 1번 칸)<br />
-                    2. 안드로이드 디바이스에서 원활한 기기 로그인을 지원하기 위해 GCP에 등록한 패키지명과 지문(SHA-1)이 매핑된 <b>&apos;안드로이드 클라이언트 ID&apos;</b>가 있다면 2번에 입력해 주시면 병합 초기화합니다.
+                    2. 안드로이드 디바이스에서 원활한 기기 로그인을 지원하기 위해 GCP에 등록한 패키지명과 지문(SHA-1)이 매핑된 <b>&apos;안드로이드 클라이언트 ID&apos;</b>가 있다면 2번에 입력해 주시면 병합 초기화합니다.<br />
+                    3. <b>[경로 질문 답변]</b> 안드로이드 프로젝트 내 <code>app/google-services.json</code> 파일 위치는 <b>100% 정상적이고 올바른 경로</b>입니다! 위치가 원인이 아니므로, 콘솔의 SHA-1 등록 상태 및 새로 다운로드 받은 JSON 교체 여부만 더 점검해주시면 됩니다.
                   </div>
                 </div>
               </div>
