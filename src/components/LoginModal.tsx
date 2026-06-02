@@ -21,6 +21,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
   const [googleClientId, setGoogleClientId] = React.useState(() => {
     return localStorage.getItem('CAPACITOR_GOOGLE_CLIENT_ID') || '';
   });
+  const [googleAndroidClientId, setGoogleAndroidClientId] = React.useState(() => {
+    return localStorage.getItem('CAPACITOR_GOOGLE_ANDROID_CLIENT_ID') || '';
+  });
   const [showConfig, setShowConfig] = React.useState(false);
 
   React.useEffect(() => {
@@ -118,12 +121,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
             // 만약 디바이스/시뮬레이터 테스트 중 "requestIdToken" 또는 "audience" 오류 발생 시,
             // Android용 Client ID가 아닌 반드시 구글 콘솔의 "웹 애플리케이션 클라이언트 ID"를 지정하여 초기화해 주세요.
             const targetClientId = googleClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '230268211245-u8v0es3m0b21b7u0mbfp26i8pld9t9be.apps.googleusercontent.com';
+            const targetAndroidClientId = googleAndroidClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_ANDROID_CLIENT_ID || '';
             
-            console.log("🧩 [Capacitor Native Google Sign-In] Initialization Client ID (Web Application):", targetClientId);
+            console.log("🧩 [Capacitor Native Google Sign-In] Initialization Client ID (Web Application):", targetClientId, "and Android Client ID:", targetAndroidClientId || '(not set)');
             
             try {
               await GoogleAuth.initialize({
                 clientId: targetClientId,
+                ...(targetAndroidClientId ? { androidClientId: targetAndroidClientId } : {}),
                 scopes: ['profile', 'email'],
                 grantOfflineAccess: true,
               });
@@ -537,28 +542,49 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
               {showConfig ? '▲ 네이티브 모바일 앱 설정 닫기' : '▼ 네이티브 모바일 앱(Capacitor) 설정 열기'}
             </button>
             
-            {showConfig && (
+             {showConfig && (
               <div className="mt-2.5 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-left text-[11px] animate-fade-in text-gray-600 font-medium">
                 <div className="font-bold text-gray-700 select-none mb-1">
-                  모바일 구글 로그인 설정 (Error 10 해결)
+                  모바일 구글 로그인 상세 설정 (Error 10 해결)
                 </div>
                 <div className="text-gray-400 mb-2 leading-relaxed text-[10px]">
-                  안드로이드 빌드용 Web Client ID를 지정해 주세요. 구글 플레이 콘솔에 등록된 지문(SHA-1)과 매칭되어야 로그인이 가능합니다.
+                  안드로이드 구글 로그인 연동 시 꼭 필요한 클라이언트 ID 정보들입니다:
                 </div>
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={googleClientId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setGoogleClientId(val);
-                      localStorage.setItem('CAPACITOR_GOOGLE_CLIENT_ID', val);
-                    }}
-                    placeholder="Web Client ID (230268111245-xxxx.apps.googleusercontent.com)"
-                    className="w-full bg-white border border-gray-200 focus:border-gray-450 rounded-lg px-2.5 py-2 text-[10px] font-medium focus:outline-none transition-all placeholder:text-gray-300"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[9.5px] font-bold text-gray-500 mb-1">1. 웹 애플리케이션 클라이언트 ID (Firebase 연동용)</label>
+                    <input
+                      type="text"
+                      value={googleClientId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setGoogleClientId(val);
+                        localStorage.setItem('CAPACITOR_GOOGLE_CLIENT_ID', val);
+                      }}
+                      placeholder="Web Client ID (230268111245-xxxx.apps.googleusercontent.com)"
+                      className="w-full bg-white border border-gray-200 focus:border-gray-450 rounded-lg px-2.5 py-2 text-[10px] font-medium focus:outline-none transition-all placeholder:text-gray-300"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[9.5px] font-bold text-gray-500 mb-1">2. 안드로이드 클라이언트 ID (선택사항)</label>
+                    <input
+                      type="text"
+                      value={googleAndroidClientId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setGoogleAndroidClientId(val);
+                        localStorage.setItem('CAPACITOR_GOOGLE_ANDROID_CLIENT_ID', val);
+                      }}
+                      placeholder="Android Client ID (230268111245-yyyy.apps.googleusercontent.com)"
+                      className="w-full bg-white border border-gray-200 focus:border-gray-450 rounded-lg px-2.5 py-2 text-[10px] font-medium focus:outline-none transition-all placeholder:text-gray-300"
+                    />
+                  </div>
+
                   <div className="text-[9.5px] text-blue-500 font-semibold leading-relaxed">
-                    💡 꿀팁: 안드로이드 구글 10 에러는 Android Client ID가 아닌 콘솔 상의 <b>&apos;웹 애플리케이션 클라이언트 ID&apos;</b>를 무조건 입력해 주셔야 연동이 정상 작동합니다!
+                    💡 <b>핵심 가이드:</b><br />
+                    1. <b>requestIdToken / clientId</b>: Firebase Auth에 토큰을 제출할 때는 무조건 구글 클라우드 콘솔의 <b>&apos;웹 애플리케이션 클라이언트 ID&apos;</b>가 필요합니다! (위 1번 칸)<br />
+                    2. 안드로이드 디바이스에서 원활한 기기 로그인을 지원하기 위해 GCP에 등록한 패키지명과 지문(SHA-1)이 매핑된 <b>&apos;안드로이드 클라이언트 ID&apos;</b>가 있다면 2번에 입력해 주시면 병합 초기화합니다.
                   </div>
                 </div>
               </div>
