@@ -57,6 +57,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         alert(`❌ 카카오 실제인증 연동 실패\n\n상세 정보: ${errorMsg}\n\n카카오 디벨로퍼스 앱 설정(리다이렉트 URI, 플랫폼 허용 도메인) 및 환경 구성품을 체크해 주세요.`);
         setErrorMessage(`카카오 로그인 실패: ${errorMsg}`);
       }
+
+
     };
     
     window.addEventListener('message', handleMessage);
@@ -120,7 +122,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
             // [안드로이드 구글 로그인 중요 설정]
             // 만약 디바이스/시뮬레이터 테스트 중 "requestIdToken" 또는 "audience" 오류 발생 시,
             // Android용 Client ID가 아닌 반드시 구글 콘솔의 "웹 애플리케이션 클라이언트 ID"를 지정하여 초기화해 주세요.
-            const targetClientId = googleClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '230268211245-f8eccccpe3bam3pu1vlcgq7cloftp4ce.apps.googleusercontent.com';
+            const targetClientId = googleClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '230268211245-rb3nnr290frp1cjo9h0cum7ttpnphtlk.apps.googleusercontent.com';
             const targetAndroidClientId = googleAndroidClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_ANDROID_CLIENT_ID || '';
             
             console.log("🧩 [Capacitor Native Google Sign-In] Initialization Client ID (Web Application):", targetClientId, "and Android Client ID:", targetAndroidClientId || '(not set)');
@@ -172,28 +174,29 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         
         const errorMsg = error?.message || String(error);
         const errorCode = error?.code || '';
+        const rawJsonError = JSON.stringify(error);
         
         // Handle physical/simulator Android Google Code 10 Developer Error
         const isDeveloperError = errorMsg.includes('10') || 
                                  errorCode.includes('10') || 
                                  errorMsg.toLowerCase().includes('developer') || 
-                                 errorMsg.toLowerCase().includes('developer_error');
+                                 errorMsg.toLowerCase().includes('developer_error') ||
+                                 rawJsonError.includes('10') ||
+                                 rawJsonError.toLowerCase().includes('developer_error');
                                  
         if (isDeveloperError) {
           alert(
             `⚠️ [구글 로그인 개발자 오류 10 완벽 해결 가이드]\n\n` +
-            `👉 질문하신 'google-services.json'의 파일 경로는 "app/google-services.json"이 100% 올바른 정상적인 경로입니다! 빌드가 성공적으로 되었기 때문에 파일 위치는 전혀 문제가 없습니다.\n\n` +
-            `🔥 진짜 원인: 현재 테스트 중인 스마트폰 기기의 SHA-1 지문이 구글 콘솔에 등록되지 않았습니다!\n\n` +
-            `✅ 해결을 위해 아래 SHA-1 지문을 복사하여 Firebase 콘솔(또는 Google Cloud 콘솔)의 안드로이드 앱 설정에 등록해주세요:\n\n` +
-            `1️⃣ 현재 디버그(개발용) 테스트 중인 경우:\n` +
-            `- SHA-1: 29:5C:5B:AD:8E:6F:F4:30:B3:1C:FB:ED:6F:BE:D0:7F:5B:EB:C2:61\n\n` +
-            `2️⃣ 구글 플레이 등록 / 릴리즈 빌드인 경우:\n` +
-            `- SHA-1: 5C:F6:97:94:26:AE:C4:A0:43:54:52:F2:68:6C:90:EA:64:DD:2F:AC\n\n` +
-            `💡 조치 사항:\n` +
-            `1. Firebase Console > 프로젝트 설정 > 일반 > 안드로이드 앱 섹션에서 위 SHA-1 지문을 각각 추가합니다.\n` +
-            `2. 추가 후 'google-services.json'을 '새로 다운로드' 받아서 app/ 폴더에 교체해줍니다!\n` +
-            `3. 앱을 완전히 지우고 다시 빌드해주시면 에러 10이 완벽하게 해결됩니다.\n\n` +
-            `우선 테스트 진행을 위해 '구글 모의 우회 로그인'을 하실 수 있도록 지원해 드립니다.`
+            `👉 로컬 APK나 에뮬레이터에서는 구글 로그인이 정상 작동했으나, 구글 플레이 스토어 '비공개 테스트' 배포 버전에서만 에러 10이 난다면 "배포용 앱 서명 키 지문(SHA-1)"이 파이어베이스에 안 올라갔기 때문입니다!\n\n` +
+            `🔥 원인: 플레이 스토어에 앱을 올리면, 구글이 개발자 로컬 키(Upload Key) 대신 구글 플레이가 생성한 자체 "앱 서명 키(App signing key)"로 앱을 서명해서 재배포합니다. 이 서명키의 SHA-1 값을 등록하지 않으면 보안 불일치로 에러 10이 납니다.\n\n` +
+            `✅ 해결 절차:\n` +
+            `1. 구글 플레이 콘솔 (Google Play Console) 로그인\n` +
+            `2. 해당 앱 선택 > [설정] > [앱 서명] 또는 [앱 무결성(App integrity)] 메뉴로 이동\n` +
+            `3. '앱 서명 키 인증서' 섹션에 표시된 "SHA-1 인증서 지문"을 통째로 복사\n` +
+            `4. 복사한 지문을 Firebase 콘솔 (프로젝트 설정 > 안드로이드 앱에 디지털 지문 추가) 및 구글 클라우드에 등록해 주세요.\n\n` +
+            `⚠️ 새 자격증명을 만드셨다면 이전 하드코딩 Web Client ID는 만료되었으니, 새로 생성한 "웹 애플리케이션 클라이언트 ID"를 환경변수나 아래 모바일 설정 패널에 기재해야 정상 작동합니다.\n\n` +
+            `오류 정보: ${errorMsg}\n\n` +
+            `* 테스트 속행을 위해 '구글 모의 로그인'으로 바로 진입할 수 있게 도와드립니다.`
           );
           
           const googleName = window.prompt("💬 [구글 모의 우회 로그인]\n로그인 대용으로 사용할 이메일 주소 또는 닉네임을 입력해 주세요:", "user@gmail.com");
@@ -377,8 +380,10 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       }
     }
 
+
+
     // Generate simulated premium user profile matching the chosen platform
-    const prefix = platform === 'google' ? 'google_' : platform === 'naver' ? 'naver_' : platform === 'kakao' ? 'kakao_' : 'apple_';
+    const prefix = platform === 'google' ? 'google_' : platform === 'kakao' ? 'kakao_' : 'apple_';
     const randId = prefix + Math.floor(1000 + Math.random() * 9000);
     const mockEmail = `${randId}@choice-korea.com`;
     const mockNickname = `${platform.toUpperCase()}_${randId.split('_')[1]}`;

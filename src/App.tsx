@@ -2541,6 +2541,8 @@ export default function App() {
         window.history.replaceState({}, document.title, newUrl);
       }
     }
+
+
   }, [allUsers]);
 
   // 최근 30일 이내 회원탈퇴 여부 검증 함수

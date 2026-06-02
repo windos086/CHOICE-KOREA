@@ -211,7 +211,6 @@ async function startServer() {
       return sendErrorResponse(500, err.message || "카카오 서버와 API를 연동하는 과정에서 예외가 발생했습니다.");
     }
   });
-
   // 1. AI 예측 카드 자동 생성 API
   app.post("/api/ai/generate-questions", async (req, res) => {
     console.log("🛠️ [Server] Received AI generation request");
