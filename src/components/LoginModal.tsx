@@ -397,7 +397,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
       />
 
       {/* Main card matching client's second screenshot (Classic high-contrast clean design) */}
-      <div className="relative bg-white w-full max-w-[420px] rounded-3xl overflow-hidden shadow-2xl p-7 md:p-8 animate-fade-in text-black font-sans">
+      <div className="relative bg-white w-full max-w-[420px] max-h-[85vh] md:max-h-[90vh] rounded-3xl overflow-y-auto shadow-2xl p-6 md:p-8 animate-fade-in text-black font-sans scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         
         {/* Close Button */}
         <button 
@@ -589,19 +589,26 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
                   <div className="bg-amber-50 border border-amber-200/60 p-2.5 rounded-xl space-y-1.5 text-[9.5px] text-amber-800">
                     <p className="font-bold">🔑 파이어베이스 등록용 내 앱 SHA-1 지문:</p>
-                    <div className="bg-white/80 p-1.5 rounded border border-amber-100 font-mono select-all text-gray-700">
+                    <div className="bg-white/80 p-1.5 rounded border border-amber-100 font-mono select-all text-gray-700 break-all leading-normal">
                       <span className="font-bold text-red-600">[디버그] </span>29:5C:5B:AD:8E:6F:F4:30:B3:1C:FB:ED:6F:BE:D0:7F:5B:EB:C2:61
                     </div>
-                    <div className="bg-white/80 p-1.5 rounded border border-amber-100 font-mono select-all text-gray-700">
-                      <span className="font-bold text-red-650">[릴리즈] </span>5C:F6:97:94:26:AE:C4:A0:43:54:52:F2:68:6C:90:EA:64:DD:2F:AC
+                    <div className="bg-white/80 p-1.5 rounded border border-amber-100 font-mono select-all text-gray-700 break-all leading-normal">
+                      <span className="font-bold text-red-600">[릴리즈] </span>5C:F6:97:94:26:AE:C4:A0:43:54:52:F2:68:6C:90:EA:64:DD:2F:AC
                     </div>
                   </div>
 
-                  <div className="text-[9.5px] text-blue-500 font-semibold leading-relaxed">
-                    💡 <b>핵심 가이드:</b><br />
-                    1. <b>requestIdToken / clientId</b>: Firebase Auth에 토큰을 제출할 때는 무조건 구글 클라우드 콘솔의 <b>&apos;웹 애플리케이션 클라이언트 ID&apos;</b>가 필요합니다! (위 1번 칸)<br />
-                    2. 안드로이드 디바이스에서 원활한 기기 로그인을 지원하기 위해 GCP에 등록한 패키지명과 지문(SHA-1)이 매핑된 <b>&apos;안드로이드 클라이언트 ID&apos;</b>가 있다면 2번에 입력해 주시면 병합 초기화합니다.<br />
-                    3. <b>[경로 질문 답변]</b> 안드로이드 프로젝트 내 <code>app/google-services.json</code> 파일 위치는 <b>100% 정상적이고 올바른 경로</b>입니다! 위치가 원인이 아니므로, 콘솔의 SHA-1 등록 상태 및 새로 다운로드 받은 JSON 교체 여부만 더 점검해주시면 됩니다.
+                  <div className="text-[9.5px] text-blue-500 font-semibold leading-relaxed space-y-2">
+                    <div>
+                      📌 <b>핵심 가이드 1:</b><br />
+                      Firebase Auth 연동 시 토큰 검증 단계에서는 무조건 구글 클라우드 콘솔의 <b>&apos;웹 애플리케이션 클라이언트 ID&apos;</b>가 필요합니다! (위 1번 칸 입력)
+                    </div>
+                    <div>
+                      📌 <b>핵심 가이드 2:</b><br />
+                      기기 자체의 하드웨어 세션을 인식하기 위해, 안드로이드 빌드 패키지명 <code>com.choicekorea.app</code> 및 위 <b>[디버그 / 릴리즈] SHA-1 키 지문</b>을 파이어베이스/네이티브 구글 콘솔 안드로이드 설정에 꼭 등록해 주셔야 에러 10이 완치됩니다!
+                    </div>
+                    <div>
+                      📌 <b>[경로 답변]:</b> <code>app/google-services.json</code> 경로 자체는 빌드가 잘 완료되었기 때문에 정확히 잘 들어가 있습니다! 파일 위치 문제가 아니니 SHA-1 지문 등록 및 갱신만 해주시면 됩니다.
+                    </div>
                   </div>
                 </div>
               </div>
