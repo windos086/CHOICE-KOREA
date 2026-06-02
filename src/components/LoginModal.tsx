@@ -122,7 +122,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
             // [안드로이드 구글 로그인 중요 설정]
             // 만약 디바이스/시뮬레이터 테스트 중 "requestIdToken" 또는 "audience" 오류 발생 시,
             // Android용 Client ID가 아닌 반드시 구글 콘솔의 "웹 애플리케이션 클라이언트 ID"를 지정하여 초기화해 주세요.
-            const targetClientId = googleClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '230268211245-rb3nnr290frp1cjo9h0cum7ttpnphtlk.apps.googleusercontent.com';
+            const targetClientId = googleClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '230268211245-f8eccccpe3bam3pu1vlcgq7cloftp4ce.apps.googleusercontent.com';
             const targetAndroidClientId = googleAndroidClientId.trim() || (import.meta as any).env?.VITE_GOOGLE_ANDROID_CLIENT_ID || '';
             
             console.log("🧩 [Capacitor Native Google Sign-In] Initialization Client ID (Web Application):", targetClientId, "and Android Client ID:", targetAndroidClientId || '(not set)');
