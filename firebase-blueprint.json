@@ -1,4 +1,24 @@
 {
-  "entities": {},
-  "firestore": {}
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "description": "User login ID" },
+        "password": { "type": "string", "description": "User login password" },
+        "nickname": { "type": "string", "description": "User nickname" },
+        "tetherWalletAddress": { "type": "string", "description": "Tether wallet address" },
+        "joinCode": { "type": "string", "description": "Referral or join code" }
+      },
+      "required": ["username", "password", "nickname", "joinCode"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Store user registration details"
+    }
+  }
 }
+

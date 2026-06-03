@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
+import LoginScreen from './LoginScreen';
+import RegistrationScreen from './RegistrationScreen';
+import MainPage from './MainPage';
 
 export default function App() {
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'register' | 'main'>('login');
+
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
-      <h1 className="text-4xl font-bold">New App</h1>
-    </main>
+    <>
+      {currentScreen === 'login' && <LoginScreen onNavigate={setCurrentScreen} />}
+      {currentScreen === 'register' && <RegistrationScreen onNavigate={setCurrentScreen} />}
+      {currentScreen === 'main' && <MainPage onLogout={() => setCurrentScreen('login')} />}
+    </>
   );
 }

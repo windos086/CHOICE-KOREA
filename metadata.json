@@ -1,5 +1,5 @@
 {
-  "name": "My New App",
+  "name": "초이스",
   "description": "A new website application",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
