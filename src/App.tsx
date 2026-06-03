@@ -4,7 +4,9 @@ import RegistrationScreen from './RegistrationScreen';
 import MainPage from './MainPage';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'register' | 'main'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'register' | 'main'>(() => {
+    return localStorage.getItem('currentUser') ? 'main' : 'login';
+  });
 
   return (
     <>
