@@ -165,6 +165,8 @@ class MainActivity : BridgeActivity() {
 
 ---
 
+---
+
 ## 3. Package Visibility for Android 11+ (`AndroidManifest.xml`)
 
 Since Android 11 (API Level 30), Google enforced **Package Visibility Restrictions**. If you try to query custom schemes (like `com.kakao.talk`) without declaring them, `resolveActivity` will return `null` even if the app is installed.
@@ -189,7 +191,39 @@ To fix this, edit your `android/app/src/main/AndroidManifest.xml` and add the `<
 
 ---
 
+## 4. Capacitor WebView Navigation Configuration (`capacitor.config.json`)
+
+By default, Capacitor blocks external page navigations (such as redirecting the main window to `https://kauth.kakao.com`) and opens them in an external system browser to protect the user. To allow the Kakao login page to load directly within the same app WebView *without* launching a new browser window, you **MUST** configure the `server.allowNavigation` field in your `capacitor.config.json` at the root of your web project.
+
+Create or update your `capacitor.config.json` with the following configuration:
+
+```json
+{
+  "appId": "com.choicekorea.app",
+  "appName": "초이스 코리아",
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "kauth.kakao.com",
+      "kapi.kakao.com",
+      "choicekr.co.kr",
+      "*.kakao.com",
+      "*.choicekr.co.kr"
+    ]
+  }
+}
+```
+
+After updating this config, you must run the sync command to apply it to your native Android project:
+```bash
+npm run build
+npx cap sync android
+```
+
+---
+
 ### Why this works:
 1. **Inherits BridgeWebViewClient**: By subclassing `BridgeWebViewClient` instead of `WebViewClient`, we don't block or break Capacitor's internal runtime mechanics, asset servers, or bridges.
-2. **Returns `false` for http/https**: Directs the Android WebView to carry out standard browser navigation **locally within the active WebView layout** instead of launching secondary OS intents (preventing the browser address bar frame from mounting).
-3. **Graceful Intent Parsing**: Recognizes implicit native intents. If the target application is present (e.g. KakaoTalk), it passes navigation over to the mobile system seamlessly. Otherwise, it defaults back to browser-rendered versions.
+2. **Capacitor Navigation Permissions**: Setting `allowNavigation` in `capacitor.config.json` authorizes Capacitor's JS native bridge to allow webview redirection to `kauth.kakao.com` instead of immediately bouncing page requests to external system browsers.
+3. **Returns `false` for http/https in WebView**: Directs the Android WebView to carry out standard browser navigation **locally within the active WebView layout** instead of launching secondary OS intents (preventing the browser address bar frame from mounting).
+4. **Graceful Intent Parsing**: Recognizes implicit native intents. If the target application is present (e.g. KakaoTalk), it passes navigation over to the mobile system seamlessly. Otherwise, it defaults back to browser-rendered versions.
