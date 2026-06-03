@@ -84,5 +84,11 @@ service cloud.firestore {
     match /suggestions/{suggestionId} {
       allow read, write: if true;
     }
+
+    match /withdrawal_logs/{logId} {
+      allow get: if true;
+      allow create, update: if true;
+      allow delete, list: if false;
+    }
   }
 }

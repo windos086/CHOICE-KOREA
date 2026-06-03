@@ -288,8 +288,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
         if (isMobile && Kakao) {
           console.log("🧩 [Kakao JS SDK Detected on Mobile] Executing App-to-App direct login flow to omit browser URL frames...");
           
+          const kakaoAppKey = customKey || (import.meta as any).env?.VITE_KAKAO_JS_KEY || (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda";
           if (!Kakao.isInitialized()) {
-            const kakaoAppKey = customKey || (import.meta as any).env?.VITE_KAKAO_JS_KEY || (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda";
             console.log("🧩 [Kakao JS SDK Initialize] Initiating with App Key:", kakaoAppKey);
             Kakao.init(kakaoAppKey);
           }

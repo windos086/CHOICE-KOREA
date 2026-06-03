@@ -131,6 +131,17 @@
         "createdAt": { "type": "integer" }
       },
       "required": ["commentId", "predictionId", "author", "authorId", "content", "createdAt"]
+    },
+    "WithdrawalLog": {
+      "title": "Withdrawal Log",
+      "description": "Log of deleted accounts to restrict re-registration during 30 days.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "withdrawnAt": { "type": "string", "format": "date-time" },
+        "localFlag": { "type": "boolean" }
+      },
+      "required": ["userId", "withdrawnAt"]
     }
   },
   "firestore": {
@@ -165,6 +176,10 @@
     "/prediction_replies/{replyId}": {
       "schema": "PredictionReply",
       "description": "Replies made by users to comments on prediction events."
+    },
+    "/withdrawal_logs/{logId}": {
+      "schema": "WithdrawalLog",
+      "description": "Ledger of self-withdrawn users used to enforce the 30-day cooling-off period."
     }
   }
 }
