@@ -295,9 +295,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
           }
 
           if (Kakao.isInitialized()) {
-            console.log("🚀 [Kakao JS SDK Authorize] Redirecting securely through KakaoTalk App context:", redirectUriForSDK);
+            const statePayload = `${redirectUriForSDK}||${kakaoAppKey}`;
+            console.log("🚀 [Kakao JS SDK Authorize] Redirecting securely through KakaoTalk App context with state:", statePayload);
             Kakao.Auth.authorize({
               redirectUri: redirectUriForSDK,
+              state: statePayload,
             });
             return; // 앱 간 direct 인증이 성공적으로 시작되었으므로 기본 iframe/외부 브라우저 분기를 중단합니다.
           }
