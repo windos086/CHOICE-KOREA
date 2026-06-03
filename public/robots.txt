@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://choicekorea.co.kr/sitemap.xml
