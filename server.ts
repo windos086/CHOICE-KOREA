@@ -25,6 +25,11 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Authoritative server time endpoint
+  app.get("/api/time", (req, res) => {
+    res.json({ serverTime: Date.now() });
+  });
+
   // Vite middleware setup
   let vite: any;
   if (process.env.NODE_ENV !== "production") {
