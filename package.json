@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@capacitor/browser": "^8.0.3",
+    "@capacitor/browser": "^6.0.0",
     "@capacitor/core": "^6.2.1",
     "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@google/genai": "^2.4.0",
