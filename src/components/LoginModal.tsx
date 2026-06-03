@@ -335,7 +335,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
           console.log("🚀 [Kakao Direct Authorized Login] Opening popups with address:", resData.url);
           
-          if (isMobile) {
+          const { Capacitor } = await import("@capacitor/core");
+          const isApp = Capacitor.isNativePlatform() || (typeof window !== 'undefined' && typeof (window as any).isPlatform === 'function' && (window as any).isPlatform('capacitor'));
+
+          if (isApp) {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.open({ url: resData.url });
+          } else if (isMobile) {
             // 모바일일때는 팝업을 쓰지 말고 부모창을 직접 리다이렉트 시킴
             window.location.href = resData.url;
           } else if (kakaoPopup) {
