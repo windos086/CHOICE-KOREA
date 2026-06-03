@@ -278,6 +278,32 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onRegister
 
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
 
+        // --------------------------------------------------------------------------------
+        // [안드로이드/모바일 앱 전용 카카오톡 앱 간편 로그인 연동 (주소창 노출 제한 해결책)]
+        // --------------------------------------------------------------------------------
+        const Kakao = (window as any).Kakao;
+        const redirectUriForSDK = "https://choicekr.co.kr/api/auth/kakao/callback";
+
+        // 모바일 브라우저 또는 Capacitor 앱 환경이고 전역 Kakao 객체가 로드되어 있는 경우
+        if (isMobile && Kakao) {
+          console.log("🧩 [Kakao JS SDK Detected on Mobile] Executing App-to-App direct login flow to omit browser URL frames...");
+          
+          if (!Kakao.isInitialized()) {
+            const kakaoAppKey = customKey || (import.meta as any).env?.VITE_KAKAO_JS_KEY || (import.meta as any).env?.VITE_KAKAO_JAVASCRIPT_KEY || "897b8fc47dfd62b4c5325e24591fbbda";
+            console.log("🧩 [Kakao JS SDK Initialize] Initiating with App Key:", kakaoAppKey);
+            Kakao.init(kakaoAppKey);
+          }
+
+          if (Kakao.isInitialized()) {
+            console.log("🚀 [Kakao JS SDK Authorize] Redirecting securely through KakaoTalk App context:", redirectUriForSDK);
+            Kakao.Auth.authorize({
+              redirectUri: redirectUriForSDK,
+            });
+            return; // 앱 간 direct 인증이 성공적으로 시작되었으므로 기본 iframe/외부 브라우저 분기를 중단합니다.
+          }
+        }
+        // --------------------------------------------------------------------------------
+
         let kakaoPopup: Window | null = null;
         if (!isMobile) {
           // 3. PC 환경에서는 팝업 차단(비동기 차단 필터) 우회를 위해, 사용자 클릭 주관인 현 컨택스트에서 바로 빈 창을 확보합니다.
