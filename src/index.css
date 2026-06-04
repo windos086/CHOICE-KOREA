@@ -5,5 +5,34 @@
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-[#030304] text-white;
 }
+
+@layer utilities {
+  @keyframes shimmer {
+    to { transform: translateX(100%); }
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes goldGlow {
+    0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.4), inset 0 0 2px rgba(245, 158, 11, 0.2); }
+    50% { box-shadow: 0 0 18px rgba(245, 158, 11, 0.85), inset 0 0 6px rgba(245, 158, 11, 0.4); }
+  }
+  @keyframes neonBorder {
+    0%, 100% { border-color: rgba(63, 63, 70, 0.8); }
+    50% { border-color: rgba(220, 38, 38, 0.8); }
+  }
+
+  .animate-marquee {
+    animation: marquee 25s linear infinite;
+  }
+  .animate-gold-glow {
+    animation: goldGlow 3s infinite ease-in-out;
+  }
+  .animate-neon-border {
+    animation: neonBorder 3.5s infinite ease-in-out;
+  }
+}
+

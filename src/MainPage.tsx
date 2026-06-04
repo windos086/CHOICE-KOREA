@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './lib/firebase';
+import BetHistoryView from './components/BetHistoryView';
+import AttendanceChecker from './components/AttendanceChecker';
 import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
 
 interface MainPageProps {
@@ -25,9 +27,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
   
   // State for My Page
   const [showMyPage, setShowMyPage] = useState(false);
+  const [showAttendanceChecker, setShowAttendanceChecker] = useState(false);
+  const [showBetHistory, setShowBetHistory] = useState(false);
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
   const miniGameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resolvingBetsRef = useRef<boolean>(false);
   const [activeMiniGameTab, setActiveMiniGameTab] = useState<'powerball5' | 'powerball3' | 'ladder5' | 'daridari3' | 'powerladder5'>('powerball5');
   const [withdrawalPassword, setWithdrawalPassword] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -182,163 +187,207 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return () => clearInterval(token);
   }, [activeMiniGameTab, serverTimeOffset]);
 
-  // Timer Effect for Live Draw Simulation
+  // Dynamic background pending-bets auto-resolver based on current game round clock
   useEffect(() => {
-    let interval: any = null;
-    if (isDrawing && drawingTimer > 0) {
-      interval = setInterval(() => {
-        setDrawingTimer(prev => prev - 1);
-      }, 1000);
-    } else if (isDrawing && drawingTimer === 0) {
-      resolveBets();
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isDrawing, drawingTimer]);
+    if (!currentUserData || !currentUserData.bets) return;
 
-  const resolveBets = async () => {
-    setIsDrawing(false);
-    if (!currentUserData) return;
+    const pendingBets = currentUserData.bets.filter((b: any) => b.status === 'pending');
+    if (pendingBets.length === 0) return;
 
-    const currentBets = [...(currentUserData.bets || [])];
-    const pendingIndex = currentBets.findIndex(b => b.status === 'pending');
-    if (pendingIndex === -1) return;
+    if (resolvingBetsRef.current) return;
 
-    const activeBet = currentBets[pendingIndex];
-    let isWin = false;
-    let winningOutcome = '';
-
-    const rollSingleFolderUsingDetails = (folder: any, details: any) => {
-      let isWinFolder = false;
-      let folderOutcome = '';
-
-      if (folder.gameType === 'powerball5' || folder.gameType === 'powerball3') {
-        if (folder.group === '일반볼') {
-          if (folder.option === '홀' || folder.option === '짝') {
-            isWinFolder = folder.option === details.rolledOddEven;
-            folderOutcome = `${details.rolledOddEven}`;
-          } else {
-            isWinFolder = folder.option === details.rolledUnderOver;
-            folderOutcome = `${details.rolledUnderOver}`;
-          }
-        } else if (folder.group === '일반볼 대중소') {
-          isWinFolder = folder.option === details.size;
-          folderOutcome = `${details.size}`;
-        } else if (folder.group === '파워볼') {
-          if (folder.option === '홀' || folder.option === '짝') {
-            isWinFolder = folder.option === details.pbOddEven;
-            folderOutcome = `${details.pbOddEven}`;
-          } else {
-            isWinFolder = folder.option === details.pbUnderOver;
-            folderOutcome = `${details.pbUnderOver}`;
-          }
+    let hasAnyResolvable = false;
+    for (const bet of pendingBets) {
+      if (bet.folders && bet.folders.length > 0) {
+        const allCompleted = bet.folders.every((f: any) => {
+          const { currentRound } = getRoundAndSecondsRemaining(f.gameType);
+          return f.round < currentRound;
+        });
+        if (allCompleted) {
+          hasAnyResolvable = true;
+          break;
         }
       } else {
-        if (folder.group === '출발지') {
-          isWinFolder = folder.option === details.start;
-          folderOutcome = `${details.start}`;
-        } else if (folder.group === '줄개수') {
-          isWinFolder = folder.option === details.lines;
-          folderOutcome = `${details.lines}`;
-        } else if (folder.group === '최종결과') {
-          isWinFolder = folder.option === details.outcome;
-          folderOutcome = `${details.outcome}`;
+        const { currentRound } = getRoundAndSecondsRemaining(bet.gameType);
+        if (bet.round && bet.round < currentRound) {
+          hasAnyResolvable = true;
+          break;
         }
       }
-      return { isWinFolder, folderOutcome };
+    }
+
+    if (!hasAnyResolvable) return;
+
+    const runResolution = async () => {
+      resolvingBetsRef.current = true;
+      try {
+        let nowBalance = Number(currentUserData.balance || 0);
+        let nowPoints = Number(currentUserData.points || 0);
+        let updatedBets = [...currentUserData.bets];
+        let didChange = false;
+        let winningAlerts: string[] = [];
+
+        const rollSingleFolderUsingDetails = (folder: any, details: any) => {
+          let isWinFolder = false;
+          let folderOutcome = '';
+
+          if (folder.gameType === 'powerball5' || folder.gameType === 'powerball3') {
+            if (folder.group === '일반볼') {
+              if (folder.option === '홀' || folder.option === '짝') {
+                isWinFolder = folder.option === details.rolledOddEven;
+                folderOutcome = `${details.rolledOddEven}`;
+              } else {
+                isWinFolder = folder.option === details.rolledUnderOver;
+                folderOutcome = `${details.rolledUnderOver}`;
+              }
+            } else if (folder.group === '일반볼 대중소') {
+              isWinFolder = folder.option === details.size;
+              folderOutcome = `${details.size}`;
+            } else if (folder.group === '파워볼') {
+              if (folder.option === '홀' || folder.option === '짝') {
+                isWinFolder = folder.option === details.pbOddEven;
+                folderOutcome = `${details.pbOddEven}`;
+              } else {
+                isWinFolder = folder.option === details.pbUnderOver;
+                folderOutcome = `${details.pbUnderOver}`;
+              }
+            }
+          } else {
+            if (folder.group === '출발지') {
+              isWinFolder = folder.option === details.start;
+              folderOutcome = `${details.start}`;
+            } else if (folder.group === '줄개수') {
+              isWinFolder = folder.option === details.lines;
+              folderOutcome = `${details.lines}`;
+            } else if (folder.group === '최종결과') {
+              isWinFolder = folder.option === details.outcome;
+              folderOutcome = `${details.outcome}`;
+            }
+          }
+          return { isWinFolder, folderOutcome };
+        };
+
+        for (let i = 0; i < updatedBets.length; i++) {
+          const bet = { ...updatedBets[i] };
+          if (bet.status !== 'pending') continue;
+
+          let isResolvable = false;
+          if (bet.folders && bet.folders.length > 0) {
+            isResolvable = bet.folders.every((f: any) => {
+              const { currentRound } = getRoundAndSecondsRemaining(f.gameType);
+              return f.round < currentRound;
+            });
+          } else {
+            const { currentRound } = getRoundAndSecondsRemaining(bet.gameType);
+            isResolvable = bet.round && bet.round < currentRound;
+          }
+
+          if (!isResolvable) continue;
+
+          console.log("Resolving background-style:", bet.id);
+          let isWin = false;
+          let winningOutcome = '';
+
+          if (bet.folders && bet.folders.length > 0) {
+            const updatedFolders = [];
+            for (const f of bet.folders) {
+              const gameRes = await getOrInsertAuthoritativeRoundResult(f.gameType, f.round);
+              const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails(f, gameRes.details || {});
+              updatedFolders.push({
+                ...f,
+                status: isWinFolder ? 'win' : 'lose',
+                rollResult: folderOutcome
+              });
+            }
+            isWin = updatedFolders.every((f: any) => f.status === 'win');
+            winningOutcome = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
+            bet.folders = updatedFolders;
+          } else {
+            const gameRes = await getOrInsertAuthoritativeRoundResult(bet.gameType, bet.round || 0);
+            const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails({
+              gameType: bet.gameType,
+              group: bet.group,
+              option: bet.option
+            }, gameRes.details || {});
+            isWin = isWinFolder;
+            winningOutcome = `${bet.group} [${folderOutcome}]`;
+          }
+
+          bet.status = isWin ? 'win' : 'lose';
+          bet.rollResult = winningOutcome;
+          updatedBets[i] = bet;
+          didChange = true;
+
+          if (isWin) {
+            const payout = Math.floor(bet.amount * bet.dividend);
+            nowBalance = nowBalance + payout;
+            const ptsReward = Math.floor(bet.amount * 0.01);
+            nowPoints = nowPoints + ptsReward;
+
+            winningAlerts.push(`🎉 [배팅 적중] 축하합니다!\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n당첨 금액: +${payout.toLocaleString()}원\n포인트 적립: +${ptsReward.toLocaleString()}P`);
+          } else {
+            winningAlerts.push(`😢 [배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n배팅 금액 ${bet.amount.toLocaleString()}원이 차감되었습니다.`);
+          }
+        }
+
+        if (didChange) {
+          setUserBalance(nowBalance);
+          setUserPoints(nowPoints);
+
+          const updatedUser = {
+            ...currentUserData,
+            balance: nowBalance,
+            points: nowPoints,
+            bets: updatedBets
+          };
+          setCurrentUserData(updatedUser);
+
+          const savedUserStr = localStorage.getItem('currentUser');
+          if (savedUserStr) {
+            try {
+              const curObj = JSON.parse(savedUserStr);
+              localStorage.setItem('currentUser', JSON.stringify({ 
+                ...curObj, 
+                balance: nowBalance,
+                points: nowPoints,
+                bets: updatedBets
+              }));
+            } catch (err) {
+              console.error(err);
+            }
+          }
+
+          try {
+            await updateDoc(doc(db, 'users', currentUserData.id), {
+              balance: nowBalance,
+              points: nowPoints,
+              bets: updatedBets
+            });
+          } catch (e) {
+            console.error("Failed to resolve pending bets on database: ", e);
+          }
+
+          if (winningAlerts.length > 0) {
+            alert(winningAlerts.join('\n\n--------------------------\n\n'));
+          }
+        }
+      } catch (err) {
+        console.error("Error in runResolution:", err);
+      } finally {
+        resolvingBetsRef.current = false;
+      }
     };
 
-    if (activeBet.folders && activeBet.folders.length > 0) {
-      // Combined parlay bet - resolve each folder asynchronously using the authoritative round details
-      const updatedFolders = [];
-      for (const f of activeBet.folders) {
-        const gameRes = await getOrInsertAuthoritativeRoundResult(f.gameType, f.round);
-        const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails(f, gameRes.details || {});
-        updatedFolders.push({
-          ...f,
-          status: isWinFolder ? 'win' : 'lose',
-          rollResult: folderOutcome
-        });
-      }
+    runResolution();
 
-      isWin = updatedFolders.every((f: any) => f.status === 'win');
-      winningOutcome = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
-      activeBet.folders = updatedFolders;
-    } else {
-      // Single folder bet
-      const gameType = activeBet.gameType;
-      const round = activeBet.round || 0;
-      const gameRes = await getOrInsertAuthoritativeRoundResult(gameType, round);
-      const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails({
-        gameType: activeBet.gameType,
-        group: activeBet.group,
-        option: activeBet.option
-      }, gameRes.details || {});
-      isWin = isWinFolder;
-      winningOutcome = `${activeBet.group} [${folderOutcome}]`;
+  }, [currentUserData?.bets, secondsLeft]);
+
+  useEffect(() => {
+    if (currentUserData?.id) {
+       console.log("Loading history for userId:", currentUserData.id);
+       loadUserDepositHistory();
     }
-
-    activeBet.status = isWin ? 'win' : 'lose';
-    activeBet.rollResult = winningOutcome;
-
-    let finalBalance = userBalance;
-    let finalPoints = userPoints;
-    let AlertMessage = '';
-
-    if (isWin) {
-      const payout = Math.floor(activeBet.amount * activeBet.dividend);
-      finalBalance = userBalance + payout;
-      const ptsReward = Math.floor(activeBet.amount * 0.01);
-      finalPoints = userPoints + ptsReward;
-
-      AlertMessage = `🎉 [배팅 적중] 축하합니다!\n\n결과: ${winningOutcome}\n배팅 정보: ${activeBet.game}\n당첨 금액: +${payout.toLocaleString()}원\n포인트 적립: +${ptsReward.toLocaleString()}P`;
-    } else {
-      AlertMessage = `😢 [배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${activeBet.game}\n배팅 금액 ${activeBet.amount.toLocaleString()}원이 차감되었습니다.`;
-    }
-
-    // Since we already write the result to gameResults during getOrInsertAuthoritativeRoundResult,
-    // we don't need to add duplicate documents to 'gameResults' collection here anymore!
-
-    setUserBalance(finalBalance);
-    setUserPoints(finalPoints);
-
-    const updatedBets = [...currentBets];
-    updatedBets[pendingIndex] = activeBet;
-
-    setCurrentUserData(prev => ({
-      ...prev,
-      balance: finalBalance,
-      points: finalPoints,
-      bets: updatedBets
-    }));
-
-    const savedUserStr = localStorage.getItem('currentUser');
-    if (savedUserStr) {
-      try {
-        const curObj = JSON.parse(savedUserStr);
-        localStorage.setItem('currentUser', JSON.stringify({ 
-          ...curObj, 
-          balance: finalBalance, 
-          points: finalPoints 
-        }));
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    try {
-      await updateDoc(doc(db, 'users', currentUserData.id), {
-        balance: finalBalance,
-        points: finalPoints,
-        bets: updatedBets
-      });
-    } catch (e) {
-      console.error("Failed to resolve bet on database: ", e);
-    }
-
-    alert(AlertMessage);
-  };
+  }, [currentUserData?.id]);
 
   const handlePlaceBet = async () => {
     if (!currentUserData) {
@@ -355,10 +404,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
     if (betAmount > userBalance) {
       alert('보유머니가 부족합니다. 충전 후 이용해 주세요.');
-      return;
-    }
-    if (isDrawing) {
-      alert('이미 추첨 중인 배팅이 있습니다. 결과 처리를 기다리세요.');
       return;
     }
 
@@ -381,6 +426,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const folders = selectedOptions.map(opt => {
       const gameLabel = opt.gameType === 'powerball5' ? 'N파워볼(5분)' :
                         opt.gameType === 'powerball3' ? 'N파워볼(3분)' :
+                        opt.gameType === 'powerladder5' ? 'N파워사다리(5분)' :
                         opt.gameType === 'ladder5' ? '사다리(5분)' : '다리다리(3분)';
       return {
         game: `${gameLabel} [${opt.round}회차]`,
@@ -444,8 +490,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
 
     setSelectedOptions([]); // Clear selected options list
-    setIsDrawing(true);
-    setDrawingTimer(6); // 6 seconds live draw count down!
+    setBetAmount(10000); // Reset bet amount to default 10k
+    alert('배팅성공 - 배팅이 정상 완료되었습니다. 경기 결과 추첨 후 자동 적중 처리됩니다.');
   };
 
   // Generate current + 5 upcoming rounds dynamically based on clock
@@ -675,8 +721,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
           setNickname(userObj.nickname);
         }
         
-        // Designate windo086 as admin/operator
-        if (userObj.username === 'windo086') {
+        // Designate windo086 and windos086 as admin/operator
+        if (userObj.username === 'windo086' || userObj.username === 'windos086') {
           setIsAdmin(true);
         }
 
@@ -718,7 +764,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           if (data.nickname) {
             setNickname(data.nickname);
           }
-          if (data.username === 'windo086') {
+          if (data.username === 'windo086' || data.username === 'windos086') {
             setIsAdmin(true);
           }
         };
@@ -752,8 +798,21 @@ export default function MainPage({ onLogout }: MainPageProps) {
             console.log("Direct document listener matched:", docSnap.id, docSnap.data());
             syncToLocalStorageAndState(docSnap.id, docSnap.data());
           } else {
-            console.warn("User document not found directly at docId:", docId, "trying query fallback");
+            console.warn("User document not found directly at docId:", docId, "trying query fallback and auto-ensuring");
             setupQueryListener();
+            
+            // Auto-heal: Ensure user document exists in Firestore so they are registered/trackable
+            console.log("Auto-ensuring user document in Firestore for:", userObj.username);
+            setDoc(userDocRef, {
+              joinCode: userObj.joinCode || '5882',
+              username: userObj.username,
+              password: userObj.password || '1234',
+              nickname: userObj.nickname || '운영자',
+              tetherWalletAddress: userObj.tetherWalletAddress || '',
+              balance: userObj.balance !== undefined ? userObj.balance : 5000000,
+              points: userObj.points !== undefined ? userObj.points : 50000,
+              createdAt: new Date().toISOString()
+            }).catch(err => console.error("Auto-ensuring user creation failed:", err));
           }
         }, (docError) => {
           console.warn("Direct document listener failed, trying resilient query listener:", docError);
@@ -1246,12 +1305,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
     try {
-      const docRef = doc(db, 'users', userId);
-      let userDocSnap = adminUsers.find(u => u.id === userId);
-      let currentBal = userDocSnap?.balance !== undefined ? userDocSnap.balance : 5000000;
-      let nextBal = currentBal + amountKrw;
+      // Fetch fresh balance from Firestore
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      const currentBal = userData?.balance !== undefined ? userData.balance : 5000000;
+      const nextBal = currentBal + (amountKrw || 0);
 
-      await updateDoc(docRef, {
+      await updateDoc(userDocRef, {
         balance: nextBal
       });
 
@@ -1259,7 +1320,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
         status: 'approved',
         processedAt: new Date().toISOString()
       });
-
+      
       setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, balance: nextBal } : u));
       setAdminDepositRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved', processedAt: new Date().toISOString() } : r));
 
@@ -1445,17 +1506,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const sportsRows = getSportsTableRows();
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white font-sans flex flex-col">
+    <div className="min-h-screen bg-[#030304] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-amber-500 selection:text-black">
+      {/* Background glow effects */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-red-950/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-amber-950/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+
+
+
       {/* Top GNB Bar */}
-      <header className="bg-neutral-900 border-b border-gray-800 px-6 py-4 flex flex-col items-center gap-4 relative">
+      <header className="bg-gradient-to-b from-[#111215] via-[#090a0c] to-[#040405] border-b border-rose-950/40 px-6 py-5 flex flex-col items-center gap-5 relative z-50 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+        {/* Decorative corner light bands */}
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-40"></div>
+        <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40"></div>
+
         {/* Admin Menu Switch for Operators (Top Right on desktop) */}
         {isAdmin && (
-          <div className="sm:absolute sm:top-5 sm:right-6 mt-1 sm:mt-0 z-30">
+          <div className="sm:absolute sm:top-6 sm:right-6 mt-1 sm:mt-0 z-30">
             <button
               onClick={() => setShowAdminPanel(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white font-extrabold px-3.5 py-2 rounded shadow-[0_0_15px_rgba(239,68,68,0.5)] border border-red-500/30 text-xs transition-all cursor-pointer"
+              className="flex items-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-900 hover:from-red-500 hover:to-red-700 text-white font-extrabold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.6)] border border-red-500/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95"
             >
-              <Shield className="w-4 h-4 animate-pulse text-red-150" />
+              <Shield className="w-4 h-4 animate-pulse text-red-100" />
               어드민 관리자 메뉴
             </button>
           </div>
@@ -1469,31 +1540,45 @@ export default function MainPage({ onLogout }: MainPageProps) {
             setShowDepositScreen(false);
             setShowWithdrawalScreen(false);
             setShowGameResultScreen(false);
+            setShowBetHistory(false);
           }}
-          className="text-3xl font-extrabold text-red-600 tracking-tighter italic cursor-pointer relative pt-3 pb-1"
+          className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300"
         >
-          <span className="inline-flex items-center">
-            <span className="relative inline-block mr-0.5">
-              {/* Redesigned brilliant gold crown scaled perfectly above slanted 'C' */}
-              <svg 
-                className="absolute -top-[15px] left-1/2 -translate-x-[35%] w-5.5 h-4.5 text-amber-400 drop-shadow-[0_1px_3px_rgba(251,191,36,0.6)] mt-[5px] mr-0 mb-0" 
-                viewBox="0 0 24 24" 
-                fill="currentColor"
+          <span className="inline-flex items-center font-sans">
+            <span className="relative inline-block mr-1">
+              {/* Dynamic 3D Sparkling Floating Crown */}
+              <motion.div 
+                animate={{ y: [0, -6, 0], rotate: [0, -6, 6, 0], scale: [1, 1.05, 0.95, 1] }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -top-[32px] left-1/2 -ml-4 w-8 h-8 text-amber-400 group-hover:text-yellow-300 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.95)]"
               >
-                <path d="M12 5l3.5 6 5.5-4-2.5 10H5.5L3 7l5.5 4z" />
-                <circle cx="12" cy="4" r="1.2" fill="#fef08a" />
-                <circle cx="3" cy="6" r="1.2" fill="#fef08a" />
-                <circle cx="21" cy="6" r="1.2" fill="#fef08a" />
-              </svg>
-              <span>C</span>
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ marginTop: '16px', paddingBottom: '0px', paddingRight: '0px', paddingLeft: '0px', marginRight: '0px', marginLeft: '0px' }}>
+                  {/* Highly polished crown silhouette */}
+                  <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
+                  <circle cx="5" cy="9" r="1" className="fill-white animate-pulse" />
+                  <circle cx="12" cy="4" r="1.2" className="fill-white animate-pulse" />
+                  <circle cx="19" cy="9" r="1" className="fill-white animate-pulse" />
+                </svg>
+              </motion.div>
+              {/* Luxury Deep Gothic Bold C with premium gradient & intense shadow */}
+              <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-tight transition-transform group-hover:scale-105 block">
+                C
+              </span>
             </span>
-            <span>HOICE</span>
-            <span className="text-xs font-bold text-gray-400 not-italic uppercase ml-3 border-l border-neutral-700/60 pl-3">Sports & Casino</span>
+            <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-wide transition-all group-hover:text-red-400">
+              HOICE
+            </span>
+            <span className="text-[10px] font-black text-amber-400/90 not-italic uppercase ml-5 border-l border-neutral-800 pl-5 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
+              <span>SPORTS</span>
+              <span className="text-gray-400 text-[8px] tracking-[0.3em] font-normal">& CASINO</span>
+            </span>
           </span>
+          {/* Neon shimmer underline on hover */}
+          <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-red-600 via-amber-500 to-red-600 group-hover:w-full transition-all duration-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
         </button>
 
         {/* Navigation Menus (Centered) */}
-        <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-semibold text-gray-300">
+        <nav className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm font-extrabold text-gray-300">
           {['테더가이드', '스포츠', '미니게임', '인플레이', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
             if (item === '미니게임') {
               return (
@@ -1504,43 +1589,44 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   onMouseLeave={closeMiniGameSubmenu}
                 >
                   <button 
-                    onClick={() => setShowMiniGameSubmenu(prev => !prev)}
-                    className={`hover:text-amber-400 transition-colors uppercase tracking-tight ${showMiniGame ? 'text-amber-400 font-extrabold border-b border-amber-400 pb-0.5' : ''}`}
+                    onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                    className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
                   >
                     미니게임
                   </button>
                   {showMiniGameSubmenu && (
                     <div 
-                      className="absolute top-full left-0 w-[140px] bg-neutral-800 border border-neutral-700 rounded shadow-xl mt-1 z-[999] overflow-hidden p-1 space-y-1"
+                      className="absolute top-full left-0 w-[140px] bg-neutral-900 border border-neutral-800 rounded-lg shadow-2xl mt-1.5 z-[999] overflow-hidden p-1 space-y-1 backdrop-blur-lg"
+
                       onMouseEnter={openMiniGameSubmenu}
                       onMouseLeave={closeMiniGameSubmenu}
                     >
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (3분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerladder5'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         다리다리 (3분)
@@ -1560,6 +1646,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowWithdrawalScreen(false);
                     setShowMyPage(false);
                     setShowMiniGame(false);
+                    setShowBetHistory(false);
+                    setShowGameResultScreen(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
@@ -1578,6 +1666,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowGameResultScreen(false);
                     setShowMyPage(false);
                     setShowMiniGame(false);
+                    setShowBetHistory(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
@@ -1596,10 +1685,30 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowDepositScreen(false);
                     setShowMyPage(false);
                     setShowMiniGame(false);
+                    setShowBetHistory(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
                   경기결과
+                </button>
+              );
+            }
+
+            if (item === '베팅내역') {
+              return (
+                <button 
+                  key={item} 
+                  onClick={() => {
+                    setShowBetHistory(true);
+                    setShowMyPage(false);
+                    setShowGameResultScreen(false);
+                    setShowWithdrawalScreen(false);
+                    setShowDepositScreen(false);
+                    setShowMiniGame(false);
+                  }}
+                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                >
+                  베팅내역
                 </button>
               );
             }
@@ -1618,42 +1727,52 @@ export default function MainPage({ onLogout }: MainPageProps) {
           })}
         </nav>
 
-        {/* User Stats and Actions (Centered with individual pill styling from the screenshot) */}
-        <div className="flex flex-wrap items-center justify-center gap-3 text-xs w-full max-w-full my-1 select-none">
+        {/* User Stats and Actions (VIP Polished Tones & High-contrast Luxury Cards) */}
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs w-full max-w-full my-1.5 select-none font-sans">
           {/* Level & Nickname Box */}
-          <div className="flex items-center gap-2 bg-neutral-900 px-3.5 py-1.5 rounded border border-neutral-800 shadow-md">
-            <span className="text-amber-400 font-extrabold">Lv17</span>
-            <span className="text-white font-bold">{nickname}님</span>
+          <div className="flex items-center gap-2 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)] transition-transform hover:scale-105 duration-250">
+            <span className="bg-gradient-to-r from-amber-400 to-amber-600 text-black font-extrabold px-1.5 py-0.5 rounded text-[10px] tracking-tight uppercase shadow-inner">
+              VIP 등급
+            </span>
+            <span className="text-gray-150 font-black tracking-tight">{nickname} <span className="text-gray-400 font-normal">님</span></span>
           </div>
 
-          {/* Holdings Box */}
-          <div className="flex items-center gap-2 bg-neutral-900 px-3.5 py-1.5 rounded border border-neutral-800 shadow-md">
-            <span className="text-amber-400 font-bold">보유금액</span>
-            <span className="text-white font-bold">{userBalance.toLocaleString()} 원</span>
+          {/* Holdings Box (Emerald Glow) */}
+          <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105 duration-250">
+            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+            <span className="text-emerald-400 font-black">보유머니</span>
+            <span className="text-white font-extrabold tracking-wide text-sm font-mono drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              {userBalance.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">원</span>
+            </span>
           </div>
 
-          {/* Points Box */}
-          <div className="flex items-center gap-2 bg-neutral-900 px-3.5 py-1.5 rounded border border-neutral-800 shadow-md">
-            <span className="text-amber-400 font-bold">포인트</span>
-            <span className="text-white font-bold">{userPoints.toLocaleString()} P</span>
+          {/* Points Box (Gold Glow) */}
+          <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-400/30 shadow-[0_0_15px_rgba(251,191,36,0.1)] transition-transform hover:scale-105 duration-250">
+            <span className="text-amber-400 font-black">포인트</span>
+            <span className="text-white font-extrabold tracking-wide font-mono text-sm">
+              {userPoints.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">P</span>
+            </span>
           </div>
 
-          {/* Messages Box */}
-          <div className="flex items-center gap-2 bg-neutral-900 px-3.5 py-1.5 rounded border border-neutral-800 shadow-md">
-            <span className="text-amber-400 font-bold">받은 쪽지</span>
-            <span className="text-white font-bold">0 개</span>
+          {/* Messages Box (Crimson Flame Glow) */}
+          <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.1)] transition-transform hover:scale-105 duration-250">
+            <span className="text-rose-450 font-black">신규쪽지</span>
+            <span className="bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
+              0
+            </span>
           </div>
 
           {/* My Page Button */}
           <button 
             type="button"
-            className="bg-gradient-to-b from-[#1c2e46] to-[#0b131d] border border-[#2d4766] hover:from-[#263e5e] hover:to-[#132030] text-[#cfdbe9] px-4 py-1.5 rounded font-bold transition-all shadow-md cursor-pointer text-xs"
+            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
             onClick={() => {
               setShowMyPage(true);
               setShowMiniGame(false);
               setShowDepositScreen(false);
               setShowWithdrawalScreen(false);
               setShowGameResultScreen(false);
+              setShowBetHistory(false);
             }}
           >
             My Page
@@ -1662,16 +1781,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
           {/* Attendance Calendar Button */}
           <button 
             type="button"
-            className="bg-gradient-to-b from-[#1c2e46] to-[#0b131d] border border-[#2d4766] hover:from-[#263e5e] hover:to-[#132030] text-[#cfdbe9] px-4 py-1.5 rounded font-bold transition-all shadow-md cursor-pointer text-xs"
-            onClick={() => alert('출석달력 준비 중입니다.')}
+            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+            onClick={() => setShowAttendanceChecker(true)}
           >
-            출석달력
+            출석체크
           </button>
 
           {/* Customer Center Button */}
           <button 
             type="button"
-            className="bg-gradient-to-b from-[#1c2e46] to-[#0b131d] border border-[#2d4766] hover:from-[#263e5e] hover:to-[#132030] text-[#cfdbe9] px-4 py-1.5 rounded font-bold transition-all shadow-md cursor-pointer text-xs"
+            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
             onClick={() => alert('고객센터 준비 중입니다.')}
           >
             고객센터
@@ -1681,22 +1800,24 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <button 
             type="button"
             onClick={handleLogoutClick}
-            className="bg-gradient-to-b from-[#1c2e46] to-[#0b131d] border border-[#2d4766] hover:from-[#3a1a1a] hover:to-[#1c0b0b] hover:border-[#5c2a2a] hover:text-red-400 text-[#cfdbe9] px-4 py-1.5 rounded font-bold transition-all shadow-md cursor-pointer text-xs"
+            className="bg-gradient-to-b from-[#1e1f24] via-[#1c1212] to-[#120707] border border-zinc-800/80 hover:border-red-650 hover:text-red-400 text-gray-300 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
           >
             로그아웃
           </button>
 
           {/* Secure KST Electronic Digital Clock */}
-          <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded border border-[#2d4766]/50 shadow-md font-mono text-xs select-none">
-            <span className="text-emerald-400 font-extrabold animate-pulse text-[10px]">●</span>
-            <span className="text-gray-400 font-semibold text-[9px] uppercase tracking-wider">KST 한국시간:</span>
-            <span className="text-amber-400 font-black tracking-wide glow-text drop-shadow-[0_0_4px_rgba(251,191,36,0.3)]">{kstClock || '동기화 중...'}</span>
+          <div className="flex items-center gap-2 bg-neutral-950/90 px-3.5 py-2 rounded-lg border border-rose-950 shadow-md font-mono text-xs select-none shadow-[inset_0_0_8px_rgba(239,68,68,0.05)]">
+            <span className="text-red-500 font-extrabold animate-pulse text-[10px]">●</span>
+            <span className="text-red-400/80 font-bold text-[9px] uppercase tracking-wider">KST:</span>
+            <span className="text-rose-400 font-black tracking-wide drop-shadow-[0_0_6px_rgba(244,63,94,0.4)]">{kstClock || '동기화 중...'}</span>
           </div>
         </div>
       </header>
 
-      {/* Conditional Rendering: My Page vs Mini Game vs Dashboard */}
-      {showMyPage ? (
+      {/* Conditional Rendering: My Page vs Betting History vs Mini Game vs Dashboard */}
+      {showBetHistory ? (
+        <BetHistoryView currentUserData={currentUserData} />
+      ) : showMyPage ? (
         <div className="flex-1 p-8 max-w-2xl w-full mx-auto">
           <div className="mb-4 text-sm text-gray-400">
             <button onClick={() => setShowMyPage(false)} className="hover:text-white">마이페이지</button> &gt; 회원정보수정
@@ -2767,7 +2888,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <div className="flex flex-col xl:flex-row gap-6 items-start relative w-full">
             
             {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
-            <div className="flex-1 min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex-[3] min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden xl:mr-[350px]">
               <div className="bg-neutral-950 p-4 border-b border-red-950/80 flex items-center justify-between">
                 <span className="text-white font-black tracking-wider">
                   {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
@@ -3033,92 +3154,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
                 </div>
 
-                {/* 최근 배팅 역사 테이블 */}
-                <div className="bg-neutral-900/20 border border-neutral-800/50 rounded-xl p-4 space-y-3">
-                  <div className="text-xs font-bold text-gray-300 border-b border-neutral-800/40 pb-2 flex items-center justify-between">
-                    <span>나의 최근 배팅 내역 (실시간 리셋 저장)</span>
-                    <span className="text-[10px] text-gray-500">클라우드 데이터베이스 적용</span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-[11px] text-gray-400">
-                      <thead>
-                        <tr className="border-b border-neutral-800 text-[10px] uppercase text-gray-500">
-                          <th className="py-2 px-1">배팅시각</th>
-                          <th className="py-2 px-1">게임 분류</th>
-                          <th className="py-2 px-1">선택 옵션</th>
-                          <th className="py-2 px-1">소형 배당</th>
-                          <th className="py-2 px-1 text-right">배팅액</th>
-                          <th className="py-2 px-1 text-right">적중 결과</th>
-                          <th className="py-2 px-1 text-center font-bold">상태</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-800/30">
-                        {currentUserData?.bets && currentUserData.bets.length > 0 ? (
-                          currentUserData.bets.map((bet: any) => (
-                            <tr key={bet.id} className="hover:bg-neutral-850/20">
-                              <td className="py-2.5 px-1 font-mono text-[10px] text-gray-500">{bet.betTime}</td>
-                              <td className="py-2.5 px-1 font-bold text-gray-300">{bet.game}</td>
-                              <td className="py-2.5 px-1">
-                                {bet.folders && bet.folders.length > 0 ? (
-                                  <div className="space-y-1 my-0.5">
-                                    {bet.folders.map((f: any, fIdx: number) => (
-                                      <div key={fIdx} className="text-[10px] leading-tight border-b border-neutral-800/20 pb-1 last:border-0 last:pb-0">
-                                        <div className="text-[9px] text-gray-500 font-semibold">{f.game}</div>
-                                        <div>
-                                          <span className="text-gray-400">[{f.group}]</span>{' '}
-                                          <span className="font-extrabold text-amber-400">{f.option}</span>{' '}
-                                          <span className="text-amber-500 font-bold text-[9px] font-mono">({f.dividend}배)</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <>
-                                    <span className="text-[10px] text-gray-500">[{bet.group}]</span>{' '}
-                                    <span className="font-extrabold text-amber-400">{bet.option}</span>
-                                  </>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-1 font-bold font-mono text-amber-500">{bet.dividend}배</td>
-                              <td className="py-2.5 px-1 text-right font-mono text-white font-bold">{bet.amount.toLocaleString()}원</td>
-                              <td className="py-2.5 px-1 text-right font-mono font-bold">
-                                {bet.status === 'win' ? (
-                                  <span className="text-green-400 font-bold">+{Math.floor(bet.amount * bet.dividend).toLocaleString()}원</span>
-                                ) : bet.status === 'lose' ? (
-                                  <span className="text-gray-600">-</span>
-                                ) : (
-                                  <span className="text-yellow-500 animate-pulse font-medium">결과 대기 중</span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-1 text-center">
-                                {bet.status === 'win' ? (
-                                  <span className="bg-green-950/60 text-green-400 border border-green-800/20 px-1.5 py-0.5 rounded text-[9px] font-black">적중</span>
-                                ) : bet.status === 'lose' ? (
-                                  <span className="bg-neutral-800 text-gray-500 px-1.5 py-0.5 rounded text-[9px]">미적중</span>
-                                ) : (
-                                  <span className="bg-yellow-950/60 text-yellow-400 border border-yellow-800/20 px-1.5 py-0.5 rounded text-[9px] font-black animate-pulse">추첨 중</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={7} className="py-8 text-center text-gray-600 text-xs">
-                              진행된 배팅 내역이 존재하지 않습니다. 원하는 보드 옵션을 눌러 배팅을 시작하세요!
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
 
               </div>
             </div>
 
             {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 빨간 테두리 박스 완전히 외부로 옆으로 빠짐 */}
-            <div className="w-full xl:w-80 bg-neutral-900/80 border border-neutral-800/60 rounded-xl p-4 flex flex-col justify-between space-y-4 xl:sticky xl:top-6 z-20">
+            <div className="w-full xl:w-80 bg-neutral-900/80 border border-neutral-800/60 rounded-xl p-4 flex flex-col justify-between space-y-4 xl:fixed xl:right-6 xl:top-24 z-30 py-4 mr-[70px]">
               <div className="space-y-4">
                 <div className="text-xs font-bold text-gray-400 border-b border-neutral-800/60 pb-2 flex items-center justify-between">
                   <span>나의 배팅 슬립 (Bet Slip)</span>
@@ -3151,124 +3192,115 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </span>
                 </div>
 
-                {/* 선택된 옵션 정보 (다폴더/묶음 조합 리스트) */}
-                {selectedOptions.length > 0 ? (
-                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                    <div className="text-[10px] text-gray-500 font-bold mb-1 flex justify-between">
-                      <span>선택된 폴더 개수: {selectedOptions.length} / 10</span>
-                      <span className="text-amber-400 font-bold font-mono">
-                        총 배당: {(Math.round(selectedOptions.reduce((acc, opt) => acc * opt.dividend, 1) * 100) / 100).toFixed(2)}배
-                      </span>
-                    </div>
-                    {selectedOptions.map((opt, oIdx) => (
-                      <div key={oIdx} className="bg-red-950/20 border border-red-900/40 p-2.5 rounded-lg space-y-1 text-xs relative group/item">
-                        <button 
-                          onClick={() => {
-                            setSelectedOptions(prev => prev.filter((_, i) => i !== oIdx));
-                          }}
-                          className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition cursor-pointer font-bold text-[10px] w-4 h-4 flex items-center justify-center bg-neutral-950 rounded border border-neutral-800"
-                        >
-                          ✕
-                        </button>
-                        <div className="flex items-center justify-between text-[10px] text-gray-400">
-                          <span className="font-semibold uppercase text-[9px] bg-red-950 px-1 py-0.5 rounded border border-red-900/30">
-                            {opt.game === 'powerball5' ? '파워볼(5분)' : opt.game === 'powerball3' ? '파워볼(3분)' : opt.game}
-                          </span>
-                          <span className="text-red-400 font-black font-mono mr-5">{opt.dividend}배</span>
+                {/* 선택된 옵션 리스트 */}
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {selectedOptions.length > 0 ? (
+                    selectedOptions.map((opt, idx) => (
+                      <div key={idx} className="bg-neutral-950/70 border border-neutral-800/60 p-2.5 rounded-lg flex items-center justify-between gap-1 text-[11px]">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] text-gray-500 font-semibold truncate">[{opt.round}회차] {opt.game}</div>
+                          <div className="font-extrabold text-white truncate">[{opt.group}] <span className="text-amber-400">{opt.name}</span></div>
                         </div>
-                        <div className="text-white flex justify-between items-center text-[11px] font-bold">
-                          <span>[{opt.round}회차] {opt.group}</span>
-                          <span className="text-amber-400 text-xs font-black">[{opt.name}]</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-amber-500 font-mono">{opt.dividend.toFixed(2)}배</span>
+                          <button 
+                            onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-gray-500 hover:text-red-500 cursor-pointer font-bold p-0.5"
+                          >
+                            ×
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-20 flex items-center justify-center border border-dashed border-neutral-800 rounded-lg text-[11px] text-gray-500 text-center leading-relaxed p-2">
-                    배팅할 옵션을 왼쪽 판에서 선택해 주세요.<br />
-                    (최대 10폴더까지 조합 기능 지원)
-                  </div>
-                )}
+                    ))
+                  ) : (
+                    <div className="py-6 text-center text-gray-600 text-[11px] border border-dashed border-neutral-800 rounded-lg">
+                      선택된 배팅 옵션이 없습니다.
+                    </div>
+                  )}
+                </div>
 
-                {/* 금액 설정 및 슬립 간편 증가 버튼 */}
+                {/* 배팅 계산 및 충전 연동 */}
+                {selectedOptions.length > 0 && (() => {
+                  const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * current.dividend, 1).toFixed(2));
+                  const estimatedPay = Math.floor(betAmount * totalDiv);
+                  return (
+                    <div className="space-y-2.5 bg-neutral-950 p-3 rounded-lg border border-neutral-800/60 text-xs">
+                      <div className="flex justify-between items-center text-gray-400">
+                        <span>선택 폴더</span>
+                        <span className="font-bold text-white">{selectedOptions.length} 폴더</span>
+                      </div>
+                      <div className="flex justify-between items-center text-gray-400">
+                        <span>총 배당률</span>
+                        <span className="font-black text-amber-500 font-mono">{totalDiv.toFixed(2)} 배</span>
+                      </div>
+                      <div className="flex justify-between items-center text-gray-400 border-t border-neutral-900 pt-2">
+                        <span>예상 적중머니</span>
+                        <span className="font-black text-emerald-400 font-mono">{estimatedPay.toLocaleString()} 원</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 배팅 금액 설정 인풋 */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 block">배팅 금액 입력 (₩)</label>
+                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">배팅 금액 입력</div>
                   <div className="relative">
-                    <input
-                      type="text"
-                      value={betAmount.toLocaleString()}
-                      onChange={(e) => {
-                        const val = Number(e.target.value.replace(/[^0-9]/g, ''));
-                        setBetAmount(val);
-                      }}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-right text-sm font-black text-green-400 focus:outline-none focus:border-red-500"
+                    <input 
+                      type="number"
+                      value={betAmount || ''}
+                      onChange={(e) => setBetAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-[#07090e] border border-neutral-850 px-3 py-2.5 rounded-lg text-white font-mono font-black text-xs focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 text-right pr-8"
+                      placeholder="0"
                     />
-                    <span className="absolute left-3 top-2 text-gray-500 font-mono">₩</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-bold">원</span>
                   </div>
 
+                  {/* 금액 빠른 설정 버튼군 */}
                   <div className="grid grid-cols-4 gap-1">
-                    {[
-                      { label: '+1만', val: 1000 },
-                      { label: '+5만', val: 50000 },
-                      { label: '+10만', val: 100000 },
-                      { label: '+50만', val: 500000 },
-                      { label: '+100만', val: 1000000 },
-                      { label: '최대', val: 'max' },
-                      { label: '초기화', val: 'reset' }
-                    ].map((btn, index) => (
+                    {[5000, 10000, 50000, 100000].map((amt) => (
                       <button
-                        key={index}
-                        onClick={() => {
-                          if (btn.val === 'reset') setBetAmount(0);
-                          else if (btn.val === 'max') setBetAmount(userBalance);
-                          else {
-                            // Explicitly match client custom multiplier to add +10k for +1만 label due to code typo prevention
-                            const addAmount = btn.label === '+1만' ? 10000 : (btn.val as number);
-                            setBetAmount(prev => prev + addAmount);
-                          }
-                        }}
-                        className="bg-neutral-800 hover:bg-neutral-750 border border-neutral-700/30 py-1 rounded text-[10px] text-gray-300 font-bold transition cursor-pointer"
+                        key={amt}
+                        onClick={() => setBetAmount(prev => (prev || 0) + amt)}
+                        className="py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 text-[10px] text-gray-400 hover:text-white font-semibold transition cursor-pointer"
                       >
-                        {btn.label}
+                        +{amt >= 10000 ? `${amt / 10000}만` : '5천'}
                       </button>
                     ))}
+                    <button
+                      onClick={() => setBetAmount(5000)}
+                      className="py-1.5 rounded bg-[#450a0a]/30 hover:bg-[#450a0a]/50 border border-red-950/80 text-[10px] text-red-400 font-semibold transition cursor-pointer"
+                    >
+                      최소
+                    </button>
+                    <button
+                      onClick={() => setBetAmount(Math.min(userBalance, 1000000))}
+                      className="py-1.5 rounded bg-[#450a0a]/30 hover:bg-[#450a0a]/50 border border-red-950/80 text-[10px] text-red-400 font-semibold transition cursor-pointer"
+                    >
+                      최대
+                    </button>
+                    <button
+                      onClick={() => setBetAmount(0)}
+                      className="py-1.5 col-span-2 rounded bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 text-[10px] text-gray-500 font-semibold transition cursor-pointer"
+                    >
+                      초기화
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3 pt-4 border-t border-neutral-800">
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>예상 당첨머니</span>
-                  <span className="text-green-400 font-black text-sm">
-                    {selectedOptions.length > 0 ? Math.floor(betAmount * (Math.round(selectedOptions.reduce((acc, opt) => acc * opt.dividend, 1) * 100) / 100)).toLocaleString() : 0}원
-                  </span>
-                </div>
-
-                {isDrawing ? (
-                  <div className="bg-red-950/40 border border-red-500/30 rounded-lg p-3 text-center space-y-1.5 shadow-inner">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
-                      <span className="text-xs font-black text-white tracking-wider uppercase">실시간 추첨 대기 중</span>
-                    </div>
-                    <div className="text-[10px] text-red-300 font-semibold font-mono">
-                      공식 결과값을 기다리는 중 ({drawingTimer}초)
-                    </div>
-                    <div className="w-full bg-neutral-950 rounded-full h-1 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-red-600 to-amber-500 h-full transition-all duration-1000"
-                        style={{ width: `${(6 - drawingTimer) * 16.6}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handlePlaceBet}
-                    disabled={isDrawing || selectedOptions.length === 0 || betAmount <= 0}
-                    className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-850 hover:from-red-500 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold tracking-widest text-xs rounded-lg shadow-lg border border-red-500/20 transition cursor-pointer"
-                  >
-                    배팅하기 (PLACE BET)
-                  </button>
-                )}
+                {/* 최종 배팅 제출 버튼 */}
+                <button
+                  disabled={selectedOptions.length === 0 || !betAmount || betAmount > userBalance}
+                  onClick={handlePlaceBet}
+                  className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition duration-300 flex items-center justify-center gap-1.5 border ${
+                    selectedOptions.length === 0 || !betAmount
+                      ? 'bg-neutral-900/60 border-neutral-800 text-gray-600 cursor-not-allowed'
+                      : betAmount > userBalance
+                      ? 'bg-red-950/80 border-red-800 text-red-400 cursor-pointer animate-pulse'
+                      : 'bg-gradient-to-r from-red-600 via-amber-600 to-red-600 hover:from-red-500 hover:to-amber-500 border-amber-500/50 hover:border-amber-400 text-white shadow-xl shadow-red-950/30 cursor-pointer'
+                  }`}
+                >
+                  {betAmount > userBalance ? '잔액이 부족합니다' : '배팅하기 (PLACE BET)'}
+                </button>
               </div>
             </div>
 
@@ -3276,25 +3308,150 @@ export default function MainPage({ onLogout }: MainPageProps) {
         </div>
       ) : (
         <>
-          {/* Main Feature Banner */}
-          <div 
-            className="h-80 relative flex items-center justify-center text-center overflow-hidden border-b border-red-600/20"
-            style={{
-              backgroundImage: "url('https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=2670&auto=format&fit=crop')",
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-            <div className="relative z-10 space-y-3">
-              <motion.h1 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-5xl md:text-6xl font-black text-amber-400 tracking-widest drop-shadow-[0_4px_12px_rgba(245,158,11,0.5)] uppercase italic"
-              >
-                🎰 SLOT GAME 🎰
-              </motion.h1>
-              <p className="text-gray-300 tracking-[0.2em] text-sm uppercase">Exclusive High-stakes Experience</p>
+          {/* Main Feature Banner - High-End Luxury Cohesive VIP Cockpit Board */}
+          <div className="relative max-w-[1550px] mx-auto w-full px-4 sm:px-6 md:px-8 py-4 sm:py-6 select-none">
+            {/* Integrated Glow Backdrops */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 bg-gradient-to-tr from-red-950/10 via-amber-950/10 to-transparent rounded-[100px] blur-[140px] pointer-events-none z-0"></div>
+
+            {/* Premium Gold/Red Dual Slotted Dashboard Panel */}
+            <div className="relative z-10 w-full rounded-3xl bg-gradient-to-b from-[#0c0d12]/95 via-[#06070a]/98 to-[#030304]/100 border border-red-500/15 p-6 md:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden">
+              {/* Subtle tech grid motif lines */}
+              <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+              
+              {/* Corner decorative golden metal brackets */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-amber-500/20 rounded-tl-xl pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-amber-500/20 rounded-tr-xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-amber-500/20 rounded-bl-xl pointer-events-none"></div>
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-amber-500/20 rounded-br-xl pointer-events-none"></div>
+
+              <div className="flex flex-col xl:flex-row items-center justify-between gap-10 relative z-10">
+                
+                {/* Left Content Column - Embossed & Elegantly Spaced */}
+                <div className="flex-1 space-y-6 text-center xl:text-left max-w-xl">
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-950/80 via-black to-red-950/40 border border-red-500/30 px-3.5 py-1.5 rounded-xl text-[10px] font-black text-rose-300 tracking-wider uppercase animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.15)]">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                    CHOICE EXOTICS CLUB
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <motion.h1 
+                      initial={{ x: -25, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ duration: 0.7 }}
+                      className="text-4xl md:text-5xl lg:text-[54px] font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-rose-100 to-amber-200 tracking-tight drop-shadow-[0_4px_10px_rgba(0,0,0,0.95)] leading-[1.1] italic uppercase"
+                    >
+                      CHOICE VIP
+                    </motion.h1>
+                    <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2.5 text-xs font-black tracking-widest text-amber-400">
+                      <span>HIGH-STAKES SPORTS & CASINO</span>
+                      <span className="w-1.5 h-1.5 bg-neutral-800 rounded-full hidden sm:inline-block"></span>
+                      <span className="text-gray-400 font-sans tracking-normal font-semibold bg-black/40 px-2 py-0.5 rounded border border-neutral-900">SEASON V</span>
+                    </div>
+                  </div>
+
+                  <p className="text-gray-400 text-xs md:text-[13px] leading-relaxed font-sans font-medium xl:pr-4">
+                    CHOICE 는 회원님들과 클럽의 안전을 최우선으로 USDT 테더 충전방식을 도입하고있습니다. 회원님들께서는 안심하시고 이용해주시면 감사하겠습니다.<br/><br/>
+                    CHOICE 는 VIP 회원들을 엄선하여 초청하며 문제가될만한 부분과 회원에 대해서는 엄격하게 통제하고있습니다.
+                  </p>
+
+                  {/* Horizontal dividers & micro badges */}
+                  <div className="grid grid-cols-3 gap-3 pt-3.5 border-t border-neutral-900/80">
+                    <div className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-3 backdrop-blur-sm transition-transform hover:scale-105 duration-200">
+                      <div className="text-[9px] text-gray-500 uppercase font-black tracking-wider">FERRARI REBATE</div>
+                      <div className="text-xs font-black text-red-500 font-mono mt-0.5">COMBO +5%</div>
+                    </div>
+                    <div className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-3 backdrop-blur-sm transition-transform hover:scale-105 duration-200">
+                      <div className="text-[9px] text-gray-500 uppercase font-black tracking-wider">DAILY CASHBACK</div>
+                      <div className="text-xs font-black text-amber-400 font-mono mt-0.5">UNLIMITED</div>
+                    </div>
+                    <div className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-3 backdrop-blur-sm transition-transform hover:scale-105 duration-200">
+                      <div className="text-[9px] text-gray-400 uppercase font-black tracking-wider">WITHDRAW SPEED</div>
+                      <div className="text-xs font-black text-white font-mono mt-0.5">⚡ RAPID 1M</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Laser separation Line for Desktop layout */}
+                <div className="hidden xl:block w-[1px] h-64 bg-gradient-to-b from-transparent via-red-950/60 to-transparent relative self-center">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse"></div>
+                </div>
+
+                {/* Right Side - Immersive Integrated Supercar & Model Dual Showcase frame */}
+                <div className="flex flex-col sm:flex-row items-center gap-6 w-full xl:max-w-[720px]">
+                  
+                  {/* 1. Ferrari Red Supercar Frame */}
+                  <motion.div
+                    whileHover={{ y: -6, scale: 1.025 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative flex-1 w-full aspect-[4/3] rounded-2xl overflow-hidden border border-red-500/25 bg-neutral-950 shadow-[0_15px_30px_rgba(0,0,0,0.8)] cursor-pointer group"
+                  >
+                    {/* Golden Sweep light */}
+                    <motion.div
+                      animate={{ x: ['-100%', '200%'] }}
+                      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-red-650/15 to-transparent skew-x-12 z-20 pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent z-10" />
+                    
+                    {/* Ferrari Picture */}
+                    <img
+                      src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=850"
+                      alt="Choice Ferrari GT"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+
+                    {/* Stamp */}
+                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-red-500/40 shadow-lg">
+                      <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+                      <span className="text-white text-[9px] font-black tracking-widest transform uppercase">VIP FERRARI GT</span>
+                    </div>
+
+                    {/* Bottom glass panel */}
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex justify-between items-center bg-black/80 backdrop-blur-sm px-3 py-2 rounded-xl border border-neutral-850/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                      <span className="text-[10px] font-black text-rose-300 tracking-wider uppercase">CHOICE SPECIAL EDITION</span>
+                      <span className="text-[9px] font-bold font-mono text-gray-400">CLASS A 🥇</span>
+                    </div>
+                  </motion.div>
+
+                  {/* 2. Velvet VIP Glamour Model Frame */}
+                  <motion.div
+                    whileHover={{ y: -6, scale: 1.025 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative flex-1 w-full aspect-[4/3] rounded-2xl overflow-hidden border border-amber-500/25 bg-neutral-950 shadow-[0_15px_30px_rgba(0,0,0,0.8)] cursor-pointer group"
+                  >
+                    {/* Golden sweep light */}
+                    <motion.div
+                      animate={{ x: ['-100%', '200%'] }}
+                      transition={{ duration: 4.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/20 to-transparent skew-x-12 z-20 pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent z-10" />
+
+                    {/* Glamour Presenter Portrait */}
+                    <img
+                      src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=850"
+                      alt="Choice Casino Presenter Model"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+
+                    {/* Stamp */}
+                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/40 shadow-lg">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                      <span className="text-amber-400 text-[9px] font-black tracking-widest transform uppercase">OFFICIAL VIP MODEL</span>
+                    </div>
+
+                    {/* Bottom glass panel */}
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex justify-between items-center bg-black/80 backdrop-blur-sm px-3 py-2 rounded-xl border border-neutral-850/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                      <span className="text-[10px] font-black text-amber-250 tracking-wider uppercase">STAGE PRESENTER ON</span>
+                      <span className="text-[9px] font-black font-mono text-emerald-450">ONLINE Live</span>
+                    </div>
+                  </motion.div>
+                  
+                </div>
+
+              </div>
             </div>
           </div>
 
@@ -3308,7 +3465,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {[
-                  { label: '스포츠', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=500' },
+                  { label: '스포츠', img: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=500' },
                   { label: '카지노', img: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=500' },
                   { label: '슬롯게임', img: 'https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=500' },
                   { label: '미니게임', img: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=500' },
@@ -3483,7 +3640,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                   {req.status === 'pending' ? (
                                     <div className="flex items-center justify-center gap-1">
                                       <button
-                                        onClick={() => handleAcceptDeposit(req.id, req.userId, req.amountKrw)}
+                                        onClick={() => {
+                                          console.log("Deposit button clicked:", { id: req.id, userId: req.userId, amountKrw: req.amountKrw });
+                                          handleAcceptDeposit(req.id, req.userId, req.amountKrw);
+                                        }}
                                         className="bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold px-2.5 py-1 rounded text-[10px] cursor-pointer transition shadow border border-emerald-700/40 text-nowrap"
                                       >
                                         승인
@@ -3792,6 +3952,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </button>
             </div>
           </motion.div>
+        </div>
+      )}
+      {showAttendanceChecker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative w-full max-w-2xl bg-black border border-amber-500 rounded-xl p-6">
+            <button 
+              onClick={() => {console.log("Closing modal; userId passed was:", currentUserData?.id); setShowAttendanceChecker(false);}}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X />
+            </button>
+            <AttendanceChecker userId={currentUserData?.id || ''} />
+          </div>
         </div>
       )}
     </div>

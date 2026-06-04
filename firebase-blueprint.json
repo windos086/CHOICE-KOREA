@@ -61,6 +61,15 @@
       },
       "required": ["gameName", "round", "result", "createdAt"]
     },
+    "attendance": {
+      "title": "Attendance",
+      "description": "Store attendance records",
+      "type": "object",
+      "properties": {
+        "dates": { "type": "array", "items": { "type": "string" }, "description": "Array of dated attendance strings" }
+      },
+      "required": ["dates"]
+    },
     "appSettings": {
       "title": "AppSettings",
       "type": "object",
@@ -89,6 +98,10 @@
     "/appSettings/{docId}": {
       "schema": "appSettings",
       "description": "Store application settings"
+    },
+    "/attendance/{userId}": {
+      "schema": "attendance",
+      "description": "Store user attendance records"
     }
   }
 }
