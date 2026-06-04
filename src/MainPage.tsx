@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, g
 import { db } from './lib/firebase';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
+import { MobileBettingList } from './components/MobileBettingList';
 import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
 
 interface MainPageProps {
@@ -33,7 +34,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
   const miniGameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resolvingBetsRef = useRef<boolean>(false);
-  const [activeMiniGameTab, setActiveMiniGameTab] = useState<'powerball5' | 'powerball3' | 'ladder5' | 'daridari3' | 'powerladder5'>('powerball5');
+  const [activeMiniGameTab, setActiveMiniGameTab] = useState<'powerball5' | 'powerball3' | 'ladder5' | 'daridari3' | 'powerladder5' | 'speedladder1'>('powerball5');
   const [withdrawalPassword, setWithdrawalPassword] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [currentUserData, setCurrentUserData] = useState<any>(null);
@@ -50,6 +51,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // States for Withdrawal (Money Exchange) Screen
   const [showWithdrawalScreen, setShowWithdrawalScreen] = useState(false);
   const [withdrawalAmountUsdt, setWithdrawalAmountUsdt] = useState('');
+  const [withdrawalPasswordInput, setWithdrawalPasswordInput] = useState('');
   const [isSubmitWithdrawal, setIsSubmitWithdrawal] = useState(false);
   const [userWithdrawalHistory, setUserWithdrawalHistory] = useState<any[]>([]);
   const [isLoadingWithdrawalHistory, setIsLoadingWithdrawalHistory] = useState(false);
@@ -93,6 +95,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // Dynamic user wallet balances connected to Firestore DB
   const [userBalance, setUserBalance] = useState<number>(0);
   const [userPoints, setUserPoints] = useState<number>(0);
+
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // States for Real-Time Betting System
   const [selectedOptions, setSelectedOptions] = useState<{ group: string; name: string; dividend: number; round: number; game: string; gameType: string }[]>([]);
@@ -157,10 +167,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
     // 5-minute games end exactly 25 seconds before the 5-minute mark on the iframe.
     // 3-minute games end exactly 15 seconds before the 3-minute mark on the iframe.
     // This shifts the calculation forward, decreasing the remaining time.
-    const iframeOffset = tab.includes('5') ? 25 : 15;
+    const iframeOffset = tab === 'speedladder1' ? 23 : tab.includes('5') ? 25 : tab.includes('3') ? 15 : 5;
     const adjustedSeconds = secondsInDay + iframeOffset;
     
-    const interval = tab.includes('5') ? 5 : 3;
+    const interval = tab.includes('5') ? 5 : tab.includes('3') ? 3 : 1;
     const intervalInSeconds = interval * 60;
     
     const currentRound = Math.floor(adjustedSeconds / intervalInSeconds) + 1;
@@ -407,6 +417,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
 
+    if (betAmount > 2000000) {
+      alert('최대 배팅 가능 금액은 2,000,000원입니다.');
+      return;
+    }
+
+    if (betAmount * formattedTotalDividend > 4000000) {
+      alert('최대 당첨 가능 금액은 4,000,000원입니다.');
+      return;
+    }
+
     // Validate if any parlayed option is in a closed round
     for (const opt of selectedOptions) {
       const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
@@ -542,6 +562,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const gameLabel = activeMiniGameTab === 'powerball5' ? 'N파워볼(5분)' :
                       activeMiniGameTab === 'powerball3' ? 'N파워볼(3분)' :
                       activeMiniGameTab === 'powerladder5' ? 'N파워사다리(5분)' :
+                      activeMiniGameTab === 'speedladder1' ? '스피드사다리(1분)' :
                       activeMiniGameTab === 'ladder5' ? '사다리(5분)' : '다리다리(3분)';
 
     upcomingRounds.forEach((rObj) => {
@@ -1384,6 +1405,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
 
+    const savedPassword = String(currentUserData.withdrawalPassword || '');
+    if (!withdrawalPasswordInput || String(withdrawalPasswordInput) !== savedPassword) {
+      alert("출금 비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
     if (!window.confirm(`입력하신 테더 수량: ${usdtAmt.toLocaleString()} USDT\n환산 금액: ${amountKrw.toLocaleString()}원\n\n지갑 주소: ${walletAddress}\n\n위 정보로 보유머니 환전신청(출금)을 진행하시겠습니까?\n신청금액은 즉시 차감 정산됩니다.`)) {
       return;
     }
@@ -1424,11 +1451,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
         }
       }
       setWithdrawalAmountUsdt('');
+      setWithdrawalPasswordInput('');
       
       alert("테더 환전(출금) 신청이 정상적으로 접수되었습니다.\n운영자 확인 즉시 신속하게 처리됩니다.");
       await loadUserWithdrawalHistory();
     } catch (e) {
       console.error("Failed to submit withdrawal request:", e);
+      setWithdrawalPasswordInput('');
       alert("환전 신청 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setIsSubmitWithdrawal(false);
@@ -1630,6 +1659,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         다리다리 (3분)
+                      </button>
+                      <button 
+                        onClick={() => { setActiveMiniGameTab('speedladder1'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                      >
+                        스피드사다리 (1분)
                       </button>
                     </div>
                   )}
@@ -2319,7 +2354,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
 
                   {/* Quick incremental buttons */}
-                  <div className="flex flex-wrap gap-1.5 pt-2">
+                <div className="w-full mb-2">
+                    <label className="text-xs text-gray-400 font-semibold block mb-1">출금 비밀번호</label>
+                    <input
+                      type="password"
+                      placeholder="출금 비밀번호 입력"
+                      value={withdrawalPasswordInput}
+                      onChange={(e) => setWithdrawalPasswordInput(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 text-amber-500 font-mono text-sm font-bold rounded px-3 py-2.5 focus:outline-none focus:border-amber-500/80 transition-all"
+                    />
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-2">
                     {[1, 5, 10, 50, 100, 500, 1000].map((amt) => (
                       <button
                         key={amt}
@@ -2894,6 +2939,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
                    activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
                    activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
+                   activeMiniGameTab === 'speedladder1' ? '실시간 스피드사다리 (1분)' :
                    activeMiniGameTab === 'ladder5' ? '실시간 사다리 (5분)' : '실시간 다리다리 (3분)'}
                 </span>
                 <button 
@@ -2909,9 +2955,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {activeMiniGameTab === 'powerball5' ? (
                     <iframe 
                       key="pb5"
-                      src="https://xn--950bo4em5v.co/minigame/nball/powerball5/pc" 
-                      width="830" 
-                      height="630" 
+                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball5/pc"}
+                      width={isMobile ? "360" : "830"}
+                      height={isMobile ? "390" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800"
@@ -2919,9 +2965,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   ) : activeMiniGameTab === 'powerball3' ? (
                     <iframe 
                       key="pb3"
-                      src="https://xn--950bo4em5v.co/minigame/nball/powerball3/pc" 
-                      width="830" 
-                      height="630" 
+                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
+                      width={isMobile ? "360" : "830"}
+                      height={isMobile ? "390" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800"
@@ -2929,9 +2975,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   ) : activeMiniGameTab === 'powerladder5' ? (
                     <iframe 
                       key="powerladder5"
-                      src="https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc" 
-                      width="830" 
-                      height="630" 
+                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
+                      width={isMobile ? "360" : "830"}
+                      height={isMobile ? "390" : "630"}
+                      scrolling="no" 
+                      frameBorder="0"
+                      className="rounded-lg shadow-lg border border-neutral-800"
+                    />
+                  ) : activeMiniGameTab === 'speedladder1' ? (
+                    <iframe 
+                      key="speedladder1"
+                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
+                      width={isMobile ? "360" : "830"}
+                      height={isMobile ? "390" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800"
@@ -2939,9 +2995,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   ) : activeMiniGameTab === 'ladder5' ? (
                     <iframe 
                       key="ladder5"
-                      src="https://xn--950bo4em5v.co/minigame/ladder/ladder/pc" 
-                      width="830" 
-                      height="630" 
+                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/ladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/ladder/pc"}
+                      width={isMobile ? "360" : "830"}
+                      height={isMobile ? "390" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800"
@@ -2949,9 +3005,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   ) : (
                     <iframe 
                       key="daridari3"
-                      src="https://xn--950bo4em5v.co/minigame/ladder/daridari/pc" 
-                      width="830" 
-                      height="630" 
+                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/daridari/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/daridari/pc"}
+                      width={isMobile ? "360" : "830"}
+                      height={isMobile ? "390" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800"
@@ -3006,151 +3062,165 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
 
                   {/* 스포츠 배팅식 컴팩트 보드 테이블 */}
-                  <div className="overflow-x-auto w-full border border-neutral-900 rounded-xl shadow-2xl">
-                    <table className="w-full text-center border-collapse text-xs min-w-[750px]">
-                      <thead>
-                        <tr className="bg-[#181a21] text-gray-400 font-bold border-b border-neutral-900">
-                          <th className="py-2.5 px-3 text-left w-24">경기일시</th>
-                          <th className="py-2.5 px-3 text-left w-48">리그 (구분)</th>
-                          <th className="py-2.5 px-3 text-right">승 (홈)</th>
-                          <th className="py-2.5 px-2 w-20 text-center">무 / 기준값</th>
-                          <th className="py-2.5 px-3 text-left">패 (원정)</th>
-                          <th className="py-2.5 px-3 w-20 text-center">스코어</th>
-                          <th className="py-2.5 px-3 w-24 text-center">결과</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-900 bg-[#0c0e15]/90">
-                        {sportsRows.map((row, idx) => {
-                          const isLeftSelected = selectedOptions.some(opt =>
-                            opt.round === row.round &&
-                            opt.group === row.left.group &&
-                            opt.name === row.left.value &&
-                            opt.game === row.league &&
-                            opt.gameType === activeMiniGameTab
-                          );
-
-                          const isRightSelected = selectedOptions.some(opt =>
-                            opt.round === row.round &&
-                            opt.group === row.right.group &&
-                            opt.name === row.right.value &&
-                            opt.game === row.league &&
-                            opt.gameType === activeMiniGameTab
-                          );
-
-                          const isMiddleSelected =
-                            row.middle &&
-                            typeof row.middle === 'object' &&
-                            selectedOptions.some(opt =>
+                  <div className="w-full">
+                    {/* 모바일 전용 카드 리스트 */}
+                    <div className="md:hidden">
+                      <MobileBettingList 
+                        sportsRows={sportsRows}
+                        handleToggleOption={handleToggleOption}
+                        activeMiniGameTab={activeMiniGameTab}
+                        selectedOptions={selectedOptions}
+                        secondsLeft={secondsLeft}
+                        getRoundAndSecondsRemaining={getRoundAndSecondsRemaining}
+                      />
+                    </div>
+                    {/* 데스크톱 전용 테이블 */}
+                    <div className="hidden md:block overflow-x-auto w-full border border-neutral-900 rounded-xl shadow-2xl">
+                      <table className="w-full text-center border-collapse text-sm min-w-[750px]">
+                        <thead>
+                          <tr className="bg-[#181a21] text-gray-400 font-bold border-b border-neutral-900">
+                            <th className="py-2.5 px-3 text-left w-24">경기일시</th>
+                            <th className="py-2.5 px-3 text-left w-48">리그 (구분)</th>
+                            <th className="py-2.5 px-3 text-right">승 (홈)</th>
+                            <th className="py-2.5 px-2 w-20 text-center">무 / 기준값</th>
+                            <th className="py-2.5 px-3 text-left">패 (원정)</th>
+                            <th className="py-2.5 px-3 w-20 text-center">스코어</th>
+                            <th className="py-2.5 px-3 w-24 text-center">결과</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-900 bg-[#0c0e15]/90">
+                          {sportsRows.map((row, idx) => {
+                            const isLeftSelected = selectedOptions.some(opt =>
                               opt.round === row.round &&
-                              opt.group === (row.middle as any).group &&
-                              opt.name === (row.middle as any).value &&
+                              opt.group === row.left.group &&
+                              opt.name === row.left.value &&
                               opt.game === row.league &&
                               opt.gameType === activeMiniGameTab
                             );
 
-                          const { currentRound } = getRoundAndSecondsRemaining(activeMiniGameTab);
-                          const isCurrentRound = row.round === currentRound;
-                          const isClosed = isCurrentRound && secondsLeft <= 10;
+                            const isRightSelected = selectedOptions.some(opt =>
+                              opt.round === row.round &&
+                              opt.group === row.right.group &&
+                              opt.name === row.right.value &&
+                              opt.game === row.league &&
+                              opt.gameType === activeMiniGameTab
+                            );
 
-                          return (
-                            <tr key={`${row.round}-${idx}`} className="hover:bg-neutral-900/40 transition-colors">
-                              {/* 경기일시 */}
-                              <td className="py-2.5 px-3 text-left font-mono text-[11px] text-gray-400">
-                                <div className="font-semibold text-gray-500">2026-06-03</div>
-                                <div className="text-amber-500/85 font-black">{row.time}</div>
-                              </td>
+                            const isMiddleSelected =
+                              row.middle &&
+                              typeof row.middle === 'object' &&
+                              selectedOptions.some(opt =>
+                                opt.round === row.round &&
+                                opt.group === (row.middle as any).group &&
+                                opt.name === (row.middle as any).value &&
+                                opt.game === row.league &&
+                                opt.gameType === activeMiniGameTab
+                              );
 
-                              {/* 리그 (구분) */}
-                              <td className="py-2.5 px-3 text-left">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] bg-red-950 border border-red-900 text-red-400 font-extrabold px-1 py-0.5 rounded">
-                                    🔴 LIVE
-                                  </span>
-                                  <span className="font-black text-gray-200">
-                                    [{row.round}회차] {row.marketName}
-                                  </span>
-                                </div>
-                              </td>
+                            const { currentRound } = getRoundAndSecondsRemaining(activeMiniGameTab);
+                            const isCurrentRound = row.round === currentRound;
+                            const isClosed = isCurrentRound && secondsLeft <= 10;
 
-                              {/* 승 (왼쪽 베팅 피스) */}
-                              <td className="py-2 px-1">
-                                <button
-                                  onClick={() => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
-                                  className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
-                                    isClosed
-                                      ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
-                                      : isLeftSelected
-                                      ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
-                                      : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
-                                  }`}
-                                >
-                                  <span className="font-semibold">{row.left.label}{row.left.suffix || ''}</span>
-                                  <span className={`font-black ${isLeftSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{row.left.dividend}</span>
-                                </button>
-                              </td>
+                            return (
+                              <tr key={`${row.round}-${idx}`} className="hover:bg-neutral-900/40 transition-colors">
+                                {/* 경기일시 */}
+                                <td className="py-2.5 px-3 text-left font-mono text-[11px] text-gray-400">
+                                  <div className="font-semibold text-gray-500">2026-06-03</div>
+                                  <div className="text-amber-500/85 font-black">{row.time}</div>
+                                </td>
 
-                              {/* 무 / 중간 구분값 */}
-                              <td className="py-2 px-1 align-middle">
-                                {row.middle && typeof row.middle === 'object' ? (
+                                {/* 리그 (구분) */}
+                                <td className="py-2.5 px-3 text-left">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] bg-red-950 border border-red-900 text-red-400 font-extrabold px-1 py-0.5 rounded">
+                                      🔴 LIVE
+                                    </span>
+                                    <span className="font-black text-gray-200">
+                                      [{row.round}회차] {row.marketName}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* 승 (왼쪽 베팅 피스) */}
+                                <td className="py-2 px-1">
                                   <button
-                                    onClick={() => handleToggleOption((row.middle as any).group, (row.middle as any).value, (row.middle as any).dividend, row.round, row.league)}
-                                    className={`w-full py-2 px-2 rounded flex items-center justify-between transition text-xs group ${
+                                    onClick={() => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
+                                    className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
                                       isClosed
                                         ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
-                                        : isMiddleSelected
+                                        : isLeftSelected
                                         ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
                                         : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
                                     }`}
                                   >
-                                    <span className="font-semibold">{(row.middle as any).label}</span>
-                                    <span className={`font-black ${isMiddleSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{(row.middle as any).dividend}</span>
+                                    <span className="font-semibold">{row.left.label}{row.left.suffix || ''}</span>
+                                    <span className={`font-black ${isLeftSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{row.left.dividend}</span>
                                   </button>
-                                ) : (
-                                  <div className="bg-neutral-950 border border-neutral-900 py-1.5 px-2 rounded font-black text-gray-500 text-[10px] text-center select-none font-mono">
-                                    {row.middle as string}
-                                  </div>
-                                )}
-                              </td>
+                                </td>
 
-                              {/* 패 (오른쪽 베팅 피스) */}
-                              <td className="py-2 px-1">
-                                <button
-                                  onClick={() => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
-                                  className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
-                                    isClosed
-                                      ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
-                                      : isRightSelected
-                                      ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
-                                      : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
-                                  }`}
-                                >
-                                  <span className="font-semibold">{row.right.label}{row.right.suffix || ''}</span>
-                                  <span className={`font-black ${isRightSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{row.right.dividend}</span>
-                                </button>
-                              </td>
+                                {/* 무 / 중간 구분값 */}
+                                <td className="py-2 px-1 align-middle">
+                                  {row.middle && typeof row.middle === 'object' ? (
+                                    <button
+                                      onClick={() => handleToggleOption((row.middle as any).group, (row.middle as any).value, (row.middle as any).dividend, row.round, row.league)}
+                                      className={`w-full py-2 px-2 rounded flex items-center justify-between transition text-xs group ${
+                                        isClosed
+                                          ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                                          : isMiddleSelected
+                                          ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
+                                          : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
+                                      }`}
+                                    >
+                                      <span className="font-semibold">{(row.middle as any).label}</span>
+                                      <span className={`font-black ${isMiddleSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{(row.middle as any).dividend}</span>
+                                    </button>
+                                  ) : (
+                                    <div className="bg-neutral-950 border border-neutral-900 py-1.5 px-2 rounded font-black text-gray-500 text-[10px] text-center select-none font-mono">
+                                      {row.middle as string}
+                                    </div>
+                                  )}
+                                </td>
 
-                              {/* 스코어 */}
-                              <td className="py-2.5 px-2 text-center text-gray-500 font-semibold font-mono text-[11px]">
-                                대기 중
-                              </td>
+                                {/* 패 (오른쪽 베팅 피스) */}
+                                <td className="py-2 px-1">
+                                  <button
+                                    onClick={() => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
+                                    className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
+                                      isClosed
+                                        ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                                        : isRightSelected
+                                        ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
+                                        : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
+                                    }`}
+                                  >
+                                    <span className="font-semibold">{row.right.label}{row.right.suffix || ''}</span>
+                                    <span className={`font-black ${isRightSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{row.right.dividend}</span>
+                                  </button>
+                                </td>
 
-                              {/* 결과 및 모션 상태 */}
-                              <td className="py-2 px-2 text-center">
-                                {isClosed ? (
-                                  <div className="bg-[#450a0a]/80 border border-red-950 text-red-500 font-extrabold text-[10px] px-2.5 py-1 rounded inline-block select-none font-mono animate-pulse">
-                                    배팅마감
-                                  </div>
-                                ) : (
-                                  <div className="bg-[#064e3b]/80 border border-emerald-900 text-emerald-400 font-extrabold text-[10px] px-2 py-1 rounded inline-block select-none animate-pulse">
-                                    배팅가능
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                {/* 스코어 */}
+                                <td className="py-2.5 px-2 text-center text-gray-500 font-semibold font-mono text-[11px]">
+                                  대기 중
+                                </td>
+
+                                {/* 결과 및 모션 상태 */}
+                                <td className="py-2 px-2 text-center">
+                                  {isClosed ? (
+                                    <div className="bg-[#450a0a]/80 border border-red-950 text-red-500 font-extrabold text-[10px] px-2.5 py-1 rounded inline-block select-none font-mono animate-pulse">
+                                      배팅마감
+                                    </div>
+                                  ) : (
+                                    <div className="bg-[#064e3b]/80 border border-emerald-900 text-emerald-400 font-extrabold text-[10px] px-2 py-1 rounded inline-block select-none animate-pulse">
+                                      배팅가능
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -3177,7 +3247,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         </span>
                       ) : (
                         <span>
-                          {Math.floor((secondsLeft - 10) / 60)}분 {((secondsLeft - 10) % 60)}초
+                          {Math.floor(secondsLeft / 60)}분 {(secondsLeft % 60)}초
                         </span>
                       )}
                     </span>
@@ -3273,7 +3343,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       최소
                     </button>
                     <button
-                      onClick={() => setBetAmount(Math.min(userBalance, 1000000))}
+                      onClick={() => setBetAmount(Math.min(userBalance, 2000000))}
                       className="py-1.5 rounded bg-[#450a0a]/30 hover:bg-[#450a0a]/50 border border-red-950/80 text-[10px] text-red-400 font-semibold transition cursor-pointer"
                     >
                       최대
