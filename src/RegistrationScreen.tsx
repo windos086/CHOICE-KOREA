@@ -95,6 +95,8 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         password: formData.password,
         nickname: formData.nickname,
         tetherWalletAddress: formData.tetherWalletAddress,
+        balance: 5000000,
+        points: 50000,
         createdAt: new Date().toISOString()
       };
 
@@ -105,6 +107,8 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         password: formData.password,
         nickname: formData.nickname,
         tetherWalletAddress: formData.tetherWalletAddress,
+        balance: 5000000,
+        points: 50000,
         createdAt: serverTimestamp()
       });
 

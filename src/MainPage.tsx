@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './lib/firebase';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search } from 'lucide-react';
+import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
 
 interface MainPageProps {
   onLogout: () => void;
@@ -28,11 +28,51 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
   const miniGameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [activeMiniGameTab, setActiveMiniGameTab] = useState<'powerball5' | 'powerball3' | 'ladder5' | 'daridari3'>('powerball5');
+  const [activeMiniGameTab, setActiveMiniGameTab] = useState<'powerball5' | 'powerball3' | 'ladder5' | 'daridari3' | 'powerladder5'>('powerball5');
   const [withdrawalPassword, setWithdrawalPassword] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [currentUserData, setCurrentUserData] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // States for Deposit Screen & Tether Management
+  const [showDepositScreen, setShowDepositScreen] = useState(false);
+  const [depositAmountUsdt, setDepositAmountUsdt] = useState('');
+  const [depositWalletAddressInput, setDepositWalletAddressInput] = useState('');
+  const [isSubmitDeposit, setIsSubmitDeposit] = useState(false);
+  const [userDepositHistory, setUserDepositHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // States for Withdrawal (Money Exchange) Screen
+  const [showWithdrawalScreen, setShowWithdrawalScreen] = useState(false);
+  const [withdrawalAmountUsdt, setWithdrawalAmountUsdt] = useState('');
+  const [isSubmitWithdrawal, setIsSubmitWithdrawal] = useState(false);
+  const [userWithdrawalHistory, setUserWithdrawalHistory] = useState<any[]>([]);
+  const [isLoadingWithdrawalHistory, setIsLoadingWithdrawalHistory] = useState(false);
+
+  // States for Game Result Screen
+  const [showGameResultScreen, setShowGameResultScreen] = useState(false);
+  const [gameResults, setGameResults] = useState<any[]>([]);
+  const [isLoadingGameResults, setIsLoadingGameResults] = useState(false);
+  const [gameResultFilter, setGameResultFilter] = useState('전체');
+  const [gameResultPage, setGameResultPage] = useState(1);
+
+  // State for Admin Deposit & Withdrawal Requests panel
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings'>('users');
+  const [adminDepositRequests, setAdminDepositRequests] = useState<any[]>([]);
+  const [exchangeRate, setExchangeRate] = useState(1537); // Default
+  const [newExchangeRate, setNewExchangeRate] = useState(''); // New state
+  const [isLoadingAdminDeposits, setIsLoadingAdminDeposits] = useState(false);
+  const [adminWithdrawalRequests, setAdminWithdrawalRequests] = useState<any[]>([]);
+  const [isLoadingAdminWithdrawals, setIsLoadingAdminWithdrawals] = useState(false);
+
+  // Populate sending wallet address input from registered user data
+  useEffect(() => {
+    if (currentUserData?.tetherWalletAddress) {
+      setDepositWalletAddressInput(currentUserData.tetherWalletAddress);
+    } else if (currentUser?.tetherWalletAddress) {
+      setDepositWalletAddressInput(currentUser.tetherWalletAddress);
+    }
+  }, [currentUserData, currentUser]);
 
   const openMiniGameSubmenu = () => {
     if (miniGameTimeoutRef.current) clearTimeout(miniGameTimeoutRef.current);
@@ -169,77 +209,72 @@ export default function MainPage({ onLogout }: MainPageProps) {
     let isWin = false;
     let winningOutcome = '';
 
-    const rollSingleFolder = (folder: any) => {
+    const rollSingleFolderUsingDetails = (folder: any, details: any) => {
       let isWinFolder = false;
       let folderOutcome = '';
 
       if (folder.gameType === 'powerball5' || folder.gameType === 'powerball3') {
         if (folder.group === '일반볼') {
-          const rolledOddEven = Math.random() < 0.5 ? '홀' : '짝';
-          const rolledUnderOver = Math.random() < 0.5 ? '언더' : '오버';
           if (folder.option === '홀' || folder.option === '짝') {
-            isWinFolder = folder.option === rolledOddEven;
-            folderOutcome = `${rolledOddEven}`;
+            isWinFolder = folder.option === details.rolledOddEven;
+            folderOutcome = `${details.rolledOddEven}`;
           } else {
-            isWinFolder = folder.option === rolledUnderOver;
-            folderOutcome = `${rolledUnderOver}`;
+            isWinFolder = folder.option === details.rolledUnderOver;
+            folderOutcome = `${details.rolledUnderOver}`;
           }
         } else if (folder.group === '일반볼 대중소') {
-          const roll = Math.random();
-          const rolledSize = roll < 0.3 ? '소' : roll < 0.7 ? '중' : '대';
-          isWinFolder = folder.option === rolledSize;
-          folderOutcome = `${rolledSize}`;
+          isWinFolder = folder.option === details.size;
+          folderOutcome = `${details.size}`;
         } else if (folder.group === '파워볼') {
-          const rolledOddEven = Math.random() < 0.5 ? '홀' : '짝';
-          const rolledUnderOver = Math.random() < 0.5 ? '언더' : '오버';
           if (folder.option === '홀' || folder.option === '짝') {
-            isWinFolder = folder.option === rolledOddEven;
-            folderOutcome = `${rolledOddEven}`;
+            isWinFolder = folder.option === details.pbOddEven;
+            folderOutcome = `${details.pbOddEven}`;
           } else {
-            isWinFolder = folder.option === rolledUnderOver;
-            folderOutcome = `${rolledUnderOver}`;
+            isWinFolder = folder.option === details.pbUnderOver;
+            folderOutcome = `${details.pbUnderOver}`;
           }
         }
       } else {
-        const outcomesLeftRight = Math.random() < 0.5 ? '좌' : '우';
-        const outcomesLines = Math.random() < 0.5 ? '3줄' : '4줄';
-        const outcomesOddEven = Math.random() < 0.5 ? '홀' : '짝';
-
         if (folder.group === '출발지') {
-          isWinFolder = folder.option === outcomesLeftRight;
-          folderOutcome = `${outcomesLeftRight}`;
+          isWinFolder = folder.option === details.start;
+          folderOutcome = `${details.start}`;
         } else if (folder.group === '줄개수') {
-          isWinFolder = folder.option === outcomesLines;
-          folderOutcome = `${outcomesLines}`;
+          isWinFolder = folder.option === details.lines;
+          folderOutcome = `${details.lines}`;
         } else if (folder.group === '최종결과') {
-          isWinFolder = folder.option === outcomesOddEven;
-          folderOutcome = `${outcomesOddEven}`;
+          isWinFolder = folder.option === details.outcome;
+          folderOutcome = `${details.outcome}`;
         }
       }
       return { isWinFolder, folderOutcome };
     };
 
     if (activeBet.folders && activeBet.folders.length > 0) {
-      // It is a combined parlay bet
-      const updatedFolders = activeBet.folders.map((f: any) => {
-        const { isWinFolder, folderOutcome } = rollSingleFolder(f);
-        return {
+      // Combined parlay bet - resolve each folder asynchronously using the authoritative round details
+      const updatedFolders = [];
+      for (const f of activeBet.folders) {
+        const gameRes = await getOrInsertAuthoritativeRoundResult(f.gameType, f.round);
+        const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails(f, gameRes.details || {});
+        updatedFolders.push({
           ...f,
           status: isWinFolder ? 'win' : 'lose',
           rollResult: folderOutcome
-        };
-      });
+        });
+      }
 
       isWin = updatedFolders.every((f: any) => f.status === 'win');
       winningOutcome = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
       activeBet.folders = updatedFolders;
     } else {
-      // Legacy single folder bet
-      const { isWinFolder, folderOutcome } = rollSingleFolder({
+      // Single folder bet
+      const gameType = activeBet.gameType;
+      const round = activeBet.round || 0;
+      const gameRes = await getOrInsertAuthoritativeRoundResult(gameType, round);
+      const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails({
         gameType: activeBet.gameType,
         group: activeBet.group,
         option: activeBet.option
-      });
+      }, gameRes.details || {});
       isWin = isWinFolder;
       winningOutcome = `${activeBet.group} [${folderOutcome}]`;
     }
@@ -262,6 +297,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
       AlertMessage = `😢 [배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${activeBet.game}\n배팅 금액 ${activeBet.amount.toLocaleString()}원이 차감되었습니다.`;
     }
 
+    // Since we already write the result to gameResults during getOrInsertAuthoritativeRoundResult,
+    // we don't need to add duplicate documents to 'gameResults' collection here anymore!
+
     setUserBalance(finalBalance);
     setUserPoints(finalPoints);
 
@@ -274,6 +312,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
       points: finalPoints,
       bets: updatedBets
     }));
+
+    const savedUserStr = localStorage.getItem('currentUser');
+    if (savedUserStr) {
+      try {
+        const curObj = JSON.parse(savedUserStr);
+        localStorage.setItem('currentUser', JSON.stringify({ 
+          ...curObj, 
+          balance: finalBalance, 
+          points: finalPoints 
+        }));
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
     try {
       await updateDoc(doc(db, 'users', currentUserData.id), {
@@ -369,6 +421,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
       bets: updatedBets
     }));
 
+    const savedUserStr = localStorage.getItem('currentUser');
+    if (savedUserStr) {
+      try {
+        const curObj = JSON.parse(savedUserStr);
+        localStorage.setItem('currentUser', JSON.stringify({ 
+          ...curObj, 
+          balance: nextBalance 
+        }));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
     try {
       await updateDoc(doc(db, 'users', currentUserData.id), {
         balance: nextBalance,
@@ -430,6 +495,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const isPowerball = activeMiniGameTab === 'powerball5' || activeMiniGameTab === 'powerball3';
     const gameLabel = activeMiniGameTab === 'powerball5' ? 'N파워볼(5분)' :
                       activeMiniGameTab === 'powerball3' ? 'N파워볼(3분)' :
+                      activeMiniGameTab === 'powerladder5' ? 'N파워사다리(5분)' :
                       activeMiniGameTab === 'ladder5' ? '사다리(5분)' : '다리다리(3분)';
 
     upcomingRounds.forEach((rObj) => {
@@ -591,71 +657,122 @@ export default function MainPage({ onLogout }: MainPageProps) {
     if (savedUser) {
       try {
         const userObj = JSON.parse(savedUser);
+        console.log("DEBUG: Initializing with userObj:", userObj);
         setCurrentUser(userObj);
+        
+        // Instant sync from local storage cache for ultra-fast initial UI load!
+        if (userObj.balance !== undefined) {
+          setUserBalance(userObj.balance);
+        } else {
+          setUserBalance(5000000);
+        }
+        if (userObj.points !== undefined) {
+          setUserPoints(userObj.points);
+        } else {
+          setUserPoints(50000);
+        }
         if (userObj.nickname) {
           setNickname(userObj.nickname);
         }
-        // Designate windo086 or windos086 as admin/operator
-        if (userObj.username === 'windo086' || userObj.username === 'windos086') {
+        
+        // Designate windo086 as admin/operator
+        if (userObj.username === 'windo086') {
           setIsAdmin(true);
         }
 
-        // Synchronize dynamic balances on boot
-        const fetchUserMainDoc = async () => {
-          try {
-            const q = query(collection(db, 'users'), where('username', '==', userObj.username));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-              const docSnap = querySnapshot.docs[0];
-              const data = docSnap.data();
-              const bal = data.balance !== undefined ? data.balance : 5000000;
-              const pts = data.points !== undefined ? data.points : 50000;
-              
-              if (data.balance === undefined || data.points === undefined) {
-                await updateDoc(doc(db, 'users', docSnap.id), {
-                  balance: bal,
-                  points: pts
-                });
-              }
-              setUserBalance(bal);
-              setUserPoints(pts);
-              setCurrentUserData({ id: docSnap.id, ...data, balance: bal, points: pts });
+        // Highly resilient dual-layered real-time listener.
+        // First, we prioritize the unique document ID if present, falling back to username.
+        const docId = userObj.id || userObj.username;
+        console.log("DEBUG: Connecting to Firestore with docId:", docId);
+        const userDocRef = doc(db, 'users', docId);
+
+        let unsubscribeQuery: (() => void) | null = null;
+        let isQueryListenerActive = false;
+
+        const syncToLocalStorageAndState = (docIdToUse: string, data: any) => {
+          const bal = data.balance !== undefined ? Number(data.balance) : 5000000;
+          const pts = data.points !== undefined ? Number(data.points) : 50000;
+          
+          setUserBalance(bal);
+          setUserPoints(pts);
+          
+          const expandedData = { id: docIdToUse, ...data, balance: bal, points: pts };
+          setCurrentUserData(expandedData);
+          
+          const latestUserLoc = localStorage.getItem('currentUser');
+          if (latestUserLoc) {
+            try {
+              const curParsed = JSON.parse(latestUserLoc);
+              localStorage.setItem('currentUser', JSON.stringify({
+                ...curParsed,
+                id: docIdToUse,
+                ...data,
+                balance: bal,
+                points: pts
+              }));
+            } catch (jsonErr) {
+              console.error("Failed to update cache JSON:", jsonErr);
             }
-          } catch (e) {
-            console.error("Error matching profile info: ", e);
+          }
+          
+          if (data.nickname) {
+            setNickname(data.nickname);
+          }
+          if (data.username === 'windo086') {
+            setIsAdmin(true);
           }
         };
-        fetchUserMainDoc();
+
+        const setupQueryListener = () => {
+          if (isQueryListenerActive) return;
+          isQueryListenerActive = true;
+          console.log("Setting up resilient query-based listener for username:", userObj.username);
+          const q = query(collection(db, 'users'), where('username', '==', userObj.username));
+          unsubscribeQuery = onSnapshot(q, (querySnapshot) => {
+            if (!querySnapshot.empty) {
+              const docSnap = querySnapshot.docs[0];
+              console.log("Query listener matched document:", docSnap.id, docSnap.data());
+              syncToLocalStorageAndState(docSnap.id, docSnap.data());
+            } else {
+              console.warn("Resilient query listener querySnapshot is EMPTY for username:", userObj.username);
+            }
+          }, (queryError) => {
+            console.error("Resilient query listener failed, using single fetch fallback:", queryError);
+            getDoc(userDocRef).then((docSnap) => {
+              if (docSnap.exists()) {
+                console.log("Single fetch fallback succeeded:", docSnap.id, docSnap.data());
+                syncToLocalStorageAndState(docSnap.id, docSnap.data());
+              }
+            }).catch(err => console.error("Single fetch fallback failed:", err));
+          });
+        };
+
+        const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            console.log("Direct document listener matched:", docSnap.id, docSnap.data());
+            syncToLocalStorageAndState(docSnap.id, docSnap.data());
+          } else {
+            console.warn("User document not found directly at docId:", docId, "trying query fallback");
+            setupQueryListener();
+          }
+        }, (docError) => {
+          console.warn("Direct document listener failed, trying resilient query listener:", docError);
+          setupQueryListener();
+        });
+
+        return () => {
+          if (typeof unsubscribeDoc === 'function') {
+            unsubscribeDoc();
+          }
+          if (unsubscribeQuery && typeof unsubscribeQuery === 'function') {
+            unsubscribeQuery();
+          }
+        };
       } catch (err) {
-        console.error(err);
+        console.error("Error setting up user listener:", err);
       }
     }
   }, []);
-
-  // Fetch updated user data when opening My Page or syncing stats
-  useEffect(() => {
-    if (currentUser) {
-      const fetchUserData = async () => {
-        try {
-          const q = query(collection(db, 'users'), where('username', '==', currentUser.username));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            const docSnap = querySnapshot.docs[0];
-            const data = docSnap.data();
-            const bal = data.balance !== undefined ? data.balance : 5000000;
-            const pts = data.points !== undefined ? data.points : 50000;
-            
-            setUserBalance(bal);
-            setUserPoints(pts);
-            setCurrentUserData({ id: docSnap.id, ...data, balance: bal, points: pts });
-          }
-        } catch (e) {
-          console.error("Error fetching user data:", e);
-        }
-      };
-      fetchUserData();
-    }
-  }, [showMyPage, showMiniGame, currentUser]);
 
   // Fetch registered users for administrative action
   const loadAllUsers = async () => {
@@ -666,6 +783,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       querySnapshot.forEach((docSnap) => {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
+      console.log("DEBUG: Loaded users:", list.slice(0, 5));
       setAdminUsers(list);
     } catch (e) {
       console.error("Failed to load users:", e);
@@ -674,11 +792,377 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
   };
 
+  // Load current user's deposit request history
+  const loadUserDepositHistory = async () => {
+    if (!currentUserData?.id) return;
+    setIsLoadingHistory(true);
+    try {
+      const q = query(
+        collection(db, 'depositRequests'),
+        where('userId', '==', currentUserData.id)
+      );
+      const snap = await getDocs(q);
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort by createdAt descending
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+      setUserDepositHistory(list);
+    } catch (e) {
+      console.error("Error loading deposit history:", e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Load all deposit requests for Admin Management
+  const loadAllDepositRequests = async () => {
+    setIsLoadingAdminDeposits(true);
+    try {
+      const snap = await getDocs(collection(db, 'depositRequests'));
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort in memory by createdAt descending
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+      setAdminDepositRequests(list);
+    } catch (e) {
+      console.error("Error fetching all deposit requests:", e);
+    } finally {
+      setIsLoadingAdminDeposits(false);
+    }
+  };
+
+  // Load current user's withdrawal request history
+  const loadUserWithdrawalHistory = async () => {
+    if (!currentUserData?.id) return;
+    setIsLoadingWithdrawalHistory(true);
+    try {
+      const q = query(
+        collection(db, 'withdrawalRequests'),
+        where('userId', '==', currentUserData.id)
+      );
+      const snap = await getDocs(q);
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort by createdAt descending
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+      setUserWithdrawalHistory(list);
+    } catch (e) {
+      console.error("Error loading withdrawal history:", e);
+    } finally {
+      setIsLoadingWithdrawalHistory(false);
+    }
+  };
+
+  // Load all withdrawal requests for Admin Management
+  const loadAllWithdrawalRequests = async () => {
+    setIsLoadingAdminWithdrawals(true);
+    try {
+      const snap = await getDocs(collection(db, 'withdrawalRequests'));
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort in memory by createdAt descending
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+      setAdminWithdrawalRequests(list);
+    } catch (e) {
+      console.error("Error fetching all withdrawal requests:", e);
+    } finally {
+      setIsLoadingAdminWithdrawals(false);
+    }
+  };
+
+  const loadExchangeRate = async () => {
+    try {
+      const docRef = doc(db, 'appSettings', 'general');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setExchangeRate(docSnap.data().usdtToKrwRate);
+      }
+    } catch (e) {
+      console.error("Error loading exchange rate:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadExchangeRate();
+  }, []);
+
+  const getOrInsertAuthoritativeRoundResult = async (gameType: string, roundNum: number) => {
+    const docId = `${gameType}_${roundNum}`;
+    const docRef = doc(db, 'gameResults', docId);
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return snap.data();
+      }
+    } catch (err) {
+      console.error("Error reading doc in getOrInsertAuthoritativeRoundResult:", err);
+    }
+    
+    const gamesMap: Record<string, string> = {
+      'powerball5': 'N파워볼(5분)',
+      'powerball3': 'N파워볼(3분)',
+      'powerladder5': 'N파워사다리(5분)',
+      'ladder5': '사다리(5분)',
+      'daridari3': '다리다리(3분)'
+    };
+    const name = gamesMap[gameType] || gameType;
+    
+    let resultStr = '';
+    let details: any = {};
+    
+    if (gameType === 'powerball5' || gameType === 'powerball3') {
+      const rolledOddEven = Math.random() < 0.5 ? '홀' : '짝';
+      const rolledUnderOver = Math.random() < 0.5 ? '언더' : '오버';
+      const size = Math.random() < 0.3 ? '소' : Math.random() < 0.7 ? '중' : '대';
+      
+      const pbOddEven = Math.random() < 0.5 ? '홀' : '짝';
+      const pbUnderOver = Math.random() < 0.5 ? '언더' : '오버';
+      
+      resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+      details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+    } else {
+      const start = Math.random() < 0.5 ? '좌' : '우';
+      const lines = Math.random() < 0.5 ? '3줄' : '4줄';
+      const outcome = (start === '좌' && lines === '3줄') || (start === '우' && lines === '4줄') ? '짝' : '홀';
+      
+      resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+      details = { start, lines, outcome };
+    }
+    
+    const docData = {
+      gameName: name,
+      round: roundNum,
+      result: resultStr,
+      details,
+      createdAt: new Date().toISOString()
+    };
+    
+    try {
+      await setDoc(docRef, docData);
+    } catch (err) {
+      console.error("Error setting doc in getOrInsertAuthoritativeRoundResult:", err);
+    }
+    return docData;
+  };
+
+  const autoInsertRecentGameResults = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'gameResults'));
+      const existingIds = new Set(snap.docs.map(d => d.id));
+
+      const games = [
+        { key: 'powerball5', name: 'N파워볼(5분)' },
+        { key: 'powerball3', name: 'N파워볼(3분)' },
+        { key: 'powerladder5', name: 'N파워사다리(5분)' },
+        { key: 'ladder5', name: '사다리(5분)' },
+        { key: 'daridari3', name: '다리다리(3분)' }
+      ];
+
+      let didAdd = false;
+
+      // 1. Backfill Minigame Rounds (past 25 rounds)
+      for (const g of games) {
+        const { currentRound } = getRoundAndSecondsRemaining(g.key);
+        const startRound = Math.max(1, currentRound - 25);
+        const endRound = currentRound - 1;
+
+        for (let r = startRound; r <= endRound; r++) {
+          const docId = `${g.key}_${r}`;
+          if (!existingIds.has(docId)) {
+            let resultStr = '';
+            let details: any = {};
+            if (g.key === 'powerball5' || g.key === 'powerball3') {
+              const rolledOddEven = Math.random() < 0.5 ? '홀' : '짝';
+              const rolledUnderOver = Math.random() < 0.5 ? '언더' : '오버';
+              const size = Math.random() < 0.3 ? '소' : Math.random() < 0.7 ? '중' : '대';
+              
+              const pbOddEven = Math.random() < 0.5 ? '홀' : '짝';
+              const pbUnderOver = Math.random() < 0.5 ? '언더' : '오버';
+              
+              resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+              details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+            } else {
+              const start = Math.random() < 0.5 ? '좌' : '우';
+              const lines = Math.random() < 0.5 ? '3줄' : '4줄';
+              const outcome = (start === '좌' && lines === '3줄') || (start === '우' && lines === '4줄') ? '짝' : '홀';
+              
+              resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+              details = { start, lines, outcome };
+            }
+
+            const intervalMin = g.key.includes('5') ? 5 : 3;
+            // Approximate date
+            const now = new Date();
+            const roundTime = new Date(now.getTime() - (currentRound - r) * intervalMin * 60 * 1000);
+
+            const docRef = doc(db, 'gameResults', docId);
+            await setDoc(docRef, {
+              gameName: g.name,
+              round: r,
+              result: resultStr,
+              details,
+              createdAt: roundTime.toISOString()
+            });
+            didAdd = true;
+          }
+        }
+      }
+
+      if (didAdd) {
+        await loadGameResults();
+      }
+    } catch (e) {
+      console.error("Error auto-inserting recent game results:", e);
+    }
+  };
+
+  useEffect(() => {
+    autoInsertRecentGameResults();
+    const interval = setInterval(() => {
+      autoInsertRecentGameResults();
+    }, 25000);
+    return () => clearInterval(interval);
+  }, [serverTimeOffset]);
+
+  const loadGameResults = async () => {
+    setIsLoadingGameResults(true);
+    try {
+      const snap = await getDocs(collection(db, 'gameResults'));
+      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', '다리다리(3분)', 'N파워사다리(5분)'];
+      const results = snap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((res: any) => minigameNames.includes(res.gameName));
+      results.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      console.log("Loaded game results:", results);
+      setGameResults(results);
+    } catch (e) {
+      console.error("Error loading game results:", e);
+    } finally {
+      setIsLoadingGameResults(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showGameResultScreen) {
+      autoInsertRecentGameResults();
+      loadGameResults();
+    }
+  }, [showGameResultScreen]);
+
+  useEffect(() => {
+    if (showWithdrawalScreen && currentUserData?.id) {
+      loadUserWithdrawalHistory();
+    }
+  }, [showWithdrawalScreen, currentUserData?.id]);
+
   useEffect(() => {
     if (showAdminPanel) {
       loadAllUsers();
+      loadAllDepositRequests();
+      loadAllWithdrawalRequests();
     }
   }, [showAdminPanel]);
+
+  const formatDateStr = (val: any) => {
+    if (!val) return '-';
+    let date: Date;
+    if (val.toDate && typeof val.toDate === 'function') {
+      date = val.toDate();
+    } else if (val.seconds) {
+      date = new Date(val.seconds * 1000);
+    } else {
+      date = new Date(val);
+    }
+    
+    if (isNaN(date.getTime())) return '-';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  };
+
+  const handleDepositSubmit = async () => {
+    if (!currentUserData) {
+      alert("로그인 후 이용해 주세요.");
+      return;
+    }
+    const usdtAmt = Number(depositAmountUsdt) || 0;
+    if (usdtAmt <= 0) {
+      alert("신청할 테더(USDT) 금액을 입력해주세요.");
+      return;
+    }
+    const finalAddress = (depositWalletAddressInput || currentUserData?.tetherWalletAddress || currentUser?.tetherWalletAddress || '').trim();
+    if (!finalAddress) {
+      alert("회원 정보에 지갑 주소가 등록되어 있지 않습니다. 고객센터에 문의하시거나 새 계정으로 가입해 주세요.");
+      return;
+    }
+
+    setIsSubmitDeposit(true);
+    try {
+      // Use component exchangeRate state instead of hardcoded 1531
+      const amountKrw = Math.floor(usdtAmt * exchangeRate);
+      
+      const payload = {
+        userId: currentUserData.id,
+        username: currentUserData.username,
+        nickname: currentUserData.nickname || nickname,
+        amountUsdt: usdtAmt,
+        exchangeRate: exchangeRate,
+        amountKrw: amountKrw,
+        tetherWalletAddress: finalAddress,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        processedAt: null
+      };
+
+      await addDoc(collection(db, 'depositRequests'), payload);
+
+      // Save user profile wallet automatically if not registered yet
+      if (finalAddress !== (currentUserData.tetherWalletAddress || '')) {
+        await updateDoc(doc(db, 'users', currentUserData.id), {
+          tetherWalletAddress: finalAddress
+        });
+        setCurrentUserData(prev => prev ? { ...prev, tetherWalletAddress: finalAddress } : prev);
+      }
+
+      alert("테더 입금 신청이 정상적으로 접수되었습니다.\n운영자 확인 즉시 신속하게 처리됩니다.");
+      setDepositAmountUsdt('');
+      await loadUserDepositHistory();
+    } catch (e) {
+      console.error("Deposit submission failed:", e);
+      alert("입금 신청에 실패하였습니다: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setIsSubmitDeposit(false);
+    }
+  };
 
   const handleStartEdit = (user: any) => {
     setEditingUserId(user.id);
@@ -695,11 +1179,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const nextBal = Number(editingBalance) || 0;
       const nextPts = Number(editingPoints) || 0;
       
+      const targetUser = adminUsers.find(u => u.id === userId);
+      const finalPassword = editingPassword || (targetUser?.password || '');
+      const finalWithdrawalPassword = editingWithdrawalPassword || (targetUser?.withdrawalPassword || '');
+
       await updateDoc(doc(db, 'users', userId), {
         nickname: editingNickname,
         tetherWalletAddress: editingWallet,
-        password: editingPassword,
-        withdrawalPassword: editingWithdrawalPassword,
+        password: finalPassword,
+        withdrawalPassword: finalWithdrawalPassword,
         balance: nextBal,
         points: nextPts
       });
@@ -708,8 +1196,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         ...u, 
         nickname: editingNickname, 
         tetherWalletAddress: editingWallet,
-        password: editingPassword,
-        withdrawalPassword: editingWithdrawalPassword,
+        password: finalPassword,
+        withdrawalPassword: finalWithdrawalPassword,
         balance: nextBal,
         points: nextPts
       } : u));
@@ -718,6 +1206,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
       if (currentUserData && currentUserData.id === userId) {
         setUserBalance(nextBal);
         setUserPoints(nextPts);
+        const savedUserStr = localStorage.getItem('currentUser');
+        if (savedUserStr) {
+          try {
+            const curObj = JSON.parse(savedUserStr);
+            localStorage.setItem('currentUser', JSON.stringify({ 
+              ...curObj, 
+              balance: nextBal, 
+              points: nextPts 
+            }));
+          } catch (err) {
+            console.error(err);
+          }
+        }
       }
       
       setEditingUserId(null);
@@ -737,6 +1238,202 @@ export default function MainPage({ onLogout }: MainPageProps) {
       alert('회원이 영구 삭제되었습니다.');
     } catch (e) {
       alert('삭제 실패: ' + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleAcceptDeposit = async (requestId: string, userId: string, amountKrw: number) => {
+    if (!window.confirm("정말로 해당 입금 신청을 승인처리하시겠습니까?\n회원의 보유금액이 즉시 충전 처리됩니다.")) {
+      return;
+    }
+    try {
+      const docRef = doc(db, 'users', userId);
+      let userDocSnap = adminUsers.find(u => u.id === userId);
+      let currentBal = userDocSnap?.balance !== undefined ? userDocSnap.balance : 5000000;
+      let nextBal = currentBal + amountKrw;
+
+      await updateDoc(docRef, {
+        balance: nextBal
+      });
+
+      await updateDoc(doc(db, 'depositRequests', requestId), {
+        status: 'approved',
+        processedAt: new Date().toISOString()
+      });
+
+      setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, balance: nextBal } : u));
+      setAdminDepositRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved', processedAt: new Date().toISOString() } : r));
+
+      if (currentUserData && currentUserData.id === userId) {
+        setUserBalance(nextBal);
+        const savedUserStr = localStorage.getItem('currentUser');
+        if (savedUserStr) {
+          try {
+            const curObj = JSON.parse(savedUserStr);
+            localStorage.setItem('currentUser', JSON.stringify({ ...curObj, balance: nextBal }));
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+
+      alert("입금 신청 승인이 성공적으로 처리되었습니다.\n회원의 시뮬레이터 잔액이 정산 처리되었습니다.");
+    } catch (e) {
+      console.error("Failed to approve deposit:", e);
+      alert("입금 승인 처리 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleRejectDeposit = async (requestId: string) => {
+    if (!window.confirm("해당 입금 신청을 거절/취소 처리하시겠습니까?")) {
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'depositRequests', requestId), {
+        status: 'rejected',
+        processedAt: new Date().toISOString()
+      });
+      setAdminDepositRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected', processedAt: new Date().toISOString() } : r));
+      alert("입금 신청이 성공적으로 거절 처리되었습니다.");
+    } catch (e) {
+      console.error("Failed to reject deposit:", e);
+      alert("입금 거절 처리 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleWithdrawalSubmit = async () => {
+    if (!currentUserData) {
+      alert("로그인 세션 정보가 없습니다. 다시 로그인해 주세요.");
+      return;
+    }
+    const usdtAmt = Number(withdrawalAmountUsdt);
+    if (!withdrawalAmountUsdt || isNaN(usdtAmt) || usdtAmt <= 0) {
+      alert("환전신청할 테더(USDT) 수량을 입력해주세요.");
+      return;
+    }
+    const amountKrw = Math.floor(usdtAmt * exchangeRate);
+
+    if (amountKrw > userBalance) {
+      alert(`보유금액이 부족합니다. (신청 금액: ${amountKrw.toLocaleString()}원, 보유 금액: ${userBalance.toLocaleString()}원)`);
+      return;
+    }
+
+    const walletAddress = (currentUserData.tetherWalletAddress || currentUser?.tetherWalletAddress || '').trim();
+    if (!walletAddress) {
+      alert("등록된 지갑 주소가 없습니다. 회원정보 수정에서 가입지갑 주소를 등록해주십시오.");
+      return;
+    }
+
+    if (!window.confirm(`입력하신 테더 수량: ${usdtAmt.toLocaleString()} USDT\n환산 금액: ${amountKrw.toLocaleString()}원\n\n지갑 주소: ${walletAddress}\n\n위 정보로 보유머니 환전신청(출금)을 진행하시겠습니까?\n신청금액은 즉시 차감 정산됩니다.`)) {
+      return;
+    }
+
+    setIsSubmitWithdrawal(true);
+    try {
+      // 1. Deduct user's balance in DB immediately
+      const nextBal = userBalance - amountKrw;
+      await updateDoc(doc(db, 'users', currentUserData.id), {
+        balance: nextBal
+      });
+
+      // 2. Add withdrawal request doc to DB
+      const payload = {
+        userId: currentUserData.id,
+        username: currentUserData.username,
+        nickname: currentUserData.nickname || nickname,
+        amountUsdt: usdtAmt,
+        exchangeRate: exchangeRate,
+        amountKrw: amountKrw,
+        tetherWalletAddress: walletAddress,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        processedAt: null
+      };
+      await addDoc(collection(db, 'withdrawalRequests'), payload);
+
+      // 3. Update local states
+      setUserBalance(nextBal);
+      setCurrentUserData(prev => prev ? { ...prev, balance: nextBal } : prev);
+      const savedUserStr = localStorage.getItem('currentUser');
+      if (savedUserStr) {
+        try {
+          const curObj = JSON.parse(savedUserStr);
+          localStorage.setItem('currentUser', JSON.stringify({ ...curObj, balance: nextBal }));
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      setWithdrawalAmountUsdt('');
+      
+      alert("테더 환전(출금) 신청이 정상적으로 접수되었습니다.\n운영자 확인 즉시 신속하게 처리됩니다.");
+      await loadUserWithdrawalHistory();
+    } catch (e) {
+      console.error("Failed to submit withdrawal request:", e);
+      alert("환전 신청 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setIsSubmitWithdrawal(false);
+    }
+  };
+
+  const handleAcceptWithdrawal = async (requestId: string) => {
+    if (!window.confirm("정말로 해당 출금 신청을 승인처리하시겠습니까?\n이미 회원의 보유금액은 신청 시점에 차감 처리되었습니다.")) {
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'withdrawalRequests', requestId), {
+        status: 'approved',
+        processedAt: new Date().toISOString()
+      });
+
+      setAdminWithdrawalRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved', processedAt: new Date().toISOString() } : r));
+
+      alert("출금 신청 승인이 성공적으로 처리되었습니다.");
+    } catch (e) {
+      console.error("Failed to approve withdrawal:", e);
+      alert("출금 승인 처리 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleRejectWithdrawal = async (requestId: string, userId: string, amountKrw: number) => {
+    if (!window.confirm("해당 출금 신청을 거절/취소 처리하시겠습니까?\n거절 시 회원의 차감된 보유금액이 즉시 환불 처리됩니다.")) {
+      return;
+    }
+    try {
+      // 1. Refund
+      const docRef = doc(db, 'users', userId);
+      let userDocSnap = adminUsers.find(u => u.id === userId);
+      let currentBal = userDocSnap?.balance !== undefined ? userDocSnap.balance : 5000000;
+      let nextBal = currentBal + amountKrw;
+
+      await updateDoc(docRef, {
+        balance: nextBal
+      });
+
+      // 2. Status Update
+      await updateDoc(doc(db, 'withdrawalRequests', requestId), {
+        status: 'rejected',
+        processedAt: new Date().toISOString()
+      });
+
+      setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, balance: nextBal } : u));
+      setAdminWithdrawalRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected', processedAt: new Date().toISOString() } : r));
+
+      if (currentUserData && currentUserData.id === userId) {
+        setUserBalance(nextBal);
+        const savedUserStr = localStorage.getItem('currentUser');
+        if (savedUserStr) {
+          try {
+            const curObj = JSON.parse(savedUserStr);
+            localStorage.setItem('currentUser', JSON.stringify({ ...curObj, balance: nextBal }));
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+
+      alert("출금 신청이 거절 처리되었습니다.\n회원의 시뮬레이터 잔액이 즉시 복구(환불) 정산되었습니다.");
+    } catch (e) {
+      console.error("Failed to reject withdrawal:", e);
+      alert("출금 거절 처리 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -769,6 +1466,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
           onClick={() => {
             setShowMyPage(false);
             setShowMiniGame(false);
+            setShowDepositScreen(false);
+            setShowWithdrawalScreen(false);
+            setShowGameResultScreen(false);
           }}
           className="text-3xl font-extrabold text-red-600 tracking-tighter italic cursor-pointer relative pt-3 pb-1"
         >
@@ -805,37 +1505,43 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 >
                   <button 
                     onClick={() => setShowMiniGameSubmenu(prev => !prev)}
-                    className="hover:text-amber-400 transition-colors"
+                    className={`hover:text-amber-400 transition-colors uppercase tracking-tight ${showMiniGame ? 'text-amber-400 font-extrabold border-b border-amber-400 pb-0.5' : ''}`}
                   >
                     미니게임
                   </button>
                   {showMiniGameSubmenu && (
                     <div 
-                      className="absolute top-full left-0 w-32 bg-neutral-800 border border-neutral-700 rounded shadow-xl mt-1 z-[999] overflow-hidden p-1 space-y-1"
+                      className="absolute top-full left-0 w-[140px] bg-neutral-800 border border-neutral-700 rounded shadow-xl mt-1 z-[999] overflow-hidden p-1 space-y-1"
                       onMouseEnter={openMiniGameSubmenu}
                       onMouseLeave={closeMiniGameSubmenu}
                     >
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded"
+                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded"
+                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (3분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded"
+                        onClick={() => { setActiveMiniGameTab('powerladder5'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                      >
+                        N파워사다리 (5분)
+                      </button>
+                      <button 
+                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded"
+                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMyPage(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         다리다리 (3분)
                       </button>
@@ -844,13 +1550,67 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
               );
             }
+            
+            if (item === '입금신청') {
+              return (
+                <button 
+                  key={item} 
+                  onClick={() => {
+                    setShowDepositScreen(true);
+                    setShowWithdrawalScreen(false);
+                    setShowMyPage(false);
+                    setShowMiniGame(false);
+                  }}
+                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                >
+                  입금신청
+                </button>
+              );
+            }
+
+            if (item === '출금신청') {
+              return (
+                <button 
+                  key={item} 
+                  onClick={() => {
+                    setShowWithdrawalScreen(true);
+                    setShowDepositScreen(false);
+                    setShowGameResultScreen(false);
+                    setShowMyPage(false);
+                    setShowMiniGame(false);
+                  }}
+                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                >
+                  출금신청
+                </button>
+              );
+            }
+
+            if (item === '경기결과') {
+              return (
+                <button 
+                  key={item} 
+                  onClick={() => {
+                    setShowGameResultScreen(true);
+                    setShowWithdrawalScreen(false);
+                    setShowDepositScreen(false);
+                    setShowMyPage(false);
+                    setShowMiniGame(false);
+                  }}
+                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                >
+                  경기결과
+                </button>
+              );
+            }
+
             return (
               <button 
                 key={item} 
                 onClick={() => {
                   alert(`${item} 기능은 준비 중입니다.`);
                 }}
-                className="hover:text-amber-400 transition-colors"
+                className="hover:text-amber-400 transition-colors cursor-pointer"
               >
                 {item}
               </button>
@@ -888,7 +1648,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <button 
             type="button"
             className="bg-gradient-to-b from-[#1c2e46] to-[#0b131d] border border-[#2d4766] hover:from-[#263e5e] hover:to-[#132030] text-[#cfdbe9] px-4 py-1.5 rounded font-bold transition-all shadow-md cursor-pointer text-xs"
-            onClick={() => setShowMyPage(true)}
+            onClick={() => {
+              setShowMyPage(true);
+              setShowMiniGame(false);
+              setShowDepositScreen(false);
+              setShowWithdrawalScreen(false);
+              setShowGameResultScreen(false);
+            }}
           >
             My Page
           </button>
@@ -949,9 +1715,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <div className="border-b border-gray-700" />
               
               <div className="flex items-center gap-8">
-                <label className="w-24 text-gray-400">비밀번호</label>
+                <label className="w-24 text-gray-400">새 로그인 비밀번호</label>
                 <div className="flex-1">
-                  <span className="text-gray-400 p-2">비밀번호 변경은 운영자에게 문의해주십시오.</span>
+                  <input 
+                    type="password" 
+                    value={loginPassword} 
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="새로운 로그인 비밀번호 입력 (4~16자)"
+                    className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-white" 
+                  />
+                  <p className="text-xs text-gray-500 mt-1">변경을 원하시는 경우에만 새 로그인 비밀번호를 입력해주세요.</p>
                 </div>
               </div>
               <div className="border-b border-gray-700" />
@@ -970,7 +1743,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           if (val.length <= 6) setWithdrawalPassword(val);
                         }}
-                        placeholder="최초 1회 설정"
+                        placeholder="출금 비밀번호 설정"
                         className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-white" 
                       />
                       <p className="text-xs text-gray-500 mt-1">최초 1회 설정: 숫자 4~6자리로 입력해주세요.</p>
@@ -990,30 +1763,76 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
 
               <div className="mt-12 text-center flex justify-center gap-4">
-                {currentUserData && !currentUserData.withdrawalPassword && (
+                {currentUserData && (
                   <button 
                     onClick={async () => {
-                      console.log("Save button clicked, currentUserData:", currentUserData, "password:", withdrawalPassword);
-                      if (withdrawalPassword.length < 4) {
-                        alert('출금 비밀번호는 4자리 이상이어야 합니다.');
+                      const updates: any = {};
+                      const infoMessages: string[] = [];
+
+                      // 1. Password edit check
+                      if (loginPassword) {
+                        if (loginPassword.length < 4 || loginPassword.length > 16) {
+                          alert('로그인 비밀번호는 4~16자여야 합니다.');
+                          return;
+                        }
+                        updates.password = loginPassword;
+                        infoMessages.push('로그인 비밀번호');
+                      }
+
+                      // 2. Withdrawal Password edit check
+                      if (withdrawalPassword) {
+                        if (withdrawalPassword.length < 4 || withdrawalPassword.length > 6) {
+                          alert('출금 비밀번호는 4~6자리 숫자여야 합니다.');
+                          return;
+                        }
+                        updates.withdrawalPassword = withdrawalPassword;
+                        infoMessages.push('출금 비밀번호');
+                      }
+
+                      if (Object.keys(updates).length === 0) {
+                        alert('변경하거나 설정할 비밀번호 정보를 입력해주세요.');
                         return;
                       }
 
                       try {
                         await updateDoc(doc(db, 'users', currentUserData.id), {
-                          withdrawalPassword: withdrawalPassword
+                          ...updates
                         });
-                        alert('출금 비밀번호가 저장되었습니다.');
-                        setCurrentUserData(prev => ({...prev, withdrawalPassword}));
+                        alert(`${infoMessages.join(', ')}가 성공적으로 변경/저장되었습니다.`);
+                        
+                        // Sync UI states
+                        setCurrentUserData(prev => ({
+                          ...prev,
+                          ...updates
+                        }));
+
+                        // Sync local fallback cache
+                        const localUsersStr = localStorage.getItem('localUsersFallback');
+                        if (localUsersStr) {
+                          const localUsers = JSON.parse(localUsersStr);
+                          const updatedLocal = localUsers.map((u: any) => 
+                            u.username === currentUserData.username ? { ...u, ...updates } : u
+                          );
+                          localStorage.setItem('localUsersFallback', JSON.stringify(updatedLocal));
+                        }
+
+                        // Update current storage user details
+                        const savedUser = localStorage.getItem('currentUser');
+                        if (savedUser) {
+                          const userObj = JSON.parse(savedUser);
+                          localStorage.setItem('currentUser', JSON.stringify({ ...userObj, ...updates }));
+                        }
+
+                        setLoginPassword('');
                         setWithdrawalPassword('');
                       } catch (e) {
                         console.error("Save failed:", e);
-                        alert('저장 실패: ' + (e instanceof Error ? e.message : String(e)));
+                        alert('정보 저장 실패: ' + (e instanceof Error ? e.message : String(e)));
                       }
                     }}
-                    className="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-12 rounded cursor-pointer"
+                    className="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-12 rounded cursor-pointer transition-all"
                   >
-                    비밀번호 저장
+                    회원정보 저장
                   </button>
                 )}
                 <button 
@@ -1023,6 +1842,921 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   문의하기
                 </button>
               </div>
+          </div>
+        </div>
+      ) : showDepositScreen ? (
+        <div className="flex-1 p-4 md:p-8 max-w-4xl w-full mx-auto">
+          {/* Breadcrumb path */}
+          <div className="mb-4 text-sm text-gray-400">
+            <button onClick={() => setShowDepositScreen(false)} className="hover:text-white">홈</button> &gt; 충전/환전 &gt; 보유머니 충전신청
+          </div>
+
+          {/* Title box */}
+          <div className="mb-6 border-b border-neutral-800 pb-4">
+            <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              보유머니 충전 <span className="text-amber-500 text-xs font-black tracking-wider uppercase">Money Charge Apply</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            {/* Left Col: Important guidelines and Wallet Rate/Info (Spans 2 cols on wide screen) */}
+            <div className="md:col-span-2 space-y-6">
+              {/* Must-read guidelines */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-500">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <span>필독사항 (Important Notice)</span>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-300 list-disc pl-5 leading-normal">
+                  <li>지정된 아래 전송 주소로 <span className="text-amber-400 font-extrabold">USDT (TRC-20)</span>를 정확히 전송해주셔야 처리됩니다.</li>
+                  <li>입금 신청 금액은 1테더 기준 고정 환율 <span className="text-emerald-400 font-bold">1USD = 1,531원</span>으로 자동 정산되어 충전됩니다.</li>
+                  <li>거래소 전송 비용이나 패널티, 가스머니는 본인 부담이며, 수수료를 제외한 실입금액 기준으로 입금 신청해주십시오.</li>
+                  <li>등록된 본인의 테더 지갑 주소에서 발신한 트랜잭션만 자동 매칭됩니다. 발신 주소가 일치하지 않을 시 처리가 지연될 수 있습니다.</li>
+                  <li>USDT 및 코인 시세는 실시간 미국 대표 코인거래소 시세를 기준으로 고정 반영된 고유 안전 환율입니다.</li>
+                </ul>
+              </div>
+
+              {/* Wallet instructions and address visualizer */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5 space-y-4">
+                <div className="text-xs text-gray-400">
+                  아래의 공식 테더(USDT) 입금 주소로 회원님의 자산을 임금해 주시기 바랍니다. 전송 완료 후 아래 신청 폼을 작성해 주세요.
+                </div>
+                
+                <div className="bg-black/60 border border-neutral-850 rounded p-4 space-y-3">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-gray-500 font-semibold font-mono">NETWORK</span>
+                    <span className="text-amber-500 font-extrabold font-mono">Tether TRC-20 (TRON)</span>
+                  </div>
+                  
+                  <div className="border-t border-neutral-800/60 my-2"></div>
+                  
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-gray-500 font-semibold">TETHER DEPOSIT ADDRESS (테더 입금 전용 주소)</span>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex-1 bg-neutral-950 border border-neutral-800 text-amber-400 font-mono text-[11px] font-extrabold p-3 rounded select-all break-all flex items-center justify-center sm:justify-start">
+                        TW9YSdPN5qhTE15RxFi4Jyg9Z2ynyv7KsA
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText("TW9YSdPN5qhTE15RxFi4Jyg9Z2ynyv7KsA");
+                          alert("Tether 공식 주소가 클립보드에 복사되었습니다.\n\nTW9YSdPN5qhTE15RxFi4Jyg9Z2ynyv7KsA");
+                        }}
+                        className="px-4 bg-emerald-700 hover:bg-emerald-600 font-bold text-xs rounded text-white cursor-pointer transition flex items-center justify-center gap-1.5 whitespace-nowrap min-h-[40px]"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        주소 복사
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enter Amount section */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-4 border-b border-neutral-800 pb-3">
+                  <Coins className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-tight">충전 정보 입력 (Money Charge Sheet)</span>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Current Balance Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/60 pb-3 gap-1">
+                    <span className="text-xs text-gray-400 font-semibold">현재 보유잔액</span>
+                    <span className="text-sm font-black text-rose-400 font-mono">
+                      {userBalance.toLocaleString()} 원
+                    </span>
+                  </div>
+
+                  {/* Quantity Input Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/60 pb-4 gap-2">
+                    <span className="text-xs text-gray-400 font-semibold">충전 신청 수량</span>
+                    <div className="flex-1 flex items-center justify-end gap-2 max-w-sm w-full">
+                      <input
+                        type="text"
+                        value={depositAmountUsdt || ''}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          setDepositAmountUsdt(val);
+                        }}
+                        placeholder="전송하신 USDT 수량을 입력하세요."
+                        className="w-full bg-neutral-950 border border-neutral-800 text-right text-gray-100 rounded px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold font-mono"
+                      />
+                      <span className="text-xs font-bold text-gray-400 min-w-[40px] text-left">USDT</span>
+                    </div>
+                  </div>
+
+                  {/* Realtime conversion values row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/60 pb-4 gap-2">
+                    <span className="text-xs text-gray-400 font-semibold">보유머니 원화 지급 전환액</span>
+                    <div className="flex-1 flex items-center justify-end gap-2 max-w-sm w-full font-mono">
+                      <span className="text-base font-black text-amber-400">
+                        {(Number(depositAmountUsdt || 0) * exchangeRate).toLocaleString()}
+                      </span>
+                      <span className="text-xs font-bold text-gray-400 min-w-[40px] text-left">원</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Select Buttons */}
+                  <div className="flex flex-wrap gap-1.5 justify-end">
+                    {[1, 5, 10, 50, 100, 500, 1000].map((amt) => (
+                      <button
+                        type="button"
+                        key={amt}
+                        onClick={() => {
+                          setDepositAmountUsdt((prev) => String(Number(prev || 0) + amt));
+                        }}
+                        className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-750 active:bg-neutral-850 text-[11px] font-bold text-[#b5cb85] border border-[#a1b476]/30 hover:border-[#a1b476]/65 rounded transition cursor-pointer"
+                      >
+                        +{amt.toLocaleString()}테더
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setDepositAmountUsdt('')}
+                      className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/60 text-[11px] font-extrabold text-red-400 border border-red-900/40 rounded transition cursor-pointer"
+                    >
+                      초기화
+                    </button>
+                  </div>
+
+                  {/* Sending wallet address input */}
+                  <div className="flex flex-col gap-2.5 pt-3">
+                    <div className="space-y-0.5">
+                      <span className="text-xs text-gray-400 font-semibold block">송금하시는 본인 지갑 주소</span>
+                      <span className="text-[10px] text-gray-500 block">이 주소에서 입금 주소로 실송금 트랜잭션이 발생해야 합니다.</span>
+                    </div>
+                    <div className="w-full">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={depositWalletAddressInput || currentUserData?.tetherWalletAddress || currentUser?.tetherWalletAddress || ''}
+                          readOnly
+                          placeholder="회원가입시 입력한 지갑 주소가 표시됩니다."
+                          className="w-full bg-neutral-900 border border-neutral-800 text-amber-500 font-mono text-left break-all font-bold rounded pl-3.5 pr-24 py-3 text-xs select-all cursor-not-allowed"
+                        />
+                        <div className="absolute right-2.5 top-2 flex items-center gap-1 bg-red-950 border border-red-900/40 text-[10px] text-red-400 font-bold px-2.5 py-1 rounded select-none">
+                          <Lock className="w-3 h-3 text-red-400" />
+                          <span>수정 불가</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit application */}
+                <div className="mt-8 border-t border-neutral-800/80 pt-6 flex justify-center">
+                  <button
+                    onClick={handleDepositSubmit}
+                    disabled={isSubmitDeposit}
+                    className="w-full max-w-xs py-3.5 bg-blue-600 hover:bg-blue-500 active:scale-[0.98] disabled:bg-blue-900/30 disabled:text-gray-500 text-white font-extrabold text-sm rounded shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isSubmitDeposit ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    테더 입금 신청하기
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col: Standard fixed exchange box rate and QR scanning */}
+            <div className="space-y-6">
+              {/* FIXED RATE BOX */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+                <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">1테더 환전율 (TRC-20 Rate)</div>
+                <div className="space-y-2">
+                  <div className="text-[11px] text-gray-400">CHOICE 입금 고정 환율</div>
+                  <div className="text-xl font-black text-amber-400 tracking-wide font-mono">
+                    1 USDT <span className="text-xs text-gray-500 font-normal">➔</span> {exchangeRate.toLocaleString()} 원
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-normal">
+                    * 테더(USDT)는 미국 달러(USD)에 1:1 패깅된 유력 연계 통화로, 초이스 플랫폼은 안전 고정 환율을 채택하여 송금 시 시세 손해 없이 고액의 금액이라도 전액 안심 보장됩니다.
+                  </p>
+                </div>
+              </div>
+
+              {/* QR Scan box */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5 flex flex-col items-center">
+                <span className="text-xs font-bold text-gray-300 mb-1">테더 주소 QR 코드</span>
+                <span className="text-[10px] text-gray-500 text-center mb-4 leading-normal">스마트폰 지갑 앱을 열고 QR 코드를 스캔하여 간편하게 전송하세요.</span>
+                <div className="p-3 bg-white rounded-lg select-none border border-neutral-800">
+                  <img
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=TW9YSdPN5qhTE15RxFi4Jyg9Z2ynyv7KsA"
+                    alt="USDT Address QR Code"
+                    className="w-32 h-32"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <span className="text-[10px] mt-2 text-amber-500/80 font-mono font-bold uppercase tracking-wider">Tether Core Network TRC-20</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Table Section: USER MONEY CHARGE HISTORY */}
+          <div className="mt-8 bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-extrabold text-white uppercase tracking-tight">보유머니 충전 내역 (MONEY CHARGE HISTORY)</span>
+              </div>
+              <span className="text-[10px] text-red-500 font-semibold">※ 개인정보 보호ವನ್ನು 위하여 최근 신청한 데이터 내역이 표기됩니다.</span>
+            </div>
+
+            <div className="overflow-x-auto rounded border border-neutral-800/60 bg-black/20">
+              <table className="w-full text-center text-xs text-gray-300">
+                <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800/80">
+                  <tr>
+                    <th className="p-3 font-semibold text-center w-40">신청일시</th>
+                    <th className="p-3 font-semibold text-center">선택 충전 수량</th>
+                    <th className="p-3 font-semibold text-center">환산 KRW 머니</th>
+                    <th className="p-3 font-semibold text-center w-40">처리일시</th>
+                    <th className="p-3 font-semibold text-center w-28">처리상태</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-850">
+                  {isLoadingHistory ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-gray-500 font-semibold">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-600" />
+                        자료를 로딩하는 중입니다...
+                      </td>
+                    </tr>
+                  ) : userDepositHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-gray-500 font-semibold bg-black/10">
+                        충전 내역이 존재하지 않습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    userDepositHistory.map((req) => (
+                      <tr key={req.id} className="hover:bg-neutral-850/40 transition">
+                        <td className="p-3 text-gray-400 font-mono text-[11px]">{formatDateStr(req.createdAt)}</td>
+                        <td className="p-3 text-amber-400 font-extrabold font-mono text-center text-[11px]">{req.amountUsdt} USDT</td>
+                        <td className="p-3 text-emerald-400 font-extrabold font-mono text-center">{(req.amountKrw || 0).toLocaleString()}원</td>
+                        <td className="p-3 text-gray-400 font-mono text-[11px]">{req.processedAt ? formatDateStr(req.processedAt) : '-'}</td>
+                        <td className="p-3 text-center">
+                          {req.status === 'pending' && (
+                            <span className="inline-block bg-amber-950/70 text-amber-400 border border-amber-800/50 px-2.5 py-0.5 rounded text-[10px] font-black animate-pulse">
+                              대기중
+                            </span>
+                          )}
+                          {req.status === 'approved' && (
+                            <span className="inline-block bg-emerald-950/70 text-emerald-400 border border-emerald-800/50 px-2.5 py-0.5 rounded text-[10px] font-black">
+                              승인완료
+                            </span>
+                          )}
+                          {req.status === 'rejected' && (
+                            <span className="inline-block bg-red-950/70 text-red-400 border border-red-800/50 px-2.5 py-0.5 rounded text-[10px] font-black">
+                              취소/거절
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : showWithdrawalScreen ? (
+        <div className="flex-1 p-4 md:p-8 max-w-4xl w-full mx-auto">
+          {/* Breadcrumb path */}
+          <div className="mb-4 text-sm text-gray-400">
+            <button onClick={() => setShowWithdrawalScreen(false)} className="hover:text-white">홈</button> &gt; 충전/환전 &gt; 보유머니 환전신청
+          </div>
+
+          {/* Title box */}
+          <div className="mb-6 border-b border-neutral-800 pb-4">
+            <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              보유머니 환전 <span className="text-amber-500 text-xs font-black tracking-wider uppercase">Money Exchange Apply</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            {/* Left Col: Important guidelines and Exchange Sheet (Spans 2 cols on wide screen) */}
+            <div className="md:col-span-2 space-y-6">
+              {/* Must-read guidelines */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-500">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  <span>필독사항 (Important Notice)</span>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-300 list-disc pl-5 leading-normal">
+                  <li>등록된 개인 지갑 주소로 <span className="text-amber-400 font-extrabold">USDT</span>가 전송 됩니다.</li>
+                  <li>출금 신청 기준 1테더 기준 환율 금액이 처리됩니다.</li>
+                  <li>등록한 지갑 주소에서만 입금 출금 가능합니다, 변경시 문의 부탁드립니다.</li>
+                  <li>자세한 문의는 고객센터를 이용해 주세요. * (실시간 코인 시세는 <span className="text-red-500 font-bold">[코인베이스]</span> 기준으로 적용됩니다)</li>
+                </ul>
+              </div>
+
+              {/* Enter Amount section */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-4 border-b border-neutral-800 pb-3">
+                  <Coins className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-tight">환전 정보 입력 (Money Exchange Sheet)</span>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Current Balance Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/60 pb-3 gap-1">
+                    <span className="text-xs text-gray-400 font-semibold">보유금액</span>
+                    <span className="text-sm font-black text-amber-500 font-mono">
+                      {userBalance.toLocaleString()} 원
+                    </span>
+                  </div>
+
+                  {/* Quantity Input Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/60 pb-4 gap-2">
+                    <div className="space-y-0.5">
+                      <span className="text-xs text-gray-400 font-semibold block">금액입력 (Tether Amount)</span>
+                      <span className="text-[10px] text-gray-500 block">원화 환산 전 순수 신청 테더(USDT) 수량입니다.</span>
+                    </div>
+                    <div className="relative w-full sm:max-w-[240px]">
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="0"
+                        value={withdrawalAmountUsdt || ''}
+                        onChange={(e) => setWithdrawalAmountUsdt(e.target.value)}
+                        className="w-full bg-neutral-950 border border-neutral-800 text-amber-500 font-mono text-right font-bold rounded pr-12 pl-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/80 transition-all select-all"
+                      />
+                      <span className="absolute right-3.5 top-2.5 text-xs text-gray-500 font-bold select-none">테더</span>
+                    </div>
+                  </div>
+
+                  {/* Converted KRW Output Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/60 pb-3 gap-2">
+                    <div className="space-y-0.5">
+                      <span className="text-xs text-gray-400 font-semibold block">처리 금액 (Converted Money)</span>
+                      <span className="text-[10px] text-gray-500 block">현재 1테더 출금 환전 환산율(1,537원)을 적용한 최종 원화입니다.</span>
+                    </div>
+                    <div className="relative w-full sm:max-w-[240px]">
+                      <div className="w-full bg-neutral-950 border border-neutral-800 text-emerald-400 font-mono text-right font-black rounded pr-12 pl-3 py-2.5 text-sm select-none">
+                        {(Number(withdrawalAmountUsdt || 0) * exchangeRate).toLocaleString()}
+                      </div>
+                      <span className="absolute right-3.5 top-2.5 text-xs text-gray-500 font-bold select-none">원</span>
+                    </div>
+                  </div>
+
+                  {/* Quick incremental buttons */}
+                  <div className="flex flex-wrap gap-1.5 pt-2">
+                    {[1, 5, 10, 50, 100, 500, 1000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setWithdrawalAmountUsdt(prev => String((Number(prev) || 0) + amt))}
+                        className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-750 active:bg-neutral-850 text-[11px] font-bold text-amber-400 border border-amber-500/15 hover:border-amber-500/40 rounded transition cursor-pointer"
+                      >
+                        +{amt.toLocaleString()}테더
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setWithdrawalAmountUsdt('')}
+                      className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/60 text-[11px] font-extrabold text-red-400 border border-red-900/40 rounded transition cursor-pointer"
+                    >
+                      정정
+                    </button>
+                  </div>
+
+                  {/* Registered receiving wallet address display */}
+                  <div className="flex flex-col gap-2.5 pt-3">
+                    <div className="space-y-0.5">
+                      <span className="text-xs text-gray-400 font-semibold block">받을주소 (Tether Destination Address)</span>
+                      <span className="text-[10px] text-gray-500 block">회원 정보에 등록된 지갑 주소로 자동 송금됩니다.</span>
+                    </div>
+                    <div className="w-full">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={currentUserData?.tetherWalletAddress || currentUser?.tetherWalletAddress || ''}
+                          readOnly
+                          placeholder="받을 주소를 정확하게 입력하세요"
+                          className="w-full bg-neutral-900 border border-neutral-800 text-amber-550 font-mono text-left break-all font-bold rounded pl-3.5 pr-24 py-3 text-xs select-all cursor-not-allowed"
+                        />
+                        <div className="absolute right-2.5 top-2 flex items-center gap-1 bg-neutral-950 border border-neutral-800 text-[10px] text-[#b5cb85] font-bold px-2.5 py-1 rounded select-none">
+                          <Lock className="w-3 h-3 text-[#b5cb85]" />
+                          <span>등록 주소</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit application */}
+                <div className="mt-8 border-t border-neutral-800/80 pt-6 flex justify-center">
+                  <button
+                    onClick={handleWithdrawalSubmit}
+                    disabled={isSubmitWithdrawal}
+                    className="w-full max-w-xs py-3.5 bg-blue-600 hover:bg-blue-500 active:scale-[0.98] disabled:bg-blue-900/30 disabled:text-gray-500 text-white font-extrabold text-sm rounded shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isSubmitWithdrawal ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    보유머니 환전 신청하기
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col: Standard fixed exchange box rate */}
+            <div className="space-y-6">
+              {/* FIXED RATE BOX */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+                <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">1테더 환전율 (TRC-20 Rate)</div>
+                <div className="space-y-2">
+                  <div className="text-[11px] text-gray-400">CHOICE 환전 고정 환율</div>
+                  <div className="text-xl font-black text-amber-400 tracking-wide font-mono">
+                    1 USDT <span className="text-xs text-gray-500 font-normal">➔</span> {exchangeRate.toLocaleString()} 원
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-normal">
+                    * 테더(USDT)는 미국 달러(USD)에 1:1 패깅된 유력 연계 통화로, 초이스 플랫폼은 안전 고정 환율을 채택하여 송금 시 시세 손해 없이 고액의 금액이라도 전액 안심 보장됩니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Table Section: USER MONEY EXCHANGE HISTORY */}
+          <div className="mt-8 bg-neutral-900 border border-neutral-800 rounded-lg p-5">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-extrabold text-white uppercase tracking-tight">보유머니 환전 내역 (MONEY EXCHANGE HISTORY)</span>
+              </div>
+              <span className="text-[10px] text-red-500 font-semibold">※ 최근 7일내역만 표기됩니다.</span>
+            </div>
+
+            <div className="overflow-x-auto rounded border border-neutral-800/60 bg-black/20">
+              <table className="w-full text-center text-xs text-gray-300">
+                <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800/80">
+                  <tr>
+                    <th className="p-3 font-semibold text-center w-40">신청일시</th>
+                    <th className="p-3 font-semibold text-center">선택 환전 수량</th>
+                    <th className="p-3 font-semibold text-center">환산 KRW 머니</th>
+                    <th className="p-3 font-semibold text-center w-40">처리일시</th>
+                    <th className="p-3 font-semibold text-center w-28">처리상태</th>
+                    <th className="p-3 font-semibold text-center">받은주소(선택)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-850">
+                  {isLoadingWithdrawalHistory ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500 font-semibold">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-600" />
+                        자료를 로딩하는 중입니다...
+                      </td>
+                    </tr>
+                  ) : userWithdrawalHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-10 text-center text-gray-500 font-medium">
+                        환전 내역이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    userWithdrawalHistory.map((req) => (
+                      <tr key={req.id} className="hover:bg-neutral-900/30 transition">
+                        <td className="p-3 text-gray-400 text-[11px] font-semibold text-center">{formatDateStr(req.createdAt)}</td>
+                        <td className="p-3 text-amber-400 font-bold text-center font-mono">{(req.amountUsdt || 0).toLocaleString()} USDT</td>
+                        <td className="p-3 text-emerald-400 font-bold text-center font-mono">{(req.amountKrw || 0).toLocaleString()} 원</td>
+                        <td className="p-3 text-gray-400 text-[11px] text-center">{req.processedAt ? formatDateStr(req.processedAt) : '-'}</td>
+                        <td className="p-3 text-center">
+                          {req.status === 'pending' && (
+                            <span className="inline-block bg-amber-950/70 text-amber-400 border border-amber-800/50 px-2.5 py-0.5 rounded text-[10px] font-extrabold animate-pulse">
+                              대기중
+                            </span>
+                          )}
+                          {req.status === 'approved' && (
+                            <span className="inline-block bg-emerald-950/70 text-emerald-400 border border-emerald-800/50 px-2.5 py-0.5 rounded text-[10px] font-black">
+                              승인완료
+                            </span>
+                          )}
+                          {req.status === 'rejected' && (
+                            <span className="inline-block bg-red-950/70 text-red-400 border border-red-800/50 px-2.5 py-0.5 rounded text-[10px] font-black">
+                              취소/거절
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-left font-mono text-[10px] text-gray-500 truncate max-w-[140px] select-all" title={req.tetherWalletAddress}>
+                          {req.tetherWalletAddress || '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : showGameResultScreen ? (
+        <div className="flex-1 p-4 md:p-8 w-full mx-auto max-w-[1550px]">
+          {/* Breadcrumb path */}
+          <div className="mb-4 text-sm text-gray-400">
+            <button onClick={() => setShowGameResultScreen(false)} className="hover:text-white">홈</button> &gt; 경기결과
+          </div>
+
+          <div className="bg-[#0e111a] border border-neutral-800/80 rounded-xl p-5 md:p-7 shadow-2xl">
+            <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 mb-6 font-sans">
+              경기 결과 <span className="text-amber-500 text-[10px] font-black tracking-wider uppercase bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">GAME RESULT</span>
+            </h2>
+
+            {/* Game Result Categories */}
+            <div className="flex flex-wrap gap-2 mb-6 border-b border-neutral-800/80 pb-6">
+              {['전체', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', '사다리(5분)', '다리다리(3분)'].map(cat => (
+                <button 
+                  key={cat} 
+                  onClick={() => {
+                    setGameResultFilter(cat);
+                    setGameResultPage(1);
+                  }}
+                  className={`px-4 py-2 rounded text-xs font-bold transition cursor-pointer border ${
+                    gameResultFilter === cat 
+                      ? 'bg-amber-500 text-black border-amber-500 shadow font-black' 
+                      : 'bg-neutral-900 hover:bg-neutral-800 text-gray-400 border-neutral-800/80'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {isLoadingGameResults ? (
+              <div className="text-center py-24 text-gray-500 font-medium">로딩 중...</div>
+            ) : (() => {
+              const expandGameResultToRows = (res: any) => {
+                const rows: any[] = [];
+                const dt = new Date(res.createdAt);
+                const dateStr = dt.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
+                const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                
+                const isPowerball = res.gameName === 'N파워볼(5분)' || res.gameName === 'N파워볼(3분)';
+                const isLadder = res.gameName === '사다리(5분)' || res.gameName === '다리다리(3분)' || res.gameName === 'N파워사다리(5분)';
+                
+                if (isPowerball) {
+                  const details = res.details || {};
+                  
+                  // 1. 일반볼 [홀짝]
+                  rows.push({
+                    id: `${res.id}_oe`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 일반볼 [홀짝]`,
+                    homeName: '홀',
+                    homeOdds: '1.95',
+                    awayName: '짝',
+                    awayOdds: '1.95',
+                    midStandard: 'VS',
+                    winner: details.rolledOddEven === '홀' ? 'home' : details.rolledOddEven === '짝' ? 'away' : 'none',
+                    score: details.rolledOddEven ? `${details.rolledOddEven}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                  
+                  // 2. 일반볼 [언더오버]
+                  rows.push({
+                    id: `${res.id}_uo`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 일반볼 [언더오버]`,
+                    homeName: '언더 [72.5]',
+                    homeOdds: '1.95',
+                    awayName: '오버 [72.5]',
+                    awayOdds: '1.95',
+                    midStandard: '72.5',
+                    winner: details.rolledUnderOver === '언더' ? 'home' : details.rolledUnderOver === '오버' ? 'away' : 'none',
+                    score: details.rolledUnderOver ? `${details.rolledUnderOver}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                  
+                  // 3. 파워볼 [홀짝]
+                  rows.push({
+                    id: `${res.id}_pboe`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 파워볼 [홀짝]`,
+                    homeName: '홀',
+                    homeOdds: '1.95',
+                    awayName: '짝',
+                    awayOdds: '1.95',
+                    midStandard: 'VS',
+                    winner: details.pbOddEven === '홀' ? 'home' : details.pbOddEven === '짝' ? 'away' : 'none',
+                    score: details.pbOddEven ? `${details.pbOddEven}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                  
+                  // 4. 파워볼 [언더오버]
+                  rows.push({
+                    id: `${res.id}_pbuo`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 파워볼 [언더오버]`,
+                    homeName: '언더 [4.5]',
+                    homeOdds: '1.95',
+                    awayName: '오버 [4.5]',
+                    awayOdds: '1.95',
+                    midStandard: '4.5',
+                    winner: details.pbUnderOver === '언더' ? 'home' : details.pbUnderOver === '오버' ? 'away' : 'none',
+                    score: details.pbUnderOver ? `${details.pbUnderOver}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                  
+                  // 5. 일반볼 [대/중/소]
+                  rows.push({
+                    id: `${res.id}_size`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 일반볼 [대/중/소]`,
+                    homeName: '대 [대]',
+                    homeOdds: '2.90',
+                    awayName: '소 [소]',
+                    awayOdds: '2.90',
+                    midStandard: `중 ${details.size === '중' ? '●' : ''}`,
+                    winner: details.size === '대' ? 'home' : details.size === '소' ? 'away' : details.size === '중' ? 'draw' : 'none',
+                    score: details.size ? `${details.size}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                } else if (isLadder) {
+                  const details = res.details || {};
+                  
+                  // 1. 사다리 [출발지]
+                  rows.push({
+                    id: `${res.id}_start`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 출발지선택_좌우`,
+                    homeName: '좌',
+                    homeOdds: '1.95',
+                    awayName: '우',
+                    awayOdds: '1.95',
+                    midStandard: 'VS',
+                    winner: details.start === '좌' ? 'home' : details.start === '우' ? 'away' : 'none',
+                    score: details.start ? `${details.start}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                  
+                  // 2. 사다리 [줄개수]
+                  rows.push({
+                    id: `${res.id}_lines`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 줄개수_3/4`,
+                    homeName: '3줄',
+                    homeOdds: '1.95',
+                    awayName: '4줄',
+                    awayOdds: '1.95',
+                    midStandard: 'VS',
+                    winner: details.lines === '3줄' ? 'home' : details.lines === '4줄' ? 'away' : 'none',
+                    score: details.lines ? `${details.lines}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                  
+                  // 3. 사다리 [결과]
+                  rows.push({
+                    id: `${res.id}_outcome`,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[${res.round}회차] 최종결과_홀짝`,
+                    homeName: '홀',
+                    homeOdds: '1.95',
+                    awayName: '짝',
+                    awayOdds: '1.95',
+                    midStandard: 'VS',
+                    winner: details.outcome === '홀' ? 'home' : details.outcome === '짝' ? 'away' : 'none',
+                    score: details.outcome ? `${details.outcome}` : '대기 중',
+                    statusText: '결과완료'
+                  });
+                } else {
+                  // Sports (e.g. 축구, 야구 등)
+                  const matchStr = res.result || '';
+                  const parts = matchStr.split(/\[(.*?)\]/);
+                  let home = '';
+                  let score = '';
+                  let away = '';
+                  if (parts.length >= 3) {
+                    home = parts[0].trim();
+                    score = parts[1].trim();
+                    away = parts[2].trim();
+                  } else {
+                    home = '홈팀';
+                    away = '원정팀';
+                    score = matchStr;
+                  }
+                  
+                  let winner = 'none';
+                  if (score) {
+                    const scoreParts = score.split('-').map((s: string) => parseInt(s.trim()));
+                    if (scoreParts.length === 2) {
+                      if (scoreParts[0] > scoreParts[1]) {
+                        winner = 'home';
+                      } else if (scoreParts[0] < scoreParts[1]) {
+                        winner = 'away';
+                      } else {
+                        winner = 'draw';
+                      }
+                    }
+                  }
+                  
+                  rows.push({
+                    id: res.id,
+                    dateStr,
+                    timeStr,
+                    gameName: res.gameName,
+                    league: `[리그 매치] ${res.gameName}`,
+                    homeName: home,
+                    homeOdds: '1.90',
+                    awayName: away,
+                    awayOdds: '1.90',
+                    midStandard: 'VS',
+                    winner,
+                    score: score || '경기종료',
+                    statusText: '경기완료'
+                  });
+                }
+                
+                return rows;
+              };
+
+              const allExpandedRows = gameResults
+                .filter((res: any) => gameResultFilter === '전체' ? true : res.gameName === gameResultFilter)
+                .flatMap(res => expandGameResultToRows(res));
+
+              if (allExpandedRows.length === 0) {
+                return (
+                  <div className="w-full text-center text-gray-500 py-24 border border-dashed border-neutral-800 rounded-lg">
+                    현재 등록된 {gameResultFilter === '전체' ? '' : `[${gameResultFilter}]`} 경기 결과가 없습니다.
+                  </div>
+                );
+              }
+
+              const itemsPerPage = 30;
+              const totalPages = Math.ceil(allExpandedRows.length / itemsPerPage);
+              const maxPage = totalPages > 0 ? totalPages : 1;
+              const currentPage = Math.min(gameResultPage, maxPage);
+              const startIndex = (currentPage - 1) * itemsPerPage;
+              const paginatedRows = allExpandedRows.slice(startIndex, startIndex + itemsPerPage);
+
+              return (
+                <>
+                  <div className="overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-950/40">
+                    <table className="w-full text-center text-xs text-gray-300">
+                      <thead className="bg-[#0b0e14] border-b border-neutral-800/80 text-gray-400 text-[11px] font-bold tracking-wider">
+                        <tr>
+                          <th className="p-3 text-left pl-6 min-w-[100px]">경기일시</th>
+                          <th className="p-3 text-left">리그 (구분)</th>
+                          <th className="p-3 text-center min-w-[170px]">승 (홈)</th>
+                          <th className="p-3 text-center min-w-[90px]">무 / 기준값</th>
+                          <th className="p-3 text-center min-w-[170px]">패 (원정)</th>
+                          <th className="p-3 text-center min-w-[100px]">스코어</th>
+                          <th className="p-3 text-center pr-6 min-w-[90px]">결과</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800/40">
+                        {paginatedRows.map((row: any) => (
+                          <tr key={row.id} className="hover:bg-neutral-900/30 transition-colors">
+                            {/* 경기일시 */}
+                            <td className="p-3 text-left pl-6 font-mono text-[11px] text-gray-500 whitespace-nowrap leading-relaxed py-4 align-middle">
+                              <span className="block">{row.dateStr}</span>
+                              <span className="text-amber-500 font-bold mt-0.5 block">{row.timeStr}</span>
+                            </td>
+
+                            {/* 리그(구분) */}
+                            <td className="p-3 text-left align-middle py-4">
+                              <div className="flex items-center gap-3">
+                                {/* Live Square Indicator */}
+                                <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
+                                  <span className="block w-2 h-2 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
+                                  <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
+                                </div>
+                                <span className="text-white text-xs font-bold font-sans tracking-tight">
+                                  {row.league}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 승(홈) */}
+                            <td className="p-3 text-center align-middle py-4">
+                              <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                                row.winner === 'home' 
+                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
+                              }`}>
+                                <span className={`font-bold ${row.winner === 'home' ? 'text-amber-400' : 'text-gray-300'}`}>
+                                  {row.homeName}
+                                </span>
+                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                  {row.homeOdds}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 무 / 기준값 */}
+                            <td className="p-3 text-center align-middle py-4">
+                              <div className="inline-flex items-center justify-center bg-[#07090d] border border-neutral-800/90 text-gray-400 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md min-w-[44px] h-7">
+                                {row.midStandard}
+                              </div>
+                            </td>
+
+                            {/* 패(원정) */}
+                            <td className="p-3 text-center align-middle py-4">
+                              <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                                row.winner === 'away' 
+                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
+                              }`}>
+                                <span className={`font-bold ${row.winner === 'away' ? 'text-amber-400' : 'text-gray-300'}`}>
+                                  {row.awayName}
+                                </span>
+                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                  {row.awayOdds}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 스코어 */}
+                            <td className="p-3 text-center align-middle py-4 font-bold text-xs">
+                              {row.winner === 'home' ? (
+                                <span className="text-amber-500 font-black">{row.score} [승]</span>
+                              ) : row.winner === 'away' ? (
+                                <span className="text-amber-500 font-black">{row.score} [승]</span>
+                              ) : row.winner === 'draw' ? (
+                                <span className="text-gray-300 font-bold">{row.score} [무]</span>
+                              ) : (
+                                <span className="text-gray-400">{row.score}</span>
+                              )}
+                            </td>
+
+                            {/* 결과 */}
+                            <td className="p-3 text-center align-middle pr-6 py-4">
+                              <div className="inline-block border border-emerald-900/60 text-emerald-400 bg-emerald-950/30 px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-[0_2px_4px_rgba(16,185,129,0.05)] select-none">
+                                {row.statusText}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Beautiful Pagination Control */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 bg-neutral-950/20 py-4 rounded-xl border border-neutral-800/40">
+                    <span className="text-[11px] font-mono text-gray-400">
+                      전체 {allExpandedRows.length}개 중 {startIndex + 1}~{Math.min(startIndex + itemsPerPage, allExpandedRows.length)}개 표시 (페이지 {currentPage} / {maxPage})
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {/* Previous Button */}
+                      <button
+                        onClick={() => setGameResultPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 text-xs font-bold rounded-lg border border-neutral-800 bg-neutral-900 text-gray-400 hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-neutral-900 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        이전
+                      </button>
+
+                      {/* Numeric page buttons */}
+                      {(() => {
+                        const pages = [];
+                        const startPage = Math.max(1, currentPage - 2);
+                        const endPage = Math.min(maxPage, startPage + 4);
+                        const adjustedStartPage = Math.max(1, endPage - 4);
+                        
+                        for (let i = adjustedStartPage; i <= endPage; i++) {
+                          if (i >= 1 && i <= maxPage) {
+                            pages.push(i);
+                          }
+                        }
+                        
+                        return pages.map(p => (
+                          <button
+                            key={p}
+                            onClick={() => setGameResultPage(p)}
+                            className={`w-8 h-8 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer border ${
+                              currentPage === p
+                                ? 'bg-amber-500 text-black border-amber-500 shadow-md font-black'
+                                : 'bg-neutral-900 text-gray-400 border-neutral-800/80 hover:bg-neutral-800'
+                            }`}
+                          >
+                            {p
+                          }</button>
+                        ));
+                      })()}
+
+                      {/* Next Button */}
+                      <button
+                        onClick={() => setGameResultPage(p => Math.min(maxPage, p + 1))}
+                        disabled={currentPage === maxPage}
+                        className="px-3 py-1.5 text-xs font-bold rounded-lg border border-neutral-800 bg-neutral-900 text-gray-400 hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-neutral-900 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        다음
+                      </button>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       ) : showMiniGame ? (
@@ -1038,6 +2772,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <span className="text-white font-black tracking-wider">
                   {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
                    activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
+                   activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
                    activeMiniGameTab === 'ladder5' ? '실시간 사다리 (5분)' : '실시간 다리다리 (3분)'}
                 </span>
                 <button 
@@ -1064,6 +2799,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="pb3"
                       src="https://xn--950bo4em5v.co/minigame/nball/powerball3/pc" 
+                      width="830" 
+                      height="630" 
+                      scrolling="no" 
+                      frameBorder="0"
+                      className="rounded-lg shadow-lg border border-neutral-800"
+                    />
+                  ) : activeMiniGameTab === 'powerladder5' ? (
+                    <iframe 
+                      key="powerladder5"
+                      src="https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc" 
                       width="830" 
                       height="630" 
                       scrolling="no" 
@@ -1630,181 +3375,409 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
 
             {/* Modal Info Stats Alert Bar */}
-            <div className="bg-red-950/10 border-b border-red-900/20 px-6 py-3 flex items-center justify-between text-xs text-gray-400">
+            <div className="bg-red-950/10 border-b border-red-900/20 px-6 py-3 flex items-center justify-between text-xs text-gray-400 font-bold">
               <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1"><Database className="w-3.5 h-3.5 text-red-400 animate-pulse" /> 실시간 Firestore 연동됨</span>
-                <span>총 회원 수: <strong className="text-red-400">{adminUsers.length}명</strong></span>
+                <span className="flex items-center gap-1"><Database className="w-3.5 h-3.5 text-red-450 animate-pulse" /> 실시간 Firestore 연동</span>
+                <div className="flex bg-neutral-900 rounded-md p-1 border border-neutral-800">
+                  <button
+                    onClick={() => setAdminActiveTab('users')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'users' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Users className="w-3 h-3" /> 회원정보 관리 ({adminUsers.length}명)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAdminActiveTab('deposits');
+                      loadAllDepositRequests();
+                    }}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'deposits' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Coins className="w-3 h-3" /> 입금신청 승인대기 ({adminDepositRequests.filter(r => r.status === 'pending').length}건)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAdminActiveTab('withdrawals');
+                      loadAllWithdrawalRequests();
+                    }}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'withdrawals' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Coins className="w-3 h-3 rotate-180 text-amber-500" /> 출금신청 승인대기 ({adminWithdrawalRequests.filter(r => r.status === 'pending').length}건)
+                  </button>
+                  <button
+                    onClick={() => setAdminActiveTab('settings')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'settings' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Settings className="w-3 h-3 text-amber-500" /> 환율 설정
+                  </button>
+                </div>
               </div>
               <button 
-                onClick={loadAllUsers} 
+                onClick={() => {
+                  loadAllUsers();
+                  loadAllDepositRequests();
+                  loadAllWithdrawalRequests();
+                }} 
                 className="flex items-center gap-1.5 bg-neutral-800 hover:bg-neutral-750 text-white px-2.5 py-1 rounded border border-neutral-700 transition cursor-pointer"
               >
-                <RefreshCw className={`w-3 h-3 ${isLoadingUsers ? 'animate-spin' : ''}`} /> 새로고침
+                <RefreshCw className={`w-3 h-3 ${(isLoadingUsers || isLoadingAdminDeposits || isLoadingAdminWithdrawals) ? 'animate-spin' : ''}`} /> 전체 새로고침
               </button>
             </div>
 
             {/* Modal Body Container */}
             <div className="flex-1 p-6 overflow-y-auto space-y-4">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-                <input 
-                  type="text" 
-                  placeholder="아이디 또는 닉네임으로 회원 검색..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-black/60 border border-neutral-800 text-gray-200 rounded pl-10 pr-4 py-2 focus:outline-none focus:border-red-600 text-sm"
-                />
-              </div>
+              {adminActiveTab === 'deposits' ? (
+                <div className="space-y-4">
+                  {/* Deposit Header Stats */}
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-black/60 p-4 rounded border border-neutral-800 gap-2">
+                    <span className="text-xs font-bold text-gray-400">전체 입금 실시간 대기 건수: <strong className="text-amber-400 font-mono">{adminDepositRequests.filter(r => r.status === 'pending').length}건</strong></span>
+                    <span className="text-[10px] text-gray-500 font-semibold">※ 승인 시 회원의 시뮬레이터 원화 보유금액이 즉시 충전 처리됩니다.</span>
+                  </div>
 
-              {/* Loader */}
-              {isLoadingUsers ? (
-                <div className="flex flex-col items-center justify-center h-48 gap-3">
-                  <RefreshCw className="w-8 h-8 text-red-500 animate-spin" />
-                  <p className="text-gray-400 text-sm">Firestore에서 회원 정보를 읽어오는 중입니다...</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto border border-neutral-800 rounded bg-black/30">
-                  <table className="w-full text-left text-xs text-gray-300">
-                    <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
-                      <tr>
-                        <th className="p-3">가입코드</th>
-                        <th className="p-3">아이디</th>
-                        <th className="p-3">비밀번호</th>
-                        <th className="p-3">닉네임</th>
-                        <th className="p-3">테더 지갑 주소</th>
-                        <th className="p-3">출금비밀번호</th>
-                        <th className="p-3">보유금액</th>
-                        <th className="p-3">포인트</th>
-                        <th className="p-3 text-center">동작</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
-                      {adminUsers
-                        .filter(u => {
-                          const qStr = searchQuery.toLowerCase();
-                          return (u.username || '').toLowerCase().includes(qStr) || 
-                                 (u.nickname || '').toLowerCase().includes(qStr);
-                        })
-                        .map((user) => {
-                          const isEditing = editingUserId === user.id;
-                          return (
-                            <tr key={user.id} className="hover:bg-neutral-850/40 transition">
-                              <td className="p-3 font-mono text-amber-500 font-bold">{user.joinCode || '5882'}</td>
-                              <td className="p-3 font-bold text-white">{user.username}</td>
-                              <td className="p-3">
-                                {isEditing ? (
-                                  <input 
-                                    type="text" 
-                                    value={editingPassword}
-                                    onChange={(e) => setEditingPassword(e.target.value)}
-                                    className="bg-black border border-red-500/40 rounded px-2 py-1 text-white font-mono w-28 text-xs focus:outline-none"
-                                  />
-                                ) : (
-                                  <span className="font-mono text-red-400/85">{user.password}</span>
-                                )}
-                              </td>
-                              <td className="p-3 font-bold">
-                                {isEditing ? (
-                                  <input 
-                                    type="text" 
-                                    value={editingNickname}
-                                    onChange={(e) => setEditingNickname(e.target.value)}
-                                    className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-24 text-xs focus:outline-none"
-                                  />
-                                ) : (
-                                  <span className="text-sky-400">{user.nickname || '-'}</span>
-                                )}
-                              </td>
-                              <td className="p-3 font-mono">
-                                {isEditing ? (
-                                  <input 
-                                    type="text" 
-                                    value={editingWallet}
-                                    onChange={(e) => setEditingWallet(e.target.value)}
-                                    className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-full max-w-sm text-xs focus:outline-none"
-                                  />
-                                ) : (
-                                  <span className="text-gray-400 text-[11px] truncate max-w-[250px] inline-block" title={user.tetherWalletAddress}>
-                                    {user.tetherWalletAddress || '-'}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 font-mono text-amber-500/80 text-xs">
-                                {user.withdrawalPassword || '-'}
-                              </td>
-                              <td className="p-3 font-bold font-mono text-emerald-400 text-xs">
-                                {isEditing ? (
-                                  <input 
-                                    type="number" 
-                                    value={editingBalance}
-                                    onChange={(e) => setEditingBalance(Number(e.target.value) || 0)}
-                                    className="bg-black border border-red-500/40 rounded px-2 py-0.5 text-white font-mono w-24 text-xs focus:outline-none"
-                                  />
-                                ) : (
-                                  `${(user.balance !== undefined ? user.balance : 5000000).toLocaleString()}원`
-                                )}
-                              </td>
-                              <td className="p-3 font-bold font-mono text-cyan-400 text-xs">
-                                {isEditing ? (
-                                  <input 
-                                    type="number" 
-                                    value={editingPoints}
-                                    onChange={(e) => setEditingPoints(Number(e.target.value) || 0)}
-                                    className="bg-black border border-red-500/40 rounded px-2 py-0.5 text-white font-mono w-24 text-xs focus:outline-none"
-                                  />
-                                ) : (
-                                  `${(user.points !== undefined ? user.points : 50000).toLocaleString()}P`
-                                )}
-                              </td>
-                              <td className="p-3 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  {isEditing ? (
-                                    <>
-                                      <button 
-                                        onClick={() => handleSaveEdit(user.id)}
-                                        className="bg-green-950 hover:bg-green-900 border border-green-800 text-green-400 px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition"
-                                      >
-                                        저장
-                                      </button>
-                                      <button 
-                                        onClick={() => setEditingUserId(null)}
-                                        className="bg-neutral-850 hover:bg-neutral-800 text-gray-300 px-2.5 py-1 rounded text-[11px] cursor-pointer"
-                                      >
-                                        취소
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <button 
-                                        onClick={() => handleStartEdit(user)}
-                                        className="bg-blue-950 hover:bg-blue-900/60 border border-blue-900/50 text-blue-400 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition"
-                                      >
-                                        수정
-                                      </button>
-                                      <button 
-                                        onClick={() => handleDeleteUser(user.id)}
-                                        className="bg-red-950/60 hover:bg-red-900/60 border border-red-900/50 text-red-400 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition"
-                                      >
-                                        삭제
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
+                  {isLoadingAdminDeposits ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <RefreshCw className="w-8 h-8 text-red-500 animate-spin" />
+                      <p className="text-gray-405 text-sm">입금 내역을 동기화하는 중입니다...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-neutral-800 rounded bg-black/30">
+                      <table className="w-full text-center text-xs text-gray-300">
+                        <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
+                          <tr>
+                            <th className="p-3 text-center w-36">신청시간</th>
+                            <th className="p-3 text-left">회원정보 (ID/닉네임)</th>
+                            <th className="p-3 text-left">발신 테더 지갑 주소</th>
+                            <th className="p-3 text-center">신청수량 (USDT)</th>
+                            <th className="p-3 text-center">전환금액 (KRW)</th>
+                            <th className="p-3 text-center w-36">처리시간</th>
+                            <th className="p-3 text-center w-24">처리상태</th>
+                            <th className="p-3 text-center w-32">승인제어</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-800/60 font-mono">
+                          {adminDepositRequests.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-12 text-center text-gray-500">
+                                접수된 테더 입금 신청 건이 존재하지 않습니다.
                               </td>
                             </tr>
-                          );
-                        })}
-                      {adminUsers.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="p-8 text-center text-gray-500">
-                            가입된 회원이 존재하지 않습니다.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                          ) : (
+                            adminDepositRequests.map((req) => (
+                              <tr key={req.id} className="hover:bg-neutral-850/30 transition text-xs">
+                                <td className="p-3 text-gray-400 text-[11px] font-semibold text-center">{formatDateStr(req.createdAt)}</td>
+                                <td className="p-3 text-left font-sans">
+                                  <span className="text-white font-bold block">{req.username}</span>
+                                  <span className="text-amber-500 font-semibold text-[10px] block">{req.nickname || '-'}</span>
+                                </td>
+                                <td className="p-3 text-left max-w-[150px] truncate font-mono text-gray-400 font-semibold" title={req.tetherWalletAddress}>
+                                  {req.tetherWalletAddress || '-'}
+                                </td>
+                                <td className="p-3 text-amber-400 font-black text-center text-[11px]">{req.amountUsdt} USDT</td>
+                                <td className="p-3 text-emerald-400 font-black text-center text-[11px]">{(req.amountKrw || 0).toLocaleString()}원</td>
+                                <td className="p-3 text-gray-400 text-[11px] text-center">{req.processedAt ? formatDateStr(req.processedAt) : '-'}</td>
+                                <td className="p-3 text-center font-sans">
+                                  {req.status === 'pending' && <span className="bg-amber-950/70 text-amber-400 border border-amber-805 px-2 py-0.5 rounded text-[10px] font-extrabold animate-pulse">대기중</span>}
+                                  {req.status === 'approved' && <span className="bg-emerald-950/70 text-emerald-400 border border-emerald-805 px-2 py-0.5 rounded text-[10px] font-extrabold">승인완료</span>}
+                                  {req.status === 'rejected' && <span className="bg-red-950/70 text-red-400 border border-red-805 px-2 py-0.5 rounded text-[10px] font-extrabold">취소/거절</span>}
+                                </td>
+                                <td className="p-3 text-center font-sans">
+                                  {req.status === 'pending' ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => handleAcceptDeposit(req.id, req.userId, req.amountKrw)}
+                                        className="bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold px-2.5 py-1 rounded text-[10px] cursor-pointer transition shadow border border-emerald-700/40 text-nowrap"
+                                      >
+                                        승인
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectDeposit(req.id)}
+                                        className="bg-red-950 hover:bg-red-900 text-red-200 px-2 py-1 rounded text-[10px] cursor-pointer border border-red-900/40 text-nowrap"
+                                      >
+                                        거절
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500 font-extrabold text-[10px] uppercase">완료됨</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
+              ) : adminActiveTab === 'withdrawals' ? (
+                <div className="space-y-4">
+                  {/* Withdrawal Header Stats */}
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-black/60 p-4 rounded border border-neutral-800 gap-2">
+                    <span className="text-xs font-bold text-gray-400">전체 출금(환전) 실시간 대기 건수: <strong className="text-amber-400 font-mono">{adminWithdrawalRequests.filter(r => r.status === 'pending').length}건</strong></span>
+                    <span className="text-[10px] text-gray-500 font-semibold">※ 거절 시 회원의 차감된 보유머니가 원화로 자동 환불 처리됩니다.</span>
+                  </div>
+
+                  {isLoadingAdminWithdrawals ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <RefreshCw className="w-8 h-8 text-red-500 animate-spin" />
+                      <p className="text-gray-405 text-sm">출금 내역을 동기화하는 중입니다...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-neutral-800 rounded bg-black/30">
+                      <table className="w-full text-center text-xs text-gray-300">
+                        <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
+                          <tr>
+                            <th className="p-3 text-center w-36">신청시간</th>
+                            <th className="p-3 text-left">회원정보 (ID/닉네임)</th>
+                            <th className="p-3 text-left">수신 테더 지갑 주소</th>
+                            <th className="p-3 text-center">신청수량 (USDT)</th>
+                            <th className="p-3 text-center">전환금액 (KRW)</th>
+                            <th className="p-3 text-center w-36">처리시간</th>
+                            <th className="p-3 text-center w-24">처리상태</th>
+                            <th className="p-3 text-center w-32">승인제어</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-800/60 font-mono">
+                          {adminWithdrawalRequests.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-12 text-center text-gray-500 font-bold">
+                                접수된 테더 출금(환전) 신청 건이 존재하지 않습니다.
+                              </td>
+                            </tr>
+                          ) : (
+                            adminWithdrawalRequests.map((req) => (
+                              <tr key={req.id} className="hover:bg-neutral-850/30 transition text-xs">
+                                <td className="p-3 text-gray-400 text-[11px] font-semibold text-center">{formatDateStr(req.createdAt)}</td>
+                                <td className="p-3 text-left font-sans">
+                                  <span className="text-white font-bold block">{req.username}</span>
+                                  <span className="text-amber-500 font-semibold text-[10px] block">{req.nickname || '-'}</span>
+                                </td>
+                                <td className="p-3 text-left max-w-[150px] truncate font-mono text-gray-400 font-semibold" title={req.tetherWalletAddress}>
+                                  {req.tetherWalletAddress || '-'}
+                                </td>
+                                <td className="p-3 text-amber-400 font-black text-center text-[11px]">{req.amountUsdt} USDT</td>
+                                <td className="p-3 text-emerald-400 font-black text-center text-[11px]">{(req.amountKrw || 0).toLocaleString()}원</td>
+                                <td className="p-3 text-gray-400 text-[11px] text-center">{req.processedAt ? formatDateStr(req.processedAt) : '-'}</td>
+                                <td className="p-3 text-center font-sans">
+                                  {req.status === 'pending' && <span className="bg-amber-950/70 text-amber-400 border border-amber-805 px-2 py-0.5 rounded text-[10px] font-extrabold animate-pulse">대기중</span>}
+                                  {req.status === 'approved' && <span className="bg-emerald-950/70 text-emerald-400 border border-emerald-805 px-2 py-0.5 rounded text-[10px] font-extrabold">승인완료</span>}
+                                  {req.status === 'rejected' && <span className="bg-red-950/70 text-red-400 border border-red-805 px-2 py-0.5 rounded text-[10px] font-extrabold">취소/거절</span>}
+                                </td>
+                                <td className="p-3 text-center font-sans">
+                                  {req.status === 'pending' ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => handleAcceptWithdrawal(req.id)}
+                                        className="bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold px-2.5 py-1 rounded text-[10px] cursor-pointer transition shadow border border-emerald-700/40 text-nowrap"
+                                      >
+                                        승인
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectWithdrawal(req.id, req.userId, req.amountKrw)}
+                                        className="bg-red-950 hover:bg-red-900 text-red-200 px-2 py-1 rounded text-[10px] cursor-pointer border border-red-900/40 text-nowrap"
+                                      >
+                                        거절
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500 font-extrabold text-[10px] uppercase">완료됨</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : adminActiveTab === 'settings' ? (
+                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-white mb-4">환율 설정</h3>
+                  <div className="flex gap-4 items-center">
+                    <input
+                      type="number"
+                      value={newExchangeRate || ''}
+                      onChange={(e) => setNewExchangeRate(e.target.value)}
+                      placeholder={String(exchangeRate)}
+                      className="bg-black border border-neutral-700 text-white px-3 py-2 rounded text-sm w-40"
+                    />
+                    <button
+                      onClick={async () => {
+                         const rate = Number(newExchangeRate);
+                         if(rate <= 0) { alert("올바른 환율을 입력하세요."); return; }
+                         await setDoc(doc(db, 'appSettings', 'general'), { usdtToKrwRate: rate });
+                         setExchangeRate(rate);
+                         alert("환율이 업데이트되었습니다.");
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold"
+                    >
+                      저장
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                    <input 
+                      type="text" 
+                      placeholder="아이디 또는 닉네임으로 회원 검색..." 
+                      value={searchQuery || ''}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-black/60 border border-neutral-800 text-gray-200 rounded pl-10 pr-4 py-2 focus:outline-none focus:border-red-600 text-sm"
+                    />
+                  </div>
+
+                  {/* Loader */}
+                  {isLoadingUsers ? (
+                    <div className="flex flex-col items-center justify-center h-48 gap-3">
+                      <RefreshCw className="w-8 h-8 text-red-500 animate-spin" />
+                      <p className="text-gray-400 text-sm">Firestore에서 회원 정보를 읽어오는 중입니다...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-neutral-800 rounded bg-black/30">
+                      <table className="w-full text-left text-xs text-gray-300">
+                        <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
+                          <tr>
+                            <th className="p-3">가입코드</th>
+                            <th className="p-3">아이디</th>
+                            <th className="p-3">비밀번호</th>
+                            <th className="p-3">닉네임</th>
+                            <th className="p-3">테더 지갑 주소</th>
+                            <th className="p-3">출금비밀번호</th>
+                            <th className="p-3">보유금액</th>
+                            <th className="p-3">포인트</th>
+                            <th className="p-3 text-center">동작</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-800/50">
+                          {adminUsers
+                            .filter(u => {
+                              const qStr = searchQuery.toLowerCase();
+                              return (u.username || '').toLowerCase().includes(qStr) || 
+                                     (u.nickname || '').toLowerCase().includes(qStr);
+                            })
+                            .map((user) => {
+                              const isEditing = editingUserId === user.id;
+                              return (
+                                <tr key={user.id} className="hover:bg-neutral-850/40 transition">
+                                  <td className="p-3 font-mono text-amber-500 font-bold">{user.joinCode || '5882'}</td>
+                                  <td className="p-3 font-bold text-white">{user.username}</td>
+                                  <td className="p-3">
+                                    {isEditing ? (
+                                      <input 
+                                        type="text" 
+                                        value={editingPassword || ''}
+                                        onChange={(e) => setEditingPassword(e.target.value)}
+                                        className="bg-black border border-red-500/40 rounded px-2 py-1 text-white font-mono w-28 text-xs focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="font-mono text-red-400/85">{user.password}</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-bold">
+                                    {isEditing ? (
+                                      <input 
+                                        type="text" 
+                                        value={editingNickname || ''}
+                                        onChange={(e) => setEditingNickname(e.target.value)}
+                                        className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-24 text-xs focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="text-sky-400">{user.nickname || '-'}</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-mono">
+                                    {isEditing ? (
+                                      <input 
+                                        type="text" 
+                                        value={editingWallet || ''}
+                                        onChange={(e) => setEditingWallet(e.target.value)}
+                                        className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-full max-w-sm text-xs focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="text-gray-400 text-[11px] truncate max-w-[250px] inline-block" title={user.tetherWalletAddress}>
+                                        {user.tetherWalletAddress || '-'}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-mono text-amber-500/80 text-xs">
+                                    {user.withdrawalPassword || '-'}
+                                  </td>
+                                  <td className="p-3 font-bold font-mono text-emerald-400 text-xs">
+                                    {isEditing ? (
+                                      <input 
+                                        type="number" 
+                                        value={editingBalance ?? 0}
+                                        onChange={(e) => setEditingBalance(Number(e.target.value) || 0)}
+                                        className="bg-black border border-red-500/40 rounded px-2 py-0.5 text-white font-mono w-24 text-xs focus:outline-none"
+                                      />
+                                    ) : (
+                                      `${(user.balance !== undefined ? user.balance : 5000000).toLocaleString()}원`
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-bold font-mono text-cyan-400 text-xs">
+                                    {isEditing ? (
+                                      <input 
+                                        type="number" 
+                                        value={editingPoints ?? 0}
+                                        onChange={(e) => setEditingPoints(Number(e.target.value) || 0)}
+                                        className="bg-black border border-red-500/40 rounded px-2 py-0.5 text-white font-mono w-24 text-xs focus:outline-none"
+                                      />
+                                    ) : (
+                                      `${(user.points !== undefined ? user.points : 50000).toLocaleString()}P`
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {isEditing ? (
+                                        <>
+                                          <button 
+                                            onClick={() => handleSaveEdit(user.id)}
+                                            className="bg-green-950 hover:bg-green-900 border border-green-800 text-green-400 px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition"
+                                          >
+                                            저장
+                                          </button>
+                                          <button 
+                                            onClick={() => setEditingUserId(null)}
+                                            className="bg-neutral-850 hover:bg-neutral-800 text-gray-300 px-2.5 py-1 rounded text-[11px] cursor-pointer"
+                                          >
+                                            취소
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button 
+                                            onClick={() => handleStartEdit(user)}
+                                            className="bg-blue-950 hover:bg-blue-900/60 border border-blue-900/50 text-blue-400 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition"
+                                          >
+                                            수정
+                                          </button>
+                                          <button 
+                                            onClick={() => handleDeleteUser(user.id)}
+                                            className="bg-red-950/60 hover:bg-red-900/60 border border-red-900/50 text-red-400 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition"
+                                          >
+                                            삭제
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          {adminUsers.length === 0 && (
+                            <tr>
+                              <td colSpan={9} className="p-8 text-center text-gray-500">
+                                가입된 회원이 존재하지 않습니다.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

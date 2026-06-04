@@ -87,7 +87,7 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: 'logi
           console.log('Found user document, data:', userData);
           if (userData.password === password) {
             loginSuccess = true;
-            loggedInUser = userData;
+            loggedInUser = { id: doc.id, ...userData };
           }
         });
       }

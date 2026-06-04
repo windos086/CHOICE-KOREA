@@ -12,13 +12,83 @@
         "joinCode": { "type": "string", "description": "Referral or join code" }
       },
       "required": ["username", "password", "nickname", "joinCode"]
+    },
+    "depositRequest": {
+      "title": "DepositRequest",
+      "description": "USDT deposit/recharge submission by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of user who requested the deposit" },
+        "username": { "type": "string", "description": "Username of requester" },
+        "nickname": { "type": "string", "description": "Nickname of requester" },
+        "amountUsdt": { "type": "number", "description": "USDT deposit amount" },
+        "exchangeRate": { "type": "number", "description": "Calculated USD/USDT equivalent exchange rate" },
+        "amountKrw": { "type": "number", "description": "Calculated KRW value of deposit" },
+        "tetherWalletAddress": { "type": "string", "description": "Selected Tether sending address" },
+        "status": { "type": "string", "description": "Status: pending, approved, or rejected" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" },
+        "processedAt": { "type": "string", "format": "date-time", "description": "Timestamp of processing decision" }
+      },
+      "required": ["userId", "username", "nickname", "amountUsdt", "exchangeRate", "amountKrw", "status", "createdAt"]
+    },
+    "withdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "USDT withdrawal/exchange submission by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of user who requested the withdrawal" },
+        "username": { "type": "string", "description": "Username of requester" },
+        "nickname": { "type": "string", "description": "Nickname of requester" },
+        "amountUsdt": { "type": "number", "description": "USDT withdrawal amount" },
+        "exchangeRate": { "type": "number", "description": "Calculated USD/USDT equivalent exchange rate" },
+        "amountKrw": { "type": "number", "description": "Calculated KRW value of withdrawal" },
+        "tetherWalletAddress": { "type": "string", "description": "Selected Tether destination wallet address" },
+        "status": { "type": "string", "description": "Status: pending, approved, or rejected" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" },
+        "processedAt": { "type": "string", "format": "date-time", "description": "Timestamp of processing decision" }
+      },
+      "required": ["userId", "username", "nickname", "amountUsdt", "exchangeRate", "amountKrw", "status", "createdAt"]
+    },
+    "gameResult": {
+      "title": "GameResult",
+      "description": "Result of a game round",
+      "type": "object",
+      "properties": {
+        "gameName": { "type": "string", "description": "Name of the game" },
+        "round": { "type": "number", "description": "Round number" },
+        "result": { "type": "string", "description": "Result of the round" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" }
+      },
+      "required": ["gameName", "round", "result", "createdAt"]
+    },
+    "appSettings": {
+      "title": "AppSettings",
+      "type": "object",
+      "properties": {
+        "usdtToKrwRate": { "type": "number", "description": "Current exchange rate for USDT to KRW" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "user",
       "description": "Store user registration details"
+    },
+    "/depositRequests/{requestId}": {
+      "schema": "depositRequest",
+      "description": "Store money charge/deposit request records"
+    },
+    "/withdrawalRequests/{requestId}": {
+      "schema": "withdrawalRequest",
+      "description": "Store money exchange/withdrawal request records"
+    },
+    "/gameResults/{resultId}": {
+      "schema": "gameResult",
+      "description": "Store game results by round"
+    },
+    "/appSettings/{docId}": {
+      "schema": "appSettings",
+      "description": "Store application settings"
     }
   }
 }
-
