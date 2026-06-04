@@ -4,6 +4,8 @@ import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, g
 import { db, auth } from './lib/firebase';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
+import SportsContainer from './components/SportsContainer';
+import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
 import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
 
@@ -77,6 +79,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showMyPage, setShowMyPage] = useState(false);
   const [showAttendanceChecker, setShowAttendanceChecker] = useState(false);
   const [showBetHistory, setShowBetHistory] = useState(false);
+  const [showSports, setShowSports] = useState(false);
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
   const miniGameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -111,7 +114,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [gameResultPage, setGameResultPage] = useState(1);
 
   // State for Admin Deposit & Withdrawal Requests panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches'>('users');
   const [adminDepositRequests, setAdminDepositRequests] = useState<any[]>([]);
   const [exchangeRate, setExchangeRate] = useState(1537); // Default
   const [newExchangeRate, setNewExchangeRate] = useState(''); // New state
@@ -928,7 +931,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       q = collection(db, 'inquiries');
     } else {
       // Normal user only sees their own inquiries
-      const uid = auth.currentUser?.uid || currentUserData?.id || currentUser?.id || currentUser?.username || 'unknown';
+      const uid = auth.currentUser?.uid || 'unknown';
       q = query(collection(db, 'inquiries'), where('userId', '==', uid));
     }
 
@@ -957,7 +960,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     });
 
     return () => unsubscribe();
-  }, [currentUser, currentUserData?.id, isAdmin]);
+  }, [auth.currentUser?.uid, isAdmin]);
 
   const handleSubmitInquiry = async () => {
     if (!inquiryTitle.trim() || !inquiryContent.trim()) {
@@ -965,7 +968,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
     try {
-      const uid = auth.currentUser?.uid || currentUserData?.id || currentUser?.id || currentUser?.username || 'unknown';
+      const uid = auth.currentUser?.uid || 'unknown';
       const uName = currentUserData?.username || currentUser?.username || 'unknown';
       const nick = currentUserData?.nickname || nickname || '회원';
       
@@ -1999,6 +2002,25 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </span>
           </div>
 
+          {/* Sports Menu Button */}
+          <button 
+            type="button"
+            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+            onClick={() => {
+              setShowSports(true);
+              setShowMyPage(false);
+              setShowMiniGame(false);
+              setShowDepositScreen(false);
+              setShowWithdrawalScreen(false);
+              setShowGameResultScreen(false);
+              setShowBetHistory(false);
+              setShowSupportScreen(false);
+              setShowAttendanceChecker(false);
+            }}
+          >
+            스포츠
+          </button>
+
           {/* My Page Button */}
           <button 
             type="button"
@@ -2061,7 +2083,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
       </header>
 
       {/* Conditional Rendering: My Page vs Betting History vs Mini Game vs Dashboard */}
-      {showBetHistory ? (
+      {showSports ? (
+        <SportsContainer />
+      ) : showBetHistory ? (
         <BetHistoryView currentUserData={currentUserData} />
       ) : showSupportScreen ? (
         <div className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto">
@@ -4108,6 +4132,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   >
                     <Shield className="w-3 h-3 text-red-400" /> 1:1 문의관리 ({adminInquiries.length}건)
                   </button>
+                  <button
+                    onClick={() => setAdminActiveTab('matches')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'matches' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Edit className="w-3 h-3 text-white" /> 경기 등록
+                  </button>
                 </div>
               </div>
               <button 
@@ -4291,6 +4321,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </div>
                   )}
                 </div>
+              ) : adminActiveTab === 'matches' ? (
+                <AdminMatchRegistration />
               ) : adminActiveTab === 'inquiries' ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center bg-black/60 p-4 rounded border border-neutral-800">
