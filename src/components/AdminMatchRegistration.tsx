@@ -12,55 +12,66 @@ export default function AdminMatchRegistration() {
     setIsParsing(true);
 
     try {
-      // 복사한 데이터를 기반으로 경기 정보 파싱
-      // 줄바꿈으로 나누어 분석
       const lines = inputText.split('\n').map(l => l.trim()).filter(l => l !== '');
       
-      // 아주 단순한 파싱 (문자열 매칭)
-      // 예시: 우크라이나 / 5.09 / VS / 1.15 / 독일
-      let currentMatch: any = null;
-      const matchesToSave = [];
-
+      let currentLeague = 'Unknown';
+      let matchesToSave = [];
+      
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
 
-        // 리그 확인 (예: ">" 로 구분)
+        // 리그 확인
         if (line.includes('>')) {
-          if (currentMatch) matchesToSave.push(currentMatch);
-          currentMatch = { league: line, status: 'pending', createdAt: new Date().toISOString() };
+          currentLeague = line;
           continue;
         }
 
-        // 날짜/시간 확인 (예: 06-05 05:30)
+        // 날짜/시간 확인 -> 매치 시작
         if (/^\d{2}-\d{2}\s\d{2}:\d{2}$/.test(line)) {
-          if (currentMatch) currentMatch.dateTime = line;
+          // 다음 라인들에서 팀과 배당 찾기
+          // 구조: [팀A] [배당1] [VS] [배당2] [팀B] -> 혹은 줄바꿈이 다를 수 있음.
+          // 예시 파싱: 
+          // 우크라이나
+          // 5.09
+          // VS
+          // 1.15
+          // 독일 (W)
+          
+          // 다음 5-6라인을 살펴봄
+          const nextLines = lines.slice(i + 1, i + 10);
+          
+          // 팀과 배당 찾기 (단순화: 배당이 숫자인 것을 찾음)
+          const teams = nextLines.filter(l => /^[가-힣a-zA-Z\s\(\)]+$/.test(l) && l !== 'VS');
+          const odds = nextLines.filter(l => /^\d+\.\d+$/.test(l)).map(l => parseFloat(l));
+          
+          if (teams.length >= 2 && odds.length >= 2) {
+            matchesToSave.push({
+              dateTime: line,
+              league: currentLeague,
+              homeTeam: teams[0],
+              homeDividend: odds[0],
+              awayTeam: teams[1],
+              awayDividend: odds[1],
+              status: 'pending',
+              createdAt: new Date().toISOString()
+            });
+            // 파싱한 만큼 건너뛰기
+            i += 5; 
+          }
           continue;
-        }
-
-        // 팀/배당 확인 (우크라이나 / 5.09)
-        if (currentMatch && !currentMatch.homeTeam && /^[가-힣a-zA-Z\s\(\)]+$/.test(line)) {
-            currentMatch.homeTeam = line;
-            currentMatch.homeDividend = parseFloat(lines[i+1] || '0');
-            currentMatch.awayDividend = parseFloat(lines[i+3] || '0');
-            currentMatch.awayTeam = lines[i+4];
-            i += 4; // 건너뛰기
-            continue;
         }
       }
-      if (currentMatch) matchesToSave.push(currentMatch);
 
       // Firebase에 저장
       for (const match of matchesToSave) {
-        if (match.homeTeam && match.awayTeam) {
-            await addDoc(collection(db, 'matches'), match);
-        }
+        await addDoc(collection(db, 'matches'), match);
       }
 
       alert(`${matchesToSave.length}개의 경기가 등록되었습니다.`);
       setInputText('');
     } catch (error) {
       console.error('Error registering matches:', error);
-      alert('경기 데이터 파싱 중 오류가 발생했습니다. 형식을 확인해주세요.');
+      alert('경기 데이터 파싱 중 오류가 발생했습니다. (팀이름/배당 형식을 확인해주세요.)');
     } finally {
       setIsParsing(false);
     }
