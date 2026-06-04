@@ -1,11 +1,58 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { db } from './lib/firebase';
+import { db, auth } from './lib/firebase';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
 import { MobileBettingList } from './components/MobileBettingList';
 import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid || null,
+      email: auth?.currentUser?.email || null,
+      emailVerified: auth?.currentUser?.emailVerified || null,
+      isAnonymous: auth?.currentUser?.isAnonymous || null,
+      tenantId: auth?.currentUser?.tenantId || null,
+      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 interface MainPageProps {
   onLogout: () => void;
@@ -64,13 +111,25 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [gameResultPage, setGameResultPage] = useState(1);
 
   // State for Admin Deposit & Withdrawal Requests panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries'>('users');
   const [adminDepositRequests, setAdminDepositRequests] = useState<any[]>([]);
   const [exchangeRate, setExchangeRate] = useState(1537); // Default
   const [newExchangeRate, setNewExchangeRate] = useState(''); // New state
   const [isLoadingAdminDeposits, setIsLoadingAdminDeposits] = useState(false);
   const [adminWithdrawalRequests, setAdminWithdrawalRequests] = useState<any[]>([]);
   const [isLoadingAdminWithdrawals, setIsLoadingAdminWithdrawals] = useState(false);
+
+  // States for 1:1 Support System
+  const [showSupportScreen, setShowSupportScreen] = useState(false);
+  const [userInquiries, setUserInquiries] = useState<any[]>([]);
+  const [adminInquiries, setAdminInquiries] = useState<any[]>([]);
+  const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
+  const [inquiryTitle, setInquiryTitle] = useState('');
+  const [inquiryContent, setInquiryContent] = useState('');
+  const [inquiryType, setInquiryType] = useState<'normal' | 'account'>('normal');
+  const [showCreateInquiryModal, setShowCreateInquiryModal] = useState(false);
+  const [selectedInquiryDetail, setSelectedInquiryDetail] = useState<any | null>(null);
+  const [adminReplyText, setAdminReplyText] = useState('');
 
   // Populate sending wallet address input from registered user data
   useEffect(() => {
@@ -422,7 +481,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
 
-    if (betAmount * formattedTotalDividend > 4000000) {
+    const totalDividendForCheck = selectedOptions.reduce((acc, opt) => acc * opt.dividend, 1);
+    const formattedTotalDividendForCheck = Math.round(totalDividendForCheck * 100) / 100;
+
+    if (betAmount * formattedTotalDividendForCheck > 4000000) {
       alert('최대 당첨 가능 금액은 4,000,000원입니다.');
       return;
     }
@@ -447,6 +509,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const gameLabel = opt.gameType === 'powerball5' ? 'N파워볼(5분)' :
                         opt.gameType === 'powerball3' ? 'N파워볼(3분)' :
                         opt.gameType === 'powerladder5' ? 'N파워사다리(5분)' :
+                        opt.gameType === 'speedladder1' ? '스피드사다리(1분)' :
                         opt.gameType === 'ladder5' ? '사다리(5분)' : '다리다리(3분)';
       return {
         game: `${gameLabel} [${opt.round}회차]`,
@@ -854,6 +917,140 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
   }, []);
 
+  // Synchronize 1:1 inquiries in real-time
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    setIsLoadingInquiries(true);
+    let q;
+    if (isAdmin) {
+      // Admin sees ALL inquiries
+      q = collection(db, 'inquiries');
+    } else {
+      // Normal user only sees their own inquiries
+      const uid = auth.currentUser?.uid || currentUserData?.id || currentUser?.id || currentUser?.username || 'unknown';
+      q = query(collection(db, 'inquiries'), where('userId', '==', uid));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort list by createdAt descending (newest first)
+      list.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      if (isAdmin) {
+        setAdminInquiries(list);
+      } else {
+        setUserInquiries(list);
+      }
+      setIsLoadingInquiries(false);
+    }, (error) => {
+      console.error("Inquiries sync failed. Reverting to empty list: ", error);
+      setIsLoadingInquiries(false);
+      handleFirestoreError(error, OperationType.GET, 'inquiries');
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, currentUserData?.id, isAdmin]);
+
+  const handleSubmitInquiry = async () => {
+    if (!inquiryTitle.trim() || !inquiryContent.trim()) {
+      alert('제목과 내용을 모두 입력해주세요.');
+      return;
+    }
+    try {
+      const uid = auth.currentUser?.uid || currentUserData?.id || currentUser?.id || currentUser?.username || 'unknown';
+      const uName = currentUserData?.username || currentUser?.username || 'unknown';
+      const nick = currentUserData?.nickname || nickname || '회원';
+      
+      const payload = {
+        userId: uid,
+        username: uName,
+        nickname: nick,
+        type: inquiryType, // 'normal' (일반) or 'account' (계좌)
+        title: inquiryTitle,
+        content: inquiryContent,
+        status: 'pending', // 'pending' (답변대기) or 'answered' (답변완료)
+        createdAt: new Date().toISOString(),
+        reply: '',
+        repliedAt: ''
+      };
+      
+      await addDoc(collection(db, 'inquiries'), payload);
+      alert('1:1 문의가 성공적으로 등록되었습니다.');
+      setInquiryTitle('');
+      setInquiryContent('');
+      setShowCreateInquiryModal(false);
+    } catch (error) {
+      console.error("Failed to submit inquiry: ", error);
+      alert('문의 등록 중 오류가 발생했습니다.');
+      handleFirestoreError(error, OperationType.CREATE, 'inquiries');
+    }
+  };
+
+  const handleDeleteInquiry = async (inquiryId: string) => {
+    if (!window.confirm('정말로 이 문의내역을 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, 'inquiries', inquiryId));
+      alert('삭제 완료되었습니다.');
+      if (selectedInquiryDetail?.id === inquiryId) {
+        setSelectedInquiryDetail(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete inquiry:", error);
+      alert('삭제 중 오류가 발생했습니다.');
+      handleFirestoreError(error, OperationType.DELETE, `inquiries/${inquiryId}`);
+    }
+  };
+
+  const handleDeleteAllUserInquiries = async () => {
+    if (userInquiries.length === 0) {
+      alert('삭제할 문의 내역이 없습니다.');
+      return;
+    }
+    if (!window.confirm('정말로 본인의 모든 문의 내역을 삭제하시겠습니까?')) return;
+    try {
+      for (const item of userInquiries) {
+        await deleteDoc(doc(db, 'inquiries', item.id));
+      }
+      alert('모두 삭제 완료되었습니다.');
+      setSelectedInquiryDetail(null);
+    } catch (error) {
+      console.error("Failed to delete all inquiries:", error);
+      alert('삭제 중 오류가 발생했습니다.');
+      handleFirestoreError(error, OperationType.DELETE, 'inquiries');
+    }
+  };
+
+  const handleAnswerInquiry = async (inquiryId: string, replyTextToSave: string) => {
+    if (!replyTextToSave.trim()) {
+      alert('답변 내용을 입력해주세요.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'inquiries', inquiryId), {
+        status: 'answered',
+        reply: replyTextToSave,
+        repliedAt: new Date().toISOString()
+      });
+      alert('답변 등록이 완료되었습니다.');
+      setAdminReplyText('');
+      // Update local state if currently viewing detail
+      if (selectedInquiryDetail && selectedInquiryDetail.id === inquiryId) {
+        setSelectedInquiryDetail(prev => prev ? { ...prev, status: 'answered', reply: replyTextToSave } : null);
+      }
+    } catch (error) {
+      console.error("Failed to save answer:", error);
+      alert('답변 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   // Fetch registered users for administrative action
   const loadAllUsers = async () => {
     setIsLoadingUsers(true);
@@ -1006,6 +1203,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       'powerball5': 'N파워볼(5분)',
       'powerball3': 'N파워볼(3분)',
       'powerladder5': 'N파워사다리(5분)',
+      'speedladder1': '스피드사다리(1분)',
       'ladder5': '사다리(5분)',
       'daridari3': '다리다리(3분)'
     };
@@ -1618,7 +1816,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   onMouseLeave={closeMiniGameSubmenu}
                 >
                   <button 
-                    onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                    onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                     className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
                   >
                     미니게임
@@ -1631,37 +1829,37 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       onMouseLeave={closeMiniGameSubmenu}
                     >
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (3분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         다리다리 (3분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('speedladder1'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); }}
+                        onClick={() => { setActiveMiniGameTab('speedladder1'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         스피드사다리 (1분)
@@ -1683,6 +1881,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowMiniGame(false);
                     setShowBetHistory(false);
                     setShowGameResultScreen(false);
+                    setShowSupportScreen(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
@@ -1702,6 +1901,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowMyPage(false);
                     setShowMiniGame(false);
                     setShowBetHistory(false);
+                    setShowSupportScreen(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
@@ -1721,6 +1921,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowMyPage(false);
                     setShowMiniGame(false);
                     setShowBetHistory(false);
+                    setShowSupportScreen(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
@@ -1740,6 +1941,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     setShowWithdrawalScreen(false);
                     setShowDepositScreen(false);
                     setShowMiniGame(false);
+                    setShowSupportScreen(false);
                   }}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
@@ -1808,6 +2010,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               setShowWithdrawalScreen(false);
               setShowGameResultScreen(false);
               setShowBetHistory(false);
+              setShowSupportScreen(false);
             }}
           >
             My Page
@@ -1826,7 +2029,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <button 
             type="button"
             className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => alert('고객센터 준비 중입니다.')}
+            onClick={() => {
+              setShowSupportScreen(true);
+              setShowMyPage(false);
+              setShowMiniGame(false);
+              setShowDepositScreen(false);
+              setShowWithdrawalScreen(false);
+              setShowGameResultScreen(false);
+              setShowBetHistory(false);
+            }}
           >
             고객센터
           </button>
@@ -1852,6 +2063,201 @@ export default function MainPage({ onLogout }: MainPageProps) {
       {/* Conditional Rendering: My Page vs Betting History vs Mini Game vs Dashboard */}
       {showBetHistory ? (
         <BetHistoryView currentUserData={currentUserData} />
+      ) : showSupportScreen ? (
+        <div className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto">
+          {/* Breadcrumbs */}
+          <div className="mb-4 text-sm text-gray-400">
+            <button onClick={() => setShowSupportScreen(false)} className="hover:text-white">홈</button> &gt; 고객센터 &gt; 1:1 문의사항
+          </div>
+
+          {/* Title Banner */}
+          <div className="mb-6 border-b border-neutral-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <Shield className="w-6 h-6 text-amber-500" />
+                1:1 문의사항 <span className="text-amber-500 text-xs font-black tracking-wider uppercase">1:1 Customer Support</span>
+              </h2>
+              <p className="text-xs text-gray-400 mt-1">문의하신 질문은 성심성의껏 세심하고 빠르게 답변 드리겠습니다.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowCreateInquiryModal(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-2 rounded-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+              >
+                <Edit className="w-3.5 h-3.5" /> 1:1 문의등록
+              </button>
+              <button
+                onClick={handleDeleteAllUserInquiries}
+                className="bg-neutral-800 hover:bg-neutral-750 text-rose-400 border border-neutral-700/60 font-bold text-xs px-4 py-2 rounded-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> 내역 전체삭제
+              </button>
+            </div>
+          </div>
+
+          {/* Table / List Container */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
+            {isLoadingInquiries ? (
+              <div className="p-12 text-center text-gray-400 font-bold flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-amber-500" />
+                <span>문의사항을 불러오는 중입니다...</span>
+              </div>
+            ) : userInquiries.length === 0 ? (
+              <div className="p-16 text-center text-gray-500 font-bold flex flex-col items-center justify-center gap-3">
+                <div className="bg-neutral-800/50 p-4 rounded-full border border-neutral-800">
+                  <Shield className="w-8 h-8 text-neutral-600" />
+                </div>
+                <div>
+                  <p className="text-gray-400">등록된 1:1 문의사항이 없습니다.</p>
+                  <p className="text-xs text-gray-500 mt-1">도움이 필요하시면 문의등록 버튼을 눌러 접수해주세요.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-neutral-950 text-gray-300 font-black border-b border-neutral-800 uppercase tracking-wider">
+                      <th className="p-4 w-12 text-center">번호</th>
+                      <th className="p-4">제목</th>
+                      <th className="p-4 w-28 text-center">작성자</th>
+                      <th className="p-4 w-32 text-center">작성일시</th>
+                      <th className="p-4 w-24 text-center">처리상태</th>
+                      <th className="p-4 w-16 text-center">삭제</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/60">
+                    {userInquiries.map((inq, index) => {
+                      const isExpanded = selectedInquiryDetail?.id === inq.id;
+                      return (
+                        <tr key={inq.id} className="hover:bg-neutral-850/40 transition">
+                          <td className="p-4 text-center text-gray-500 font-mono">{userInquiries.length - index}</td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => setSelectedInquiryDetail(isExpanded ? null : inq)}
+                              className="text-left font-bold text-gray-200 hover:text-amber-400 block w-full focus:outline-none focus:text-amber-400 transition cursor-pointer"
+                            >
+                              {inq.title}
+                            </button>
+                            
+                            {/* Expandable Box inside title row */}
+                            {isExpanded && (
+                              <div className="mt-4 bg-neutral-950 border border-neutral-850 rounded-lg p-5 space-y-4 my-2 text-gray-300">
+                                <div className="border-b border-neutral-800 pb-3">
+                                  <div className="flex items-center justify-between text-[11px] text-gray-400 mb-2 font-mono">
+                                    <span>작성자: <strong className="text-amber-500">{inq.nickname}</strong> ({inq.username})</span>
+                                    <span>접수일: {new Date(inq.createdAt).toLocaleString('ko-KR')}</span>
+                                  </div>
+                                  <p className="whitespace-pre-wrap leading-relaxed text-xs text-gray-200 font-sans mt-2">{inq.content}</p>
+                                </div>
+                                
+                                {/* Reply Section */}
+                                <div>
+                                  <h4 className="text-[11px] font-black text-amber-500 flex items-center gap-1 mb-2">
+                                    <Shield className="w-3.5 h-3.5" /> 고객센터 답변 (Answer)
+                                  </h4>
+                                  {inq.status === 'answered' ? (
+                                    <div className="bg-emerald-950/25 border border-emerald-900/30 rounded p-4 text-emerald-200 space-y-2">
+                                      <p className="whitespace-pre-wrap leading-relaxed font-sans text-xs">{inq.reply}</p>
+                                      <p className="text-[10px] text-emerald-500 font-mono text-right font-black">답변일시: {new Date(inq.repliedAt).toLocaleString('ko-KR')}</p>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-neutral-900/50 border border-neutral-800 p-4 rounded text-gray-500 font-bold text-center italic">
+                                      고객센터 담당자의 확인을 대기 중입니다. 최대한 신속하게 성심껏 안내해 드리겠습니다.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 text-center text-gray-300 font-bold">{inq.nickname}</td>
+                          <td className="p-4 text-center text-gray-500 font-mono text-[10px]">{new Date(inq.createdAt).toLocaleString('ko-KR')}</td>
+                          <td className="p-4 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-tight flex items-center justify-center gap-1 w-20 mx-auto ${inq.status === 'answered' ? 'bg-emerald-950 border border-emerald-900 text-emerald-400' : 'bg-amber-955 border border-amber-905 text-amber-400 animate-pulse'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${inq.status === 'answered' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                              {inq.status === 'answered' ? '답변완료' : '답변대기'}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            <button
+                              onClick={() => handleDeleteInquiry(inq.id)}
+                              className="text-gray-500 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-950/20 cursor-pointer"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* New Inquiry Create Modal */}
+          {showCreateInquiryModal && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+              <div className="bg-[#0b0c10] border border-neutral-800 max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl relative">
+                <button
+                  onClick={() => setShowCreateInquiryModal(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition p-1 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <div className="p-6 border-b border-neutral-800/60 bg-neutral-950/60">
+                  <h3 className="text-lg font-black text-white flex items-center gap-1.5">
+                    <Shield className="w-5 h-5 text-amber-500" />
+                    1:1 고객문의 작성
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">궁금하신 사항 혹은 변경/처리를 원하시는 내용을 작성하여 주세요.</p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Title input */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-gray-400">문의 제목</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#111217] border border-neutral-850 hover:border-neutral-750 focus:border-amber-500/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-bold"
+                      placeholder="제목을 입력해주세요."
+                      value={inquiryTitle}
+                      onChange={(e) => setInquiryTitle(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Description input */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-gray-400">문의 내용</label>
+                    <textarea
+                      rows={5}
+                      className="w-full bg-[#111217] border border-neutral-850 hover:border-neutral-750 focus:border-amber-500/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-medium leading-relaxed resize-none"
+                      placeholder="문의 내용을 명확하고 자세하게 작성해주시면 가장 빠른 처리가 가능합니다."
+                      value={inquiryContent}
+                      onChange={(e) => setInquiryContent(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 border-t border-neutral-800/60 bg-neutral-950/40 flex justify-end gap-3 text-xs">
+                  <button
+                    onClick={() => setShowCreateInquiryModal(false)}
+                    className="bg-neutral-800 hover:bg-neutral-750 text-gray-300 font-bold px-4 py-2 rounded-lg transition-all active:scale-95 cursor-pointer border border-neutral-700/30"
+                  >
+                    작성취소
+                  </button>
+                  <button
+                    onClick={handleSubmitInquiry}
+                    className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-450 hover:to-amber-550 text-black font-black px-5 py-2 rounded-lg transition-all active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                  >
+                    등록제출
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       ) : showMyPage ? (
         <div className="flex-1 p-8 max-w-2xl w-full mx-auto">
           <div className="mb-4 text-sm text-gray-400">
@@ -1992,10 +2398,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </button>
                 )}
                 <button 
-                  onClick={() => alert('문의하기 기능은 준비 중입니다.')}
-                  className="bg-lime-700 hover:bg-lime-600 text-white font-bold py-2 px-12 rounded cursor-pointer"
+                  onClick={() => {
+                    setShowSupportScreen(true);
+                    setShowMyPage(false);
+                  }}
+                  className="bg-lime-700 hover:bg-lime-600 text-white font-bold py-2 px-12 rounded cursor-pointer transition-all active:scale-95 duration-200"
                 >
-                  문의하기
+                  문의하기 (고객센터)
                 </button>
               </div>
           </div>
@@ -3446,76 +3855,111 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse"></div>
                 </div>
 
-                {/* Right Side - Immersive Integrated Supercar & Model Dual Showcase frame */}
-                <div className="flex flex-col sm:flex-row items-center gap-6 w-full xl:max-w-[720px]">
+                {/* Right Side - Immersive Integrated Casino & Sports Premium Tri-Showcase */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full xl:max-w-[850px]">
                   
-                  {/* 1. Ferrari Red Supercar Frame */}
+                  {/* 1. Golden Luxury Roulette Frame */}
                   <motion.div
-                    whileHover={{ y: -6, scale: 1.025 }}
+                    whileHover={{ y: -8, scale: 1.03 }}
                     transition={{ duration: 0.3 }}
-                    className="relative flex-1 w-full aspect-[4/3] rounded-2xl overflow-hidden border border-red-500/25 bg-neutral-950 shadow-[0_15px_30px_rgba(0,0,0,0.8)] cursor-pointer group"
+                    className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-amber-500/25 bg-neutral-950 shadow-[0_20px_40px_rgba(0,0,0,0.9)] cursor-pointer group"
                   >
                     {/* Golden Sweep light */}
                     <motion.div
                       animate={{ x: ['-100%', '200%'] }}
                       transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-red-650/15 to-transparent skew-x-12 z-20 pointer-events-none"
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent skew-x-12 z-20 pointer-events-none"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
                     
-                    {/* Ferrari Picture */}
+                    {/* Roulette Picture */}
                     <img
-                      src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=850"
-                      alt="Choice Ferrari GT"
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      src="https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=800"
+                      alt="Choice Premium Roulette"
+                      className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
 
                     {/* Stamp */}
-                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-red-500/40 shadow-lg">
-                      <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-                      <span className="text-white text-[9px] font-black tracking-widest transform uppercase">VIP FERRARI GT</span>
+                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/30 shadow-lg">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                      <span className="text-amber-400 text-[9px] font-black tracking-widest uppercase">LUXURY ROULETTE</span>
                     </div>
 
                     {/* Bottom glass panel */}
-                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex justify-between items-center bg-black/80 backdrop-blur-sm px-3 py-2 rounded-xl border border-neutral-850/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-rose-300 tracking-wider uppercase">CHOICE SPECIAL EDITION</span>
-                      <span className="text-[9px] font-bold font-mono text-gray-400">CLASS A 🥇</span>
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-amber-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                      <span className="text-[10px] font-black text-amber-300 tracking-wider uppercase">REALTIME ROYAL CASINO</span>
+                      <span className="text-[8.5px] font-bold font-mono text-gray-400">OPTIMAL PLATFORM 🌐</span>
                     </div>
                   </motion.div>
 
-                  {/* 2. Velvet VIP Glamour Model Frame */}
+                  {/* 2. High-Stakes Flying Dice Frame */}
                   <motion.div
-                    whileHover={{ y: -6, scale: 1.025 }}
+                    whileHover={{ y: -8, scale: 1.03 }}
                     transition={{ duration: 0.3 }}
-                    className="relative flex-1 w-full aspect-[4/3] rounded-2xl overflow-hidden border border-amber-500/25 bg-neutral-950 shadow-[0_15px_30px_rgba(0,0,0,0.8)] cursor-pointer group"
+                    className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-red-500/25 bg-neutral-950 shadow-[0_20px_40px_rgba(0,0,0,0.9)] cursor-pointer group"
                   >
-                    {/* Golden sweep light */}
+                    {/* Red Sweep light */}
                     <motion.div
                       animate={{ x: ['-100%', '200%'] }}
-                      transition={{ duration: 4.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/20 to-transparent skew-x-12 z-20 pointer-events-none"
+                      transition={{ duration: 4.5, repeat: Infinity, repeatDelay: 1, ease: "easeInOut" }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/25 to-transparent skew-x-12 z-20 pointer-events-none"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
 
-                    {/* Glamour Presenter Portrait */}
+                    {/* Dice Picture */}
                     <img
-                      src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=850"
-                      alt="Choice Casino Presenter Model"
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      src="https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=800"
+                      alt="Choice Premium Vegas Dice"
+                      className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
 
                     {/* Stamp */}
-                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/40 shadow-lg">
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-                      <span className="text-amber-400 text-[9px] font-black tracking-widest transform uppercase">OFFICIAL VIP MODEL</span>
+                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-red-500/30 shadow-lg">
+                      <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+                      <span className="text-rose-450 text-[9px] font-black tracking-widest uppercase">HIGH-STAKES DICE</span>
                     </div>
 
                     {/* Bottom glass panel */}
-                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex justify-between items-center bg-black/80 backdrop-blur-sm px-3 py-2 rounded-xl border border-neutral-850/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-amber-250 tracking-wider uppercase">STAGE PRESENTER ON</span>
-                      <span className="text-[9px] font-black font-mono text-emerald-450">ONLINE Live</span>
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-red-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                      <span className="text-[10px] font-black text-red-450 tracking-wider uppercase">ULTIMATE WINNER CRAFT</span>
+                      <span className="text-[8.5px] font-bold font-mono text-gray-400 font-black text-rose-300">JACKPOT ENABLED ✨</span>
+                    </div>
+                  </motion.div>
+
+                  {/* 3. Live NBA Sports Frame */}
+                  <motion.div
+                    whileHover={{ y: -8, scale: 1.03 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-emerald-500/25 bg-neutral-950 shadow-[0_20px_40px_rgba(0,0,0,0.9)] cursor-pointer group"
+                  >
+                    {/* Emerald sweep light */}
+                    <motion.div
+                      animate={{ x: ['-100%', '200%'] }}
+                      transition={{ duration: 4.8, repeat: Infinity, repeatDelay: 0.5, ease: "easeInOut" }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent skew-x-12 z-20 pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
+
+                    {/* NBA Basketball Player Action */}
+                    <img
+                      src="https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800"
+                      alt="Choice Live Sports NBA Basketball"
+                      className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+
+                    {/* Stamp */}
+                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-500/30 shadow-lg">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+                      <span className="text-emerald-400 text-[9px] font-black tracking-widest uppercase">NBA & LIVE SPORTS</span>
+                    </div>
+
+                    {/* Bottom glass panel */}
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-emerald-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                      <span className="text-[10px] font-black text-emerald-450 tracking-wider uppercase">GLOBAL REALTIME MATCH</span>
+                      <span className="text-[8.5px] font-black font-mono text-emerald-300">LIVE INDOOR COURT 🏀</span>
                     </div>
                   </motion.div>
                   
@@ -3545,6 +3989,28 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <motion.div 
                     whileHover={{ y: -6, scale: 1.02 }}
                     key={idx} 
+                    onClick={() => {
+                      if (cat.label === '미니게임') {
+                        setActiveMiniGameTab('powerball3');
+                        setShowMiniGame(true);
+                        setShowMyPage(false);
+                        setShowBetHistory(false);
+                        setShowDepositScreen(false);
+                        setShowWithdrawalScreen(false);
+                        setShowSupportScreen(false);
+                        setShowGameResultScreen(false);
+                      } else if (cat.label === '경기결과') {
+                        setShowGameResultScreen(true);
+                        setShowWithdrawalScreen(false);
+                        setShowDepositScreen(false);
+                        setShowMyPage(false);
+                        setShowMiniGame(false);
+                        setShowBetHistory(false);
+                        setShowSupportScreen(false);
+                      } else {
+                        alert(`${cat.label} 기능은 준비 중입니다.`);
+                      }
+                    }}
                     className="relative h-40 bg-gray-900 border border-gray-800 rounded overflow-hidden shadow-lg group cursor-pointer"
                   >
                     <div 
@@ -3635,6 +4101,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'settings' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Settings className="w-3 h-3 text-amber-500" /> 환율 설정
+                  </button>
+                  <button
+                    onClick={() => setAdminActiveTab('inquiries')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'inquiries' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Shield className="w-3 h-3 text-red-400" /> 1:1 문의관리 ({adminInquiries.length}건)
                   </button>
                 </div>
               </div>
@@ -3818,6 +4290,123 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       </table>
                     </div>
                   )}
+                </div>
+              ) : adminActiveTab === 'inquiries' ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-black/60 p-4 rounded border border-neutral-800">
+                    <span className="text-xs font-bold text-gray-400">전체 문의 건수: <strong className="text-amber-400 font-mono">{adminInquiries.length}건</strong> (대기중: <strong className="text-rose-500 font-mono">{adminInquiries.filter(i => i.status === 'pending').length}건</strong>)</span>
+                    <span className="text-[10px] text-gray-500 font-semibold">※ 회원의 1:1 Q&A 문의 리스트입니다. 각 문의를 클릭하여 실시간 답변을 등록할 수 있습니다.</span>
+                  </div>
+
+                  <div className="overflow-x-auto border border-neutral-800 rounded bg-black/30">
+                    <table className="w-full text-left text-xs text-gray-300">
+                      <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800 font-black">
+                        <tr>
+                          <th className="p-3 text-center w-12">번호</th>
+                          <th className="p-3 text-gray-300">제목</th>
+                          <th className="p-3 w-32 text-gray-300">작성자(닉네임/ID)</th>
+                          <th className="p-3 w-36 text-center text-gray-300">신청시간</th>
+                          <th className="p-3 w-20 text-center text-gray-300">처리상태</th>
+                          <th className="p-3 w-16 text-center text-gray-300">동작</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800/60 text-xs">
+                        {adminInquiries.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-12 text-center text-gray-500 font-bold">
+                              접수된 1:1 문의사항이 없습니다.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminInquiries.map((req, index) => {
+                            const isExpanded = selectedInquiryDetail?.id === req.id;
+                            return (
+                              <React.Fragment key={req.id}>
+                                <tr className="hover:bg-neutral-850/20 transition cursor-pointer">
+                                  <td className="p-3 text-center text-gray-500 font-mono">{adminInquiries.length - index}</td>
+                                  <td className="p-3">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedInquiryDetail(isExpanded ? null : req);
+                                        setAdminReplyText(req.reply || '');
+                                      }}
+                                      className="text-left font-bold text-gray-200 hover:text-amber-400 block w-full focus:outline-none transition cursor-pointer"
+                                    >
+                                      {req.title}
+                                    </button>
+                                  </td>
+                                  <td className="p-3 font-semibold text-gray-200">
+                                    <span className="block font-bold text-gray-150">{req.nickname}</span>
+                                    <span className="block text-[10px] text-gray-400 font-mono">({req.username})</span>
+                                  </td>
+                                  <td className="p-3 text-center text-gray-400 font-mono text-[11px]">{new Date(req.createdAt).toLocaleString('ko-KR')}</td>
+                                  <td className="p-3 text-center font-sans">
+                                    {req.status === 'pending' ? (
+                                      <span className="bg-amber-955 border border-amber-900 text-amber-400 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold animate-pulse">답변대기</span>
+                                    ) : (
+                                      <span className="bg-emerald-955 border border-emerald-900 text-emerald-400 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">답변완료</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteInquiry(req.id);
+                                      }}
+                                      className="text-gray-500 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-955/25 cursor-pointer"
+                                      title="삭제"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                                
+                                {isExpanded && (
+                                  <tr>
+                                    <td colSpan={6} className="p-0 bg-neutral-950/90">
+                                      <div className="p-5 border border-neutral-850 m-2 rounded-lg space-y-4 text-xs text-gray-300">
+                                        <div className="border-b border-neutral-800 pb-3">
+                                          <div className="text-[10px] text-amber-500 font-black tracking-wider uppercase">Inquiry Message from user (회원 질문 내용):</div>
+                                          <p className="whitespace-pre-wrap leading-relaxed font-sans text-xs text-gray-100 mt-2 bg-neutral-900 p-4 rounded border border-neutral-850">{req.content}</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <div className="text-[10px] text-red-500 font-black tracking-wider uppercase flex items-center gap-1">
+                                            <Shield className="w-3.5 h-3.5" /> Write operator response (운영자 답변 메시지 등록):
+                                          </div>
+                                          <textarea
+                                            rows={4}
+                                            value={adminReplyText}
+                                            onChange={(e) => setAdminReplyText(e.target.value)}
+                                            placeholder="회원에게 전송할 성실한 답변 메시지를 기재해 주세요."
+                                            className="w-full bg-[#111217] border border-neutral-800 hover:border-neutral-750 focus:border-red-650 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none font-medium leading-relaxed resize-none font-sans"
+                                          />
+                                          <div className="flex justify-end gap-2 text-xs">
+                                            <button
+                                              onClick={() => setSelectedInquiryDetail(null)}
+                                              className="bg-neutral-850 hover:bg-neutral-800 text-gray-300 px-3 py-1.5 rounded font-bold border border-neutral-700 transition cursor-pointer active:scale-95 text-[11px]"
+                                            >
+                                              닫기
+                                            </button>
+                                            <button
+                                              onClick={() => handleAnswerInquiry(req.id, adminReplyText)}
+                                              className="bg-red-700 hover:bg-red-600 border border-red-650 text-white px-4 py-1.5 rounded font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 text-[11px]"
+                                            >
+                                              <Save className="w-3.5 h-3.5" /> 답변 등록/수정
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : adminActiveTab === 'settings' ? (
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">

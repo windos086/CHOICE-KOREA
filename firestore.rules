@@ -29,6 +29,11 @@ service cloud.firestore {
     match /attendance/{userId=**} {
       allow read, write: if true;
     }
+
+    match /inquiries/{inquiryId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId);
+      allow write: if isSignedIn() && (request.auth.uid == request.resource.data.userId);
+    }
     
     match /{document=**} {
       allow read, write: if false;

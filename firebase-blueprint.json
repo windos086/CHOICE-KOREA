@@ -70,6 +70,24 @@
       },
       "required": ["dates"]
     },
+    "inquiry": {
+      "title": "Inquiry",
+      "description": "1:1 customer Q&A inquiries and administrator resolutions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of user who made the inquiry" },
+        "username": { "type": "string", "description": "Username of requester" },
+        "nickname": { "type": "string", "description": "Nickname of requester" },
+        "type": { "type": "string", "description": "Inquiry type: normal or account" },
+        "title": { "type": "string", "description": "Title of the inquiry" },
+        "content": { "type": "string", "description": "Description of user request" },
+        "status": { "type": "string", "description": "Status: pending or answered" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" },
+        "reply": { "type": "string", "description": "System or admin response text" },
+        "repliedAt": { "type": "string", "format": "date-time", "description": "Timestamp of system reply" }
+      },
+      "required": ["userId", "username", "nickname", "type", "title", "content", "status", "createdAt"]
+    },
     "appSettings": {
       "title": "AppSettings",
       "type": "object",
@@ -94,6 +112,10 @@
     "/gameResults/{resultId}": {
       "schema": "gameResult",
       "description": "Store game results by round"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "inquiry",
+      "description": "Store 1:1 user inquiries"
     },
     "/appSettings/{docId}": {
       "schema": "appSettings",

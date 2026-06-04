@@ -1,17 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface BetHistoryViewProps {
   currentUserData: any;
 }
 
 export default function BetHistoryView({ currentUserData }: BetHistoryViewProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  const bets = currentUserData?.bets || [];
+  const totalPages = Math.ceil(bets.length / itemsPerPage);
+  
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentBets = bets.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   return (
     <div className="flex-1 p-6 w-full mx-auto max-w-6xl">
       <div className="text-white text-xl font-bold mb-6 tracking-tight">배팅내역</div>
       
       <div className="space-y-3">
-        {currentUserData?.bets && currentUserData.bets.length > 0 ? (
-          currentUserData.bets.map((bet: any) => {
+        {currentBets.length > 0 ? (
+          currentBets.map((bet: any) => {
             const timeParts = bet.betTime?.includes(' ') ? bet.betTime.split(' ') : [bet.betTime || '', ''];
             return (
               <div key={bet.id} className="bg-gradient-to-r from-[#0d0e12] via-[#07080a] to-[#0d0e12] border border-neutral-800/80 hover:border-amber-500/30 rounded-xl p-5 flex flex-wrap md:flex-nowrap items-center gap-6 transition-all duration-300 shadow-[0_5px_15px_rgba(0,0,0,0.5)] group">
@@ -88,6 +103,29 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-8">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="p-2 rounded-lg bg-neutral-900 border border-neutral-800 text-gray-400 disabled:opacity-50 hover:text-white hover:border-amber-500/50 transition-colors cursor-pointer"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-bold text-gray-300">
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="p-2 rounded-lg bg-neutral-900 border border-neutral-800 text-gray-400 disabled:opacity-50 hover:text-white hover:border-amber-500/50 transition-colors cursor-pointer"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
