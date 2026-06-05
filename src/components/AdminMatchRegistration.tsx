@@ -30,16 +30,27 @@ export default function AdminMatchRegistration() {
           // 데이터가 최소 3줄(홈, 어웨이, 무승부)은 있어야 함
           if (i + 3 >= lines.length) continue;
           
-          const homeLine = lines[i + 1]?.split('\t') || [];
-          const awayLine = lines[i + 2]?.split('\t') || [];
-          const drawLine = lines[i + 3]?.split('\t') || [];
+          // 데이터 행들을 탭으로 분리
+          const homeLine = lines[i + 1]?.split('\t');
+          const awayLine = lines[i + 2]?.split('\t');
+          const drawLine = lines[i + 3]?.split('\t');
           
+          console.log("Debug Parsing:", {
+            line,
+            homeLine,
+            awayLine,
+            drawLine
+          });
+
           try {
+            // 구조: 날짜(0), 팀(0), 스코어(?), 승무패(2), 핸디캡(3), 언더오버(4)
+            // 홈팀(homeLine[0]), 어웨이팀(awayLine[0]), 무승부(drawLine[0])
+            
             const match = {
               dateTime: line,
               league: currentLeague,
-              homeTeam: homeLine[0] || 'Unknown',
-              awayTeam: awayLine[0] || 'Unknown',
+              homeTeam: homeLine[0]?.trim() || 'Unknown',
+              awayTeam: awayLine[0]?.trim() || 'Unknown',
               markets: {
                 matchWinner: {
                   home: parseFloat(homeLine[2]) || 0,
@@ -61,7 +72,7 @@ export default function AdminMatchRegistration() {
               createdAt: new Date().toISOString()
             };
             matchesToSave.push(match);
-            i += 3; 
+            i += 3; // 4줄(날짜, 홈, 원정, 무승부)을 파싱하므로 i를 더 증가시킴
           } catch (err) {
             console.error("Failed to parse match, skipping:", err);
           }
