@@ -27,42 +27,43 @@ export default function AdminMatchRegistration() {
 
         // 경기 데이터 파싱 (날짜 시간 포함 행)
         if (/^\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
-          const parts = line.split('\t'); // 테이블 복사는 보통 탭으로 구분됨
-          // parts 형태: [날짜, 팀AAA, 스코어, 승무패배당, 핸디캡배당, 오버언더배당, 전반핸디캡, 전반오버언더]
+          // 데이터가 최소 3줄(홈, 어웨이, 무승부)은 있어야 함
+          if (i + 3 >= lines.length) continue;
           
-          if (parts.length >= 6) {
-            const homeTeam = parts[1];
-            const nextLine = lines[i+1]?.split('\t') || [];
-            const awayTeam = nextLine[0] || 'Unknown';
-            const drawOdds = parseFloat(lines[i+2]?.split('\t')[0]) || 0; // '무승부' 줄 찾기
-
+          const homeLine = lines[i + 1]?.split('\t') || [];
+          const awayLine = lines[i + 2]?.split('\t') || [];
+          const drawLine = lines[i + 3]?.split('\t') || [];
+          
+          try {
             const match = {
-              dateTime: parts[0],
+              dateTime: line,
               league: currentLeague,
-              homeTeam: homeTeam,
-              awayTeam: awayTeam,
+              homeTeam: homeLine[0] || 'Unknown',
+              awayTeam: awayLine[0] || 'Unknown',
               markets: {
                 matchWinner: {
-                  home: parseFloat(parts[3]) || 0,
-                  draw: drawOdds,
-                  away: parseFloat(nextLine[1]) || 0
+                  home: parseFloat(homeLine[2]) || 0,
+                  draw: parseFloat(drawLine[1]) || 0,
+                  away: parseFloat(awayLine[1]) || 0
                 },
                 handicap: {
-                  value: parts[4].split(' ')[0], 
-                  oddsHome: parseFloat(parts[4].split(' ')[1]) || 0,
-                  oddsAway: parseFloat(nextLine[2]) || 0
+                  value: homeLine[3]?.split(' ')[0] || '',
+                  oddsHome: parseFloat(homeLine[3]?.split(' ')[1]) || 0,
+                  oddsAway: parseFloat(awayLine[2]) || 0
                 },
                 overUnder: {
-                  value: parts[5].split(' ')[1],
-                  oddsOver: parseFloat(parts[5].split(' ')[2]) || 0,
-                  oddsUnder: parseFloat(nextLine[3].split(' ')[1]) || 0
+                  value: homeLine[4]?.split(' ')[1] || '',
+                  oddsOver: parseFloat(homeLine[4]?.split(' ')[2]) || 0,
+                  oddsUnder: parseFloat(awayLine[3]?.split(' ')[1]) || 0
                 }
               },
               status: 'pending',
               createdAt: new Date().toISOString()
             };
             matchesToSave.push(match);
-            i += 2; // 홈, 어웨이, 무승부 라인을 고려하여 건너뛰기
+            i += 3; 
+          } catch (err) {
+            console.error("Failed to parse match, skipping:", err);
           }
         }
       }

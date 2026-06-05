@@ -41,20 +41,36 @@ export default function SportsContainer() {
           <div className="text-center py-10 text-gray-400">등록된 경기가 없습니다.</div>
         ) : (
           matches.map((match) => (
-            <div key={match.id} className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center justify-between">
-              <div className="text-xs text-gray-400">
-                <div>{match.dateTime}</div>
-                <div className="text-amber-500">{match.league}</div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="font-bold">{match.homeTeam}</span>
-                <span className="text-amber-500 font-bold">{match.homeDividend.toFixed(2)}</span>
-                <span className="text-gray-500">VS</span>
-                <span className="text-amber-500 font-bold">{match.awayDividend.toFixed(2)}</span>
-                <span className="font-bold">{match.awayTeam}</span>
-              </div>
-              <button className="bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-lg text-sm text-white font-bold transition">배팅</button>
-            </div>
+                <div key={match.id} className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden my-4">
+                  <div className="p-3 bg-neutral-800/50 flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-500" />
+                    <span className="font-bold">{match.league}</span>
+                  </div>
+                  <div className="grid grid-cols-[1fr,auto,1fr] gap-4 p-4 items-center">
+                    <div className="text-right font-bold">{match.homeTeam}</div>
+                    <div className="text-xs text-gray-500">{match.dateTime}</div>
+                    <div className="font-bold">{match.awayTeam}</div>
+                  </div>
+                  
+                  {/* Markets */}
+                  <div className="text-white text-sm divide-y divide-neutral-800">
+                    <div className="grid grid-cols-[1fr,1fr,1fr] gap-2 p-3 text-center">
+                      <div className="font-bold text-amber-500">{(match.markets?.matchWinner?.home || 0).toFixed(2)}</div>
+                      <div className="font-bold text-amber-500">{(match.markets?.matchWinner?.draw || 0).toFixed(2)}</div>
+                      <div className="font-bold text-amber-500">{(match.markets?.matchWinner?.away || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-[1fr,auto,1fr] gap-2 p-3 items-center">
+                      <div className="text-center font-bold text-amber-500">H {(match.markets?.handicap?.oddsHome || 0).toFixed(2)}</div>
+                      <div className="text-center text-red-500 font-bold">{match.markets?.handicap?.value || '-'}</div>
+                      <div className="text-center font-bold text-amber-500">H {(match.markets?.handicap?.oddsAway || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-[1fr,auto,1fr] gap-2 p-3 items-center">
+                      <div className="text-center font-bold text-amber-500">O {(match.markets?.overUnder?.oddsOver || 0).toFixed(2)}</div>
+                      <div className="text-center text-amber-500 font-bold">{match.markets?.overUnder?.value || '-'}</div>
+                      <div className="text-center font-bold text-amber-500">U {(match.markets?.overUnder?.oddsUnder || 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
           ))
         )}
       </div>

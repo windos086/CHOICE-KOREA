@@ -3700,7 +3700,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           <div className="font-extrabold text-white truncate">[{opt.group}] <span className="text-amber-400">{opt.name}</span></div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-amber-500 font-mono">{opt.dividend.toFixed(2)}배</span>
+                          <span className="font-bold text-amber-500 font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
                           <button 
                             onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
                             className="text-gray-500 hover:text-red-500 cursor-pointer font-bold p-0.5"
@@ -3719,7 +3719,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                 {/* 배팅 계산 및 충전 연동 */}
                 {selectedOptions.length > 0 && (() => {
-                  const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * current.dividend, 1).toFixed(2));
+                  const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * (current.dividend || 1), 1).toFixed(2));
                   const estimatedPay = Math.floor(betAmount * totalDiv);
                   return (
                     <div className="space-y-2.5 bg-neutral-950 p-3 rounded-lg border border-neutral-800/60 text-xs">
@@ -3729,7 +3729,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       </div>
                       <div className="flex justify-between items-center text-gray-400">
                         <span>총 배당률</span>
-                        <span className="font-black text-amber-500 font-mono">{totalDiv.toFixed(2)} 배</span>
+                        <span className="font-black text-amber-500 font-mono">{(totalDiv || 0).toFixed(2)} 배</span>
                       </div>
                       <div className="flex justify-between items-center text-gray-400 border-t border-neutral-900 pt-2">
                         <span>예상 적중머니</span>
