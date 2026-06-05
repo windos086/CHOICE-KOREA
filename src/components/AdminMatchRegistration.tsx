@@ -143,31 +143,36 @@ export default function AdminMatchRegistration() {
             const isMarketToken = (token: string): boolean => {
               if (token === 'O' || token === 'U') return true;
               if (/[가-힣<>]/.test(token)) return false;
-              return /^[+-]?\d+/.test(token) || /^\d/.test(token) || /^[Hh][+-]?\d+/.test(token) || /^[Hh]\d/.test(token);
+              const cleaned = token.replace(/[\[\]\(\)]/g, '').trim();
+              return /^[+-]?\d+/.test(cleaned) || /^\d/.test(cleaned) || /^[Hh][+-]?\d+/.test(cleaned) || /^[Hh]\d/.test(cleaned);
             };
+
+            const cleanBrackets = (token: string) => token.replace(/[\[\]\(\)]/g, '').trim();
 
             // 1) Parse Draw match line tokens
             const rawDrawTokens = drawOddsLine.split(/\s+/).filter(Boolean);
-            const drawMarketTokens = rawDrawTokens.filter(isMarketToken);
+            const drawMarketTokens = rawDrawTokens.filter(isMarketToken).map(cleanBrackets);
             const drawOdds = drawMarketTokens.length > 0 ? (parseFloat(drawMarketTokens[0]) || 0) : 0;
 
             // 2) Parse Home match line tokens
             const rawHomeTokens = homeOddsLine.split(/\s+/).filter(Boolean);
-            const homeMarketTokens = rawHomeTokens.filter(isMarketToken);
+            const homeMarketTokens = rawHomeTokens.filter(isMarketToken).map(cleanBrackets);
             const homeOdds = homeMarketTokens.length > 0 ? (parseFloat(homeMarketTokens[0]) || 1.00) : 1.00;
 
             // 3) Parse Away match line tokens and team name
             const rawAwayTokens = awayTeamLine.split(/\s+/).filter(Boolean);
             let firstOddsIndex = -1;
             for (let j = 0; j < rawAwayTokens.length; j++) {
-              if (/^\d+\.\d+$/.test(rawAwayTokens[j])) {
+              const cleanedX = rawAwayTokens[j].replace(/[\[\]\(\)]/g, '').trim();
+              if (/^\d+\.\d+$/.test(cleanedX)) {
                 firstOddsIndex = j;
                 break;
               }
             }
             if (firstOddsIndex === -1) {
               for (let j = 0; j < rawAwayTokens.length; j++) {
-                if (/^\d+$/.test(rawAwayTokens[j])) {
+                const cleanedX = rawAwayTokens[j].replace(/[\[\]\(\)]/g, '').trim();
+                if (/^\d+$/.test(cleanedX)) {
                   firstOddsIndex = j;
                   break;
                 }
@@ -178,7 +183,7 @@ export default function AdminMatchRegistration() {
 
             const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ');
             const awayOddsTokensRaw = rawAwayTokens.slice(firstOddsIndex);
-            const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken);
+            const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken).map(cleanBrackets);
             const awayOdds = awayMarketTokens.length > 0 ? (parseFloat(awayMarketTokens[0]) || 1.00) : 1.00;
 
             const homeRemains = homeMarketTokens.slice(1);
@@ -224,12 +229,18 @@ export default function AdminMatchRegistration() {
                 hIdxAll += 3;
               } else {
                 const threshold = currentToken;
-                const awayHandiOdds = parseFloat(homeRemains[hIdxAll + 1]) || 1.00;
-                let homeHandiOdds = 1.00;
+                const homeHandiOdds = parseFloat(homeRemains[hIdxAll + 1]) || 1.00;
+                let awayHandiOdds = 1.00;
 
                 if (aIdxAll < awayRemains.length) {
-                  homeHandiOdds = parseFloat(awayRemains[aIdxAll]) || 1.00;
-                  aIdxAll += 1;
+                  const awayToken = awayRemains[aIdxAll];
+                  if (/^[Hh+-]/.test(awayToken) && !/^\d+\.\d+$/.test(awayToken)) {
+                    awayHandiOdds = parseFloat(awayRemains[aIdxAll + 1]) || 1.00;
+                    aIdxAll += 2;
+                  } else {
+                    awayHandiOdds = parseFloat(awayToken) || 1.00;
+                    aIdxAll += 1;
+                  }
                 }
 
                 // Do not register handicap standard is 0
@@ -254,7 +265,7 @@ export default function AdminMatchRegistration() {
                 draw: drawOdds,
                 away: awayOdds
               },
-              handicap: handicaps.length > 0 ? handicaps[0] : { value: '', oddsHome: 0, oddsAway: 0 },
+              handicap: handicaps.length > 0 ? handicaps[0] : { value: '', home: 0, away: 0 },
               overUnder: overUnders.length > 0 ? overUnders[0] : { value: '', oddsOver: 0, oddsUnder: 0 },
               handicaps: handicaps,
               overUnders: overUnders
