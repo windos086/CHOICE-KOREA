@@ -108,7 +108,8 @@ export default function AdminMatchRegistration() {
         existingMap.set(key, m);
       }
 
-      const lines = inputText.split('\n').map(l => l.trim()).filter(Boolean);
+      const lines = inputText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      console.log('Lines to parse:', lines);
       let currentLeague = '일반 리그';
       let addedCount = 0;
       let updatedCount = 0;
@@ -123,26 +124,32 @@ export default function AdminMatchRegistration() {
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (/^\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
-          currentBlock = { dateTime: line, allLines: [] };
+        if (/\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
+          console.log('Found block header:', line);
+          currentBlock = { dateTime: line.match(/\d{2}-\d{2}\s\d{2}:\d{2}/)![0], allLines: [] };
           matchBlocks.push(currentBlock);
         } else {
           if (currentBlock) {
             currentBlock.allLines.push(line);
           } else {
-            if (!/^\d+\.\d+/.test(line)) {
+            // League detection
+            if (!/\d+\.\d+/.test(line)) {
               currentLeague = line;
             }
           }
         }
       }
 
+      console.log('Found blocks:', matchBlocks.length);
+
       for (const block of matchBlocks) {
         const blockLines = block.allLines;
         if (blockLines.length === 0) continue;
 
         const isOddsLine = (txt: string): boolean => {
-          return /\d+\.\d+/.test(txt) || /[HhOoUu][+-]?\d/.test(txt);
+          // Look for patterns that contain odds (decimals or integers)
+          // or markers with thresholds.
+          return /\d+(\.\d+)?/.test(txt) || /[HhOoUu][+-]?\d+(\.\d+)?/.test(txt);
         };
 
         let firstOddsLineIdx = -1;
@@ -153,7 +160,12 @@ export default function AdminMatchRegistration() {
           }
         }
 
-        if (firstOddsLineIdx === -1) continue;
+        if (firstOddsLineIdx === -1) {
+          console.log('Skipping block, no odds line found:', block);
+          continue;
+        }
+
+        console.log('Found odds line in block', block.dateTime, 'at index', firstOddsLineIdx);
 
         const homeTeam = blockLines[firstOddsLineIdx - 1];
         if (!homeTeam) continue;
