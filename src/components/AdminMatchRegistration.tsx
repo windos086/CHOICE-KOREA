@@ -126,15 +126,49 @@ export default function AdminMatchRegistration() {
         const line = lines[i];
         if (/\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
           console.log('Found block header:', line);
-          currentBlock = { dateTime: line.match(/\d{2}-\d{2}\s\d{2}:\d{2}/)![0], allLines: [] };
+          const dateMatch = line.match(/\d{2}-\d{2}\s\d{2}:\d{2}/);
+          const dateStr = dateMatch![0];
+          
+          // Check if there is any league text in the same line as the date stamp (e.g. "06-05 23:00 [K-League]")
+          const remaining = line.replace(dateStr, '').trim();
+          const cleanLg = remaining.replace(/[\[\]\(\)]/g, '').trim();
+          if (cleanLg) {
+            currentLeague = cleanLg;
+          }
+
+          // Backtrack previous block's trailing lines. If there are trailing lines without numbers after the last odds/numeric line,
+          // those lines representing a newly declared league or header for the upcoming matches.
+          if (currentBlock && currentBlock.allLines.length > 0) {
+            const isOddsLine = (txt: string): boolean => {
+              return /\d+\.\d+/.test(txt);
+            };
+            let lastOddsLineIdx = -1;
+            for (let j = currentBlock.allLines.length - 1; j >= 0; j--) {
+              if (isOddsLine(currentBlock.allLines[j])) {
+                lastOddsLineIdx = j;
+                break;
+              }
+            }
+            if (lastOddsLineIdx !== -1 && lastOddsLineIdx < currentBlock.allLines.length - 1) {
+              const extraLines = currentBlock.allLines.slice(lastOddsLineIdx + 1);
+              const leagueText = extraLines.map(l => l.trim()).filter(Boolean).join(' ');
+              if (leagueText && !/\d/.test(leagueText)) {
+                currentLeague = leagueText.replace(/[\[\]\(\)]/g, '').trim();
+                console.log('Extracted league from previous block trailing lines:', currentLeague);
+              }
+              currentBlock.allLines = currentBlock.allLines.slice(0, lastOddsLineIdx + 1);
+            }
+          }
+
+          currentBlock = { dateTime: dateStr, allLines: [] };
           matchBlocks.push(currentBlock);
         } else {
           if (currentBlock) {
             currentBlock.allLines.push(line);
           } else {
-            // League detection
+            // League detection for lines before the first block
             if (!/\d+\.\d+/.test(line)) {
-              currentLeague = line;
+              currentLeague = line.replace(/[\[\]\(\)]/g, '').trim();
             }
           }
         }
@@ -173,6 +207,12 @@ export default function AdminMatchRegistration() {
         let matchLeague = currentLeague;
         if (firstOddsLineIdx - 1 > 0) {
           matchLeague = blockLines[firstOddsLineIdx - 2];
+        }
+        if (matchLeague) {
+          matchLeague = matchLeague.replace(/[\[\]\(\)]/g, '').trim();
+        }
+        if (!matchLeague) {
+          matchLeague = '일반 리그';
         }
 
         const homeOddsLine = blockLines[firstOddsLineIdx];
@@ -326,8 +366,20 @@ export default function AdminMatchRegistration() {
                 }
 
                 if (!isZeroHandicap(threshold)) {
+                  const cleanThreshold = threshold.trim().replace(/[+-]/g, '');
+                  let adjustedThreshold = threshold;
+                  if (homeOdds < awayOdds) {
+                    // Home team is favorite: Home gets minus handicap
+                    adjustedThreshold = `-${cleanThreshold}`;
+                  } else if (awayOdds < homeOdds) {
+                    // Away team is favorite: Away gets minus handicap (so Home gets plus handicap)
+                    adjustedThreshold = `+${cleanThreshold}`;
+                  } else {
+                    adjustedThreshold = `+${cleanThreshold}`;
+                  }
+
                   handicaps.push({
-                    value: threshold,
+                    value: adjustedThreshold,
                     home: homeHandiOdds,
                     away: awayHandiOdds
                   });
