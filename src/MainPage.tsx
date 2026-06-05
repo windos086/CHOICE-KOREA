@@ -2079,7 +2079,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
       {/* Conditional Rendering: My Page vs Betting History vs Mini Game vs Dashboard */}
       {showSports ? (
-        <SportsContainer />
+        <SportsContainer 
+          currentUserData={currentUserData} 
+          userBalance={userBalance} 
+          setUserBalance={setUserBalance} 
+          setUserPoints={setUserPoints}
+        />
       ) : showBetHistory ? (
         <BetHistoryView currentUserData={currentUserData} />
       ) : showSupportScreen ? (

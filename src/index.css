@@ -24,6 +24,10 @@ body {
     0%, 100% { border-color: rgba(63, 63, 70, 0.8); }
     50% { border-color: rgba(220, 38, 38, 0.8); }
   }
+  @keyframes bounceShort {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
 
   .animate-marquee {
     animation: marquee 25s linear infinite;
@@ -33,6 +37,9 @@ body {
   }
   .animate-neon-border {
     animation: neonBorder 3.5s infinite ease-in-out;
+  }
+  .animate-bounce-short {
+    animation: bounceShort 1.4s ease-in-out infinite;
   }
 }
 

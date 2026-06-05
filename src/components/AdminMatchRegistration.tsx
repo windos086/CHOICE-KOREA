@@ -1,23 +1,56 @@
-import React, { useState } from 'react';
-import { addDoc, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { addDoc, collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Save, AlertCircle, Trash2 } from 'lucide-react';
+import { Save, AlertCircle, Trash2, CheckCircle2, ChevronRight, HelpCircle, Activity } from 'lucide-react';
 
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
   const [isParsing, setIsParsing] = useState(false);
+  const [registeredMatches, setRegisteredMatches] = useState<any[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+
+  const fetchRegisteredMatches = async () => {
+    setLoadingMatches(true);
+    try {
+      const snap = await getDocs(collection(db, 'matches'));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      // Sort matches by date/time or creation
+      list.sort((a: any, b: any) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setRegisteredMatches(list);
+    } catch (e) {
+      console.error("Failed to load matches:", e);
+    } finally {
+      setLoadingMatches(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRegisteredMatches();
+  }, []);
 
   const handleRegisterMatches = async () => {
     if (!inputText.trim()) return;
     setIsParsing(true);
 
     try {
-      const lines = inputText.split('\n').filter(l => l.trim() !== '');
-      let currentLeague = 'Unknown';
+      const lines = inputText.split('\n').map(l => l.trim()).filter(Boolean);
+      let currentLeague = '일반 리그';
       let matchesToSave = [];
       
+      const cleanAndTokenize = (rawLine: string): string[] => {
+        if (!rawLine) return [];
+        const index = rawLine.indexOf('<');
+        let text = index !== -1 ? rawLine.substring(0, index) : rawLine;
+        text = text.replace(/분석/g, ' ');
+        return text.trim().split(/\s+/).filter(Boolean);
+      };
+
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        const line = lines[i];
 
         // 리그 헤더 체크 (시간 포맷이나 배당이 없는 라인을 리그로 간주)
         if (!/^\d{2}-\d{2}/.test(line) && !/^\d+\.\d+/.test(line)) {
@@ -27,54 +60,140 @@ export default function AdminMatchRegistration() {
 
         // 경기 데이터 파싱 (날짜 시간 포함 행)
         if (/^\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
-          // 데이터가 최소 3줄(홈, 어웨이, 무승부)은 있어야 함
-          if (i + 3 >= lines.length) continue;
-          
-          // 데이터 행들을 탭으로 분리
-          const homeLine = lines[i + 1]?.split('\t');
-          const awayLine = lines[i + 2]?.split('\t');
-          const drawLine = lines[i + 3]?.split('\t');
-          
-          console.log("Debug Parsing:", {
-            line,
-            homeLine,
-            awayLine,
-            drawLine
-          });
+          if (i + 4 >= lines.length) continue;
+
+          const homeTeam = lines[i + 1];
+          const homeOddsLine = lines[i + 2];
+          const awayTeamLine = lines[i + 3];
+          const drawOddsLine = lines[i + 4];
 
           try {
-            // 구조: 날짜(0), 팀(0), 스코어(?), 승무패(2), 핸디캡(3), 언더오버(4)
-            // 홈팀(homeLine[0]), 어웨이팀(awayLine[0]), 무승부(drawLine[0])
-            
+            const isMarketToken = (token: string): boolean => {
+              if (token === 'O' || token === 'U') return true;
+              if (/[가-힣<>]/.test(token)) return false;
+              return /^[+-]?\d+/.test(token) || /^\d/.test(token);
+            };
+
+            // 1) Parse Draw match line tokens
+            const rawDrawTokens = drawOddsLine.split(/\s+/).filter(Boolean);
+            const drawMarketTokens = rawDrawTokens.filter(isMarketToken);
+            const drawOdds = drawMarketTokens.length > 0 ? (parseFloat(drawMarketTokens[0]) || 0) : 0;
+
+            // 2) Parse Home match line tokens
+            const rawHomeTokens = homeOddsLine.split(/\s+/).filter(Boolean);
+            const homeMarketTokens = rawHomeTokens.filter(isMarketToken);
+            const homeOdds = homeMarketTokens.length > 0 ? (parseFloat(homeMarketTokens[0]) || 1.00) : 1.00;
+
+            // 3) Parse Away match line tokens and team name
+            const rawAwayTokens = awayTeamLine.split(/\s+/).filter(Boolean);
+            let firstOddsIndex = -1;
+            for (let j = 0; j < rawAwayTokens.length; j++) {
+              if (/^\d+\.\d+$/.test(rawAwayTokens[j])) {
+                firstOddsIndex = j;
+                break;
+              }
+            }
+            if (firstOddsIndex === -1) {
+              for (let j = 0; j < rawAwayTokens.length; j++) {
+                if (/^\d+$/.test(rawAwayTokens[j])) {
+                  firstOddsIndex = j;
+                  break;
+                }
+              }
+            }
+
+            if (firstOddsIndex === -1) continue;
+
+            const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ');
+            const awayOddsTokensRaw = rawAwayTokens.slice(firstOddsIndex);
+            const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken);
+            const awayOdds = awayMarketTokens.length > 0 ? (parseFloat(awayMarketTokens[0]) || 1.00) : 1.00;
+
+            const homeRemains = homeMarketTokens.slice(1);
+            const awayRemains = awayMarketTokens.slice(1);
+
+            const handicaps: any[] = [];
+            const overUnders: any[] = [];
+
+            let hIdxAll = 0;
+            let aIdxAll = 0;
+
+            while (hIdxAll < homeRemains.length) {
+              const prevIdx = hIdxAll;
+              const currentToken = homeRemains[hIdxAll];
+              if (!currentToken) break;
+
+              if (currentToken === 'O' || currentToken === 'U') {
+                const isOverHome = currentToken === 'O';
+                const threshold = homeRemains[hIdxAll + 1] || '2.5';
+                const overOdds = parseFloat(homeRemains[hIdxAll + 2]) || 1.00;
+
+                let underOdds = 1.00;
+                if (aIdxAll < awayRemains.length) {
+                  const awayToken = awayRemains[aIdxAll];
+                  if (awayToken === 'U' || awayToken === 'O') {
+                    underOdds = parseFloat(awayRemains[aIdxAll + 2]) || 1.00;
+                    aIdxAll += 3;
+                  } else {
+                    underOdds = parseFloat(awayToken) || 1.00;
+                    aIdxAll += 1;
+                  }
+                }
+
+                overUnders.push({
+                  value: threshold,
+                  over: isOverHome ? overOdds : underOdds,
+                  under: isOverHome ? underOdds : overOdds
+                });
+                hIdxAll += 3;
+              } else {
+                const threshold = currentToken;
+                const awayHandiOdds = parseFloat(homeRemains[hIdxAll + 1]) || 1.00;
+                let homeHandiOdds = 1.00;
+
+                if (aIdxAll < awayRemains.length) {
+                  homeHandiOdds = parseFloat(awayRemains[aIdxAll]) || 1.00;
+                  aIdxAll += 1;
+                }
+
+                handicaps.push({
+                  value: threshold,
+                  home: homeHandiOdds,
+                  away: awayHandiOdds
+                });
+                hIdxAll += 2;
+              }
+
+              if (hIdxAll <= prevIdx) {
+                hIdxAll++;
+              }
+            }
+
             const match = {
               dateTime: line,
               league: currentLeague,
-              homeTeam: homeLine[0]?.trim() || 'Unknown',
-              awayTeam: awayLine[0]?.trim() || 'Unknown',
+              homeTeam: homeTeam.trim(),
+              awayTeam: awayTeam.trim(),
+              homeScore: 0,
+              awayScore: 0,
               markets: {
                 matchWinner: {
-                  home: parseFloat(homeLine[2]) || 0,
-                  draw: parseFloat(drawLine[1]) || 0,
-                  away: parseFloat(awayLine[1]) || 0
+                  home: homeOdds,
+                  draw: drawOdds,
+                  away: awayOdds
                 },
-                handicap: {
-                  value: homeLine[3]?.split(' ')[0] || '',
-                  oddsHome: parseFloat(homeLine[3]?.split(' ')[1]) || 0,
-                  oddsAway: parseFloat(awayLine[2]) || 0
-                },
-                overUnder: {
-                  value: homeLine[4]?.split(' ')[1] || '',
-                  oddsOver: parseFloat(homeLine[4]?.split(' ')[2]) || 0,
-                  oddsUnder: parseFloat(awayLine[3]?.split(' ')[1]) || 0
-                }
+                handicap: handicaps.length > 0 ? handicaps[0] : { value: '', oddsHome: 0, oddsAway: 0 },
+                overUnder: overUnders.length > 0 ? overUnders[0] : { value: '', oddsOver: 0, oddsUnder: 0 },
+                handicaps: handicaps,
+                overUnders: overUnders
               },
               status: 'pending',
               createdAt: new Date().toISOString()
             };
             matchesToSave.push(match);
-            i += 3; // 4줄(날짜, 홈, 원정, 무승부)을 파싱하므로 i를 더 증가시킴
+            i += 4; // Skip the lines we parsed
           } catch (err) {
-            console.error("Failed to parse match, skipping:", err);
+            console.error("Failed to parse match block:", err);
           }
         }
       }
@@ -85,6 +204,7 @@ export default function AdminMatchRegistration() {
 
       alert(`${matchesToSave.length}개의 경기가 등록되었습니다.`);
       setInputText('');
+      fetchRegisteredMatches();
     } catch (e) {
       console.error(e);
       alert('데이터 파싱 오류: 데이터 형식을 확인해주세요.');
@@ -99,40 +219,268 @@ export default function AdminMatchRegistration() {
       const snap = await getDocs(collection(db, 'matches'));
       await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'matches', d.id))));
       alert('모든 경기 데이터가 삭제되었습니다.');
+      fetchRegisteredMatches();
     } catch (e) {
       console.error(e);
       alert('삭제 중 오류가 발생했습니다.');
     }
   };
 
+  const handleResolveMatchWithScore = async (matchId: string, homeScore: number, awayScore: number) => {
+    let outcome: 'home' | 'draw' | 'away' = 'draw';
+    if (homeScore > awayScore) outcome = 'home';
+    else if (homeScore < awayScore) outcome = 'away';
+
+    if (!window.confirm(`이 경기를 스코어 [${homeScore} : ${awayScore}] 결과로 전산 및 당첨 정산 처리하시겠습니까?\n이 동작은 되돌릴 수 없으며 대기 중인 모든 배팅 폴더에 당첨금이 자동 지급됩니다.`)) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'matches', matchId), {
+        status: outcome,
+        homeScore: homeScore,
+        awayScore: awayScore,
+        resolvedAt: new Date().toISOString()
+      });
+      alert(`정산완료: [${homeScore} : ${awayScore}] 결과가 성공적으로 반영되었습니다.`);
+      fetchRegisteredMatches();
+    } catch (err) {
+      console.error(err);
+      alert('정산 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleResolveMatch = async (matchId: string, outcome: 'home' | 'draw' | 'away') => {
+    const outcomeLabel = outcome === 'home' ? '홈 승' : outcome === 'draw' ? '무승부' : '원정 승';
+    if (!window.confirm(`이 경기를 [${outcomeLabel}] 결과로 전산 및 당첨 정산 처리하시겠습니까?\n이 동작은 되돌릴 수 없으며 대기 중인 모든 배팅 폴더에 당첨금이 자동 지급됩니다.`)) {
+      return;
+    }
+
+    const homeScore = outcome === 'home' ? 1 : 0;
+    const awayScore = outcome === 'away' ? 1 : 0;
+
+    try {
+      await updateDoc(doc(db, 'matches', matchId), {
+        status: outcome,
+        homeScore: homeScore,
+        awayScore: awayScore,
+        resolvedAt: new Date().toISOString()
+      });
+      alert(`정산완료: [${outcomeLabel}] 정산이 성공적으로 반영되었습니다.`);
+      fetchRegisteredMatches();
+    } catch (err) {
+      console.error(err);
+      alert('정산 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDeleteSingleMatch = async (matchId: string) => {
+    if (!window.confirm('해당 경기 데이터를 서버에서 즉시 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, 'matches', matchId));
+      fetchRegisteredMatches();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-lg">
-      <h3 className="text-lg font-bold text-white mb-4">경기 데이터 붙여넣기</h3>
-      <textarea
-        className="w-full h-64 bg-black text-white p-4 rounded border border-neutral-700 mb-4 font-mono text-xs"
-        placeholder="데이터를 붙여넣으세요..."
-        value={inputText}
-        onChange={(e) => setInputText(e.target.value)}
-      />
-      <button
-        onClick={handleRegisterMatches}
-        disabled={isParsing}
-        className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded font-bold"
-      >
-        <Save className="w-4 h-4" />
-        {isParsing ? '등록 중...' : '데이터 분석 및 경기 등록'}
-      </button>
-      <button
-        onClick={handleDeleteAllMatches}
-        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-bold mt-4"
-      >
-        <Trash2 className="w-4 h-4" />
-        모든 경기 데이터 삭제
-      </button>
-      <div className="mt-4 text-xs text-gray-500">
-        <AlertCircle className="inline w-3 h-3 mr-1" />
-        팁: 타 사이트에서 복사한 형식에 따라 파싱 로직의 수정이 필요할 수 있습니다.
+    <div className="space-y-6 text-white">
+      
+      {/* 1. Bulk Import Block */}
+      <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xl">
+        <h3 className="text-md font-black text-white mb-2 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-amber-500 animate-pulse" />
+          신규 스포츠 경기 데이터 파싱 등록
+        </h3>
+        <p className="text-xs text-neutral-400 mb-4">그랩한 배팅 파트너 스포츠 문자열 데이터를 아래에 붙여넣어 자동 DB 구축을 시작하세요.</p>
+        
+        <textarea
+          className="w-full h-48 bg-black text-white p-4 rounded-xl border border-neutral-800 focus:border-amber-500/50 mb-4 font-mono text-[11px] outline-none"
+          placeholder="06-07 00:00&#10;유로 U19&#10;포르투갈 U19&#10;1.50   3.70&#10;그리스 U19   5.50&#10;무승부   3.70"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+        />
+        
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            onClick={handleRegisterMatches}
+            disabled={isParsing}
+            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 text-black px-6 py-2.5 rounded-xl font-black text-xs transition cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            {isParsing ? '등록 중...' : '데이터 분석 및 경기 등록'}
+          </button>
+          
+          <button
+            onClick={handleDeleteAllMatches}
+            className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-750 text-red-400 border border-neutral-700/60 px-6 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            모든 등록 경기 초기화
+          </button>
+        </div>
+        
+        <div className="mt-4 text-[10px] text-gray-500 flex items-center gap-1.5 bg-neutral-950 p-2.5 rounded-xl border border-neutral-850/50">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+          <span>팁: 복사한 데이터가 정상적으로 포맷팅되지 않을 시 한 단락씩 나누어 파싱해 전송하십시오.</span>
+        </div>
       </div>
+
+      {/* 2. Settle &Settle List Block */}
+      <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+          <h3 className="text-md font-black text-white flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            실시간 등록 경기 관리 & 승무패 결과 정산기
+          </h3>
+          <button
+            onClick={fetchRegisteredMatches}
+            className="text-[10px] bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg transition"
+          >
+            새로고침
+          </button>
+        </div>
+
+        {loadingMatches ? (
+          <div className="py-8 text-center text-neutral-500 font-bold text-xs animate-pulse">
+            스포츠 매칭 목록을 동기화 중입니다...
+          </div>
+        ) : registeredMatches.length === 0 ? (
+          <div className="py-12 text-center text-neutral-500 border border-dashed border-neutral-800 rounded-xl space-y-1.5">
+            <HelpCircle className="w-8 h-8 text-neutral-700 mx-auto" />
+            <p className="text-xs font-black">등록된 경기가 남아있지 않습니다.</p>
+            <p className="text-[10px] text-neutral-600">위 파라미터 영역을 통해 새로운 정규 스포츠 게임들을 업로드하십시오.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-neutral-850/80 rounded-xl bg-neutral-950/40">
+            <table className="w-full text-left text-xs text-neutral-300">
+              <thead className="bg-[#0b0c10] text-[#71717a] border-b border-neutral-850 text-[10px] font-black uppercase tracking-wider">
+                <tr>
+                  <th className="p-3">경기일정 / 리그</th>
+                  <th className="p-3 text-center">홈 팀 vs 어웨이 팀</th>
+                  <th className="p-3 text-center">배당 수율</th>
+                  <th className="p-3 text-center">현재정산상태</th>
+                  <th className="p-3 text-center">정산 처리 동작</th>
+                  <th className="p-3 text-center">동작</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-850/30 text-xs">
+                {registeredMatches.map((m) => (
+                  <tr key={m.id} className="hover:bg-neutral-900/40 transition-colors">
+                    <td className="p-3 space-y-1">
+                      <div className="font-mono text-neutral-400 font-bold">{m.dateTime}</div>
+                      <div className="text-[10px] font-black bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded-md inline-block">
+                        {m.league || '일반 리그'}
+                      </div>
+                    </td>
+                    <td className="p-3 text-center font-bold">
+                      <div className="flex items-center justify-center gap-3">
+                        <span className="text-amber-500">{m.homeTeam}</span>
+                        <span className="text-neutral-600 text-[10px] font-mono">VS</span>
+                        <span className="text-sky-400">{m.awayTeam}</span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-center font-mono font-bold text-[11px] text-neutral-400 space-y-0.5">
+                      <div>승: {m.markets?.matchWinner?.home?.toFixed(2) || '0'}</div>
+                      <div>무: {m.markets?.matchWinner?.draw?.toFixed(2) || '-'}</div>
+                      <div>패: {m.markets?.matchWinner?.away?.toFixed(2) || '0'}</div>
+                    </td>
+                    <td className="p-3 text-center">
+                      {m.status === 'pending' ? (
+                        <span className="px-2 py-1 bg-emerald-950/40 border border-emerald-900 text-emerald-400 rounded-md font-black text-[10px] inline-block animate-pulse">
+                          배팅 접수 중
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-neutral-900 border border-neutral-800 text-neutral-400 rounded-md font-black text-[10px] inline-block">
+                          결과: {m.homeScore ?? 0} : {m.awayScore ?? 0} ({m.status === 'home' ? '홈 승' : m.status === 'draw' ? '무승부' : '원정 승'})
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      {m.status === 'pending' ? (
+                        <div className="space-y-2">
+                          {/* 스코어 정산 수동 입력 */}
+                          <div className="flex items-center justify-center gap-1.5">
+                            <input
+                              type="number"
+                              placeholder="홈"
+                              min="0"
+                              id={`score_home_${m.id}`}
+                              className="w-11 bg-black border border-neutral-800 text-center text-xs font-mono font-black py-1 px-1.5 rounded focus:border-amber-500/50 outline-none text-white-500"
+                            />
+                            <span className="text-neutral-600 font-extrabold">:</span>
+                            <input
+                              type="number"
+                              placeholder="원정"
+                              min="0"
+                              id={`score_away_${m.id}`}
+                              className="w-11 bg-black border border-neutral-800 text-center text-xs font-mono font-black py-1 px-1.5 rounded focus:border-amber-500/50 outline-none text-white-500"
+                            />
+                            <button
+                              onClick={() => {
+                                const homeEl = document.getElementById(`score_home_${m.id}`) as HTMLInputElement;
+                                const awayEl = document.getElementById(`score_away_${m.id}`) as HTMLInputElement;
+                                const hVal = parseInt(homeEl?.value);
+                                const aVal = parseInt(awayEl?.value);
+                                if (isNaN(hVal) || isNaN(aVal)) {
+                                  alert('정확한 스코어 숫자를 각각 입력하십시오.');
+                                  return;
+                                }
+                                handleResolveMatchWithScore(m.id, hVal, aVal);
+                              }}
+                              className="px-2 py-1 text-[10px] font-black rounded bg-amber-500 text-black hover:bg-amber-400 transition cursor-pointer shrink-0"
+                            >
+                              정산
+                            </button>
+                          </div>
+                          
+                          {/* 원클릭 빠른 정산 단축 */}
+                          <div className="flex justify-center gap-1 border-t border-neutral-850/40 pt-1.5">
+                            <button
+                              onClick={() => handleResolveMatch(m.id, 'home')}
+                              className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-amber-900/60 text-amber-500 hover:bg-amber-500 hover:text-black transition cursor-pointer"
+                              title="홈 승리 정산 (스코어 1:0 자동 인입)"
+                            >
+                              홈승(1:0)
+                            </button>
+                            <button
+                              onClick={() => handleResolveMatch(m.id, 'draw')}
+                              className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-neutral-750 text-neutral-300 hover:bg-neutral-200 hover:text-black transition cursor-pointer"
+                              title="무승부 정산 (스코어 0:0 자동 인입)"
+                            >
+                              무(0:0)
+                            </button>
+                            <button
+                              onClick={() => handleResolveMatch(m.id, 'away')}
+                              className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-sky-900/60 text-sky-400 hover:bg-sky-500 hover:text-black transition cursor-pointer"
+                              title="원정 승리 정산 (스코어 0:1 자동 인입)"
+                            >
+                              원정승(0:1)
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-neutral-600 text-xs font-bold">정산 완료됨</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => handleDeleteSingleMatch(m.id)}
+                        className="text-neutral-500 hover:text-rose-500 p-1.5 rounded transition"
+                        title="경기 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
