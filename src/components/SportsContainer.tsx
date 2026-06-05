@@ -71,6 +71,24 @@ function getSportCategory(match: any): '축구' | '농구' | '야구' {
   return '축구';
 }
 
+function parseDateTimeToComparableNum(dateTimeStr: string): number {
+  if (!dateTimeStr) return 9999999999;
+  try {
+    const cleaned = dateTimeStr.trim();
+    const match = cleaned.match(/^(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    if (match) {
+      const month = parseInt(match[1], 10);
+      const day = parseInt(match[2], 10);
+      const hour = parseInt(match[3], 10);
+      const minute = parseInt(match[4], 10);
+      return month * 1000000 + day * 10000 + hour * 100 + minute;
+    }
+  } catch (e) {
+    console.error("Failed to parse dateTime comparison:", e);
+  }
+  return 9999999999;
+}
+
 export default function SportsContainer({
   currentUserData,
   userBalance = 0,
@@ -95,7 +113,15 @@ export default function SportsContainer({
     try {
       const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      const fetchedMatches = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const fetchedMatches = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      
+      // Sort matches chronologically (earliest start time first)
+      fetchedMatches.sort((a, b) => {
+        const timeA = parseDateTimeToComparableNum(a.dateTime);
+        const timeB = parseDateTimeToComparableNum(b.dateTime);
+        return timeA - timeB;
+      });
+
       setMatches(fetchedMatches);
     } catch (error) {
       console.error('Error fetching matches:', error);
@@ -362,6 +388,16 @@ export default function SportsContainer({
     return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'matchWinner' && f.type === type);
   };
 
+  const cleanLineValue = (valStr: string): string => {
+    if (!valStr) return '';
+    const trimmed = valStr.trim();
+    if (trimmed.includes('/')) {
+      const parts = trimmed.split('/');
+      return parts[parts.length - 1].trim();
+    }
+    return trimmed;
+  };
+
   const parseHandicapValue = (valStr: string): number => {
     if (!valStr) return 0;
     valStr = valStr.trim();
@@ -376,20 +412,21 @@ export default function SportsContainer({
 
   const handleSelectHandicap = (match: any, handi: any, type: 'home' | 'away') => {
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
+    const cleanedLineValue = cleanLineValue(handi.value);
 
     const newFolderObj = {
       matchId: match.id,
       match: match,
       marketType: 'handicap',
       type: type,
-      lineValue: handi.value,
+      lineValue: cleanedLineValue,
       odds: parseFloat(type === 'home' ? handi.home : handi.away),
-      label: type === 'home' ? `홈 핸디캡 [${handi.value}]` : `원정 핸디캡 [${handi.value}]`
+      label: type === 'home' ? `홈 핸디캡 [${cleanedLineValue}]` : `원정 핸디캡 [${cleanedLineValue}]`
     };
 
     if (existingSameMatchIndex > -1) {
       const existingSelection = selectedFolders[existingSameMatchIndex];
-      if (existingSelection.marketType === 'handicap' && existingSelection.lineValue === handi.value && existingSelection.type === type) {
+      if (existingSelection.marketType === 'handicap' && existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
         setSelectedFolders(prev => prev.filter(f => f.matchId !== match.id));
       } else {
         setSelectedFolders(prev => prev.map(f => f.matchId === match.id ? newFolderObj : f));
@@ -405,20 +442,21 @@ export default function SportsContainer({
 
   const handleSelectOverUnder = (match: any, ou: any, type: 'over' | 'under') => {
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
+    const cleanedLineValue = cleanLineValue(ou.value);
 
     const newFolderObj = {
       matchId: match.id,
       match: match,
       marketType: 'overUnder',
       type: type,
-      lineValue: ou.value,
+      lineValue: cleanedLineValue,
       odds: parseFloat(type === 'over' ? ou.over : ou.under),
-      label: type === 'over' ? `오버 [${ou.value}▲]` : `언더 [${ou.value}▼]`
+      label: type === 'over' ? `오버 [${cleanedLineValue}▲]` : `언더 [${cleanedLineValue}▼]`
     };
 
     if (existingSameMatchIndex > -1) {
       const existingSelection = selectedFolders[existingSameMatchIndex];
-      if (existingSelection.marketType === 'overUnder' && existingSelection.lineValue === ou.value && existingSelection.type === type) {
+      if (existingSelection.marketType === 'overUnder' && existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
         setSelectedFolders(prev => prev.filter(f => f.matchId !== match.id));
       } else {
         setSelectedFolders(prev => prev.map(f => f.matchId === match.id ? newFolderObj : f));
@@ -433,11 +471,11 @@ export default function SportsContainer({
   };
 
   const isSelectedHandicap = (matchId: string, value: string, type: 'home' | 'away') => {
-    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'handicap' && f.lineValue === value && f.type === type);
+    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'handicap' && f.lineValue === cleanLineValue(value) && f.type === type);
   };
 
   const isSelectedOverUnder = (matchId: string, value: string, type: 'over' | 'under') => {
-    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'overUnder' && f.lineValue === value && f.type === type);
+    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'overUnder' && f.lineValue === cleanLineValue(value) && f.type === type);
   };
 
   // Arithmetic multiplication of parlay stakes
@@ -764,7 +802,14 @@ export default function SportsContainer({
                 groups[lg].push(m);
               });
 
-              return Object.entries(groups).map(([leagueName, leagueMatches]) => (
+              // Sort league groups by their earliest match dateTime
+              const sortedGroups = Object.entries(groups).sort((a, b) => {
+                const earliestA = a[1][0]?.dateTime || '';
+                const earliestB = b[1][0]?.dateTime || '';
+                return parseDateTimeToComparableNum(earliestA) - parseDateTimeToComparableNum(earliestB);
+              });
+
+              return sortedGroups.map(([leagueName, leagueMatches]) => (
                 <div key={leagueName} className="space-y-3 mb-6">
                   {/* League Title Bar */}
                   <div className="bg-neutral-950 border border-neutral-850 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
@@ -909,7 +954,7 @@ export default function SportsContainer({
                             {/* Column 3: Handicap line value */}
                             <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
                               <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
-                                {handi.value || '0'}
+                                {cleanLineValue(handi.value) || '0'}
                               </span>
                             </div>
 
@@ -982,7 +1027,7 @@ export default function SportsContainer({
                             {/* Column 3: Line value */}
                             <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
                               <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
-                                {ou.value || '2.5'}
+                                {cleanLineValue(ou.value) || '2.5'}
                               </span>
                             </div>
 

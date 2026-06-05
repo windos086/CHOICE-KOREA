@@ -3,6 +3,68 @@ import { addDoc, collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase
 import { db } from '../lib/firebase';
 import { Save, AlertCircle, Trash2, CheckCircle2, ChevronRight, HelpCircle, Activity } from 'lucide-react';
 
+const cleanLineValue = (valStr: string): string => {
+  if (!valStr) return '';
+  const trimmed = valStr.trim();
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    return parts[parts.length - 1].trim();
+  }
+  return trimmed;
+};
+
+const isZeroHandicap = (valStr: string): boolean => {
+  const cleaned = cleanLineValue(valStr);
+  if (!cleaned) return true;
+  const num = parseFloat(cleaned.replace(/[+-Hh]/g, '').trim());
+  return isNaN(num) || num === 0;
+};
+
+const areMarketsDifferent = (m1: any, m2: any): boolean => {
+  if (!m1 || !m2) return true;
+  
+  // Compare matchWinner
+  const w1 = m1.matchWinner || {};
+  const w2 = m2.matchWinner || {};
+  if (
+    Math.abs((w1.home || 0) - (w2.home || 0)) > 0.001 ||
+    Math.abs((w1.draw || 0) - (w2.draw || 0)) > 0.001 ||
+    Math.abs((w1.away || 0) - (w2.away || 0)) > 0.001
+  ) {
+    return true;
+  }
+
+  // Compare handicaps list
+  const h1 = m1.handicaps || [];
+  const h2 = m2.handicaps || [];
+  if (h1.length !== h2.length) return true;
+  for (let i = 0; i < h1.length; i++) {
+    if (
+      h1[i].value !== h2[i].value ||
+      Math.abs((h1[i].home || 0) - (h2[i].home || 0)) > 0.001 ||
+      Math.abs((h1[i].away || 0) - (h2[i].away || 0)) > 0.001
+    ) {
+      return true;
+    }
+  }
+
+  // Compare overUnders list
+  const ou1 = m1.overUnders || [];
+  const ou2 = m2.overUnders || [];
+  if (ou1.length !== ou2.length) return true;
+  for (let i = 0; i < ou1.length; i++) {
+    if (
+      ou1[i].value !== ou2[i].value ||
+      Math.abs((ou1[i].over || 0) - (ou2[i].over || 0)) > 0.001 ||
+      Math.abs((ou1[i].under || 0) - (ou2[i].under || 0)) > 0.001
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
   const [isParsing, setIsParsing] = useState(false);
@@ -37,9 +99,19 @@ export default function AdminMatchRegistration() {
     setIsParsing(true);
 
     try {
+      // 1. Fetch current matches in Firebase to identify duplicates in real-time
+      const snap = await getDocs(collection(db, 'matches'));
+      const existingList = snap.docs.map(d => ({ docId: d.id, ...d.data() } as any));
+      const existingMap = new Map<string, any>();
+      for (const m of existingList) {
+        const key = `${m.homeTeam.trim()}_${m.awayTeam.trim()}_${m.dateTime.trim()}`;
+        existingMap.set(key, m);
+      }
+
       const lines = inputText.split('\n').map(l => l.trim()).filter(Boolean);
       let currentLeague = '일반 리그';
-      let matchesToSave = [];
+      let addedCount = 0;
+      let updatedCount = 0;
       
       const cleanAndTokenize = (rawLine: string): string[] => {
         if (!rawLine) return [];
@@ -71,7 +143,7 @@ export default function AdminMatchRegistration() {
             const isMarketToken = (token: string): boolean => {
               if (token === 'O' || token === 'U') return true;
               if (/[가-힣<>]/.test(token)) return false;
-              return /^[+-]?\d+/.test(token) || /^\d/.test(token);
+              return /^[+-]?\d+/.test(token) || /^\d/.test(token) || /^[Hh][+-]?\d+/.test(token) || /^[Hh]\d/.test(token);
             };
 
             // 1) Parse Draw match line tokens
@@ -125,26 +197,30 @@ export default function AdminMatchRegistration() {
 
               if (currentToken === 'O' || currentToken === 'U') {
                 const isOverHome = currentToken === 'O';
-                const threshold = homeRemains[hIdxAll + 1] || '2.5';
-                const overOdds = parseFloat(homeRemains[hIdxAll + 2]) || 1.00;
+                const threshold = homeRemains[hIdxAll + 1];
+                
+                // Do not register over/under standard is missing / empty
+                if (threshold && threshold.trim() !== '') {
+                  const overOdds = parseFloat(homeRemains[hIdxAll + 2]) || 1.00;
 
-                let underOdds = 1.00;
-                if (aIdxAll < awayRemains.length) {
-                  const awayToken = awayRemains[aIdxAll];
-                  if (awayToken === 'U' || awayToken === 'O') {
-                    underOdds = parseFloat(awayRemains[aIdxAll + 2]) || 1.00;
-                    aIdxAll += 3;
-                  } else {
-                    underOdds = parseFloat(awayToken) || 1.00;
-                    aIdxAll += 1;
+                  let underOdds = 1.00;
+                  if (aIdxAll < awayRemains.length) {
+                    const awayToken = awayRemains[aIdxAll];
+                    if (awayToken === 'U' || awayToken === 'O') {
+                      underOdds = parseFloat(awayRemains[aIdxAll + 2]) || 1.00;
+                      aIdxAll += 3;
+                    } else {
+                      underOdds = parseFloat(awayToken) || 1.00;
+                      aIdxAll += 1;
+                    }
                   }
-                }
 
-                overUnders.push({
-                  value: threshold,
-                  over: isOverHome ? overOdds : underOdds,
-                  under: isOverHome ? underOdds : overOdds
-                });
+                  overUnders.push({
+                    value: threshold,
+                    over: isOverHome ? overOdds : underOdds,
+                    under: isOverHome ? underOdds : overOdds
+                  });
+                }
                 hIdxAll += 3;
               } else {
                 const threshold = currentToken;
@@ -156,11 +232,14 @@ export default function AdminMatchRegistration() {
                   aIdxAll += 1;
                 }
 
-                handicaps.push({
-                  value: threshold,
-                  home: homeHandiOdds,
-                  away: awayHandiOdds
-                });
+                // Do not register handicap standard is 0
+                if (!isZeroHandicap(threshold)) {
+                  handicaps.push({
+                    value: threshold,
+                    home: homeHandiOdds,
+                    away: awayHandiOdds
+                  });
+                }
                 hIdxAll += 2;
               }
 
@@ -169,28 +248,47 @@ export default function AdminMatchRegistration() {
               }
             }
 
-            const match = {
-              dateTime: line,
-              league: currentLeague,
-              homeTeam: homeTeam.trim(),
-              awayTeam: awayTeam.trim(),
-              homeScore: 0,
-              awayScore: 0,
-              markets: {
-                matchWinner: {
-                  home: homeOdds,
-                  draw: drawOdds,
-                  away: awayOdds
-                },
-                handicap: handicaps.length > 0 ? handicaps[0] : { value: '', oddsHome: 0, oddsAway: 0 },
-                overUnder: overUnders.length > 0 ? overUnders[0] : { value: '', oddsOver: 0, oddsUnder: 0 },
-                handicaps: handicaps,
-                overUnders: overUnders
+            const parsedMarkets = {
+              matchWinner: {
+                home: homeOdds,
+                draw: drawOdds,
+                away: awayOdds
               },
-              status: 'pending',
-              createdAt: new Date().toISOString()
+              handicap: handicaps.length > 0 ? handicaps[0] : { value: '', oddsHome: 0, oddsAway: 0 },
+              overUnder: overUnders.length > 0 ? overUnders[0] : { value: '', oddsOver: 0, oddsUnder: 0 },
+              handicaps: handicaps,
+              overUnders: overUnders
             };
-            matchesToSave.push(match);
+
+            const key = `${homeTeam.trim()}_${awayTeam.trim()}_${line.trim()}`;
+            const existingMatch = existingMap.get(key);
+
+            if (existingMatch) {
+              // Existing match! Update the odds and line/bases if shifted
+              if (areMarketsDifferent(parsedMarkets, existingMatch.markets)) {
+                await updateDoc(doc(db, 'matches', existingMatch.docId), {
+                  markets: parsedMarkets,
+                  updatedAt: new Date().toISOString()
+                });
+                updatedCount++;
+              }
+            } else {
+              // New match! Register with standard pending state
+              const newMatchDoc = {
+                dateTime: line,
+                league: currentLeague,
+                homeTeam: homeTeam.trim(),
+                awayTeam: awayTeam.trim(),
+                homeScore: 0,
+                awayScore: 0,
+                markets: parsedMarkets,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+              };
+              await addDoc(collection(db, 'matches'), newMatchDoc);
+              addedCount++;
+            }
+
             i += 4; // Skip the lines we parsed
           } catch (err) {
             console.error("Failed to parse match block:", err);
@@ -198,16 +296,22 @@ export default function AdminMatchRegistration() {
         }
       }
 
-      for (const match of matchesToSave) {
-        await addDoc(collection(db, 'matches'), match);
+      // Show beautiful feedback based on operations completed
+      if (addedCount > 0 && updatedCount > 0) {
+        alert(`${addedCount}개의 신규 경기가 등록되었고, ${updatedCount}개의 기존 등록 경기 배당/기준점이 최신 정보로 갱신되었습니다.`);
+      } else if (addedCount > 0) {
+        alert(`${addedCount}개의 신규 경기가 성공적으로 등록되었습니다.`);
+      } else if (updatedCount > 0) {
+        alert(`${updatedCount}개의 기존 등록 경기 배당/기준점이 갱신되었습니다.`);
+      } else {
+        alert(`저장되거나 변경된 배당/기준점 정보가 없습니다.`);
       }
 
-      alert(`${matchesToSave.length}개의 경기가 등록되었습니다.`);
       setInputText('');
       fetchRegisteredMatches();
     } catch (e) {
       console.error(e);
-      alert('데이터 파싱 오류: 데이터 형식을 확인해주세요.');
+      alert('데이터 파싱 및 저장 오류: 데이터 형식을 확인해주세요.');
     } finally {
       setIsParsing(false);
     }
