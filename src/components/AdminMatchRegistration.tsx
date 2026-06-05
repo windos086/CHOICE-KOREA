@@ -12,66 +12,70 @@ export default function AdminMatchRegistration() {
     setIsParsing(true);
 
     try {
-      const lines = inputText.split('\n').map(l => l.trim()).filter(l => l !== '');
-      
+      const lines = inputText.split('\n').filter(l => l.trim() !== '');
       let currentLeague = 'Unknown';
       let matchesToSave = [];
       
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i].trim();
 
-        // 리그 확인
-        if (line.includes('>')) {
+        // 리그 헤더 체크 (시간 포맷이나 배당이 없는 라인을 리그로 간주)
+        if (!/^\d{2}-\d{2}/.test(line) && !/^\d+\.\d+/.test(line)) {
           currentLeague = line;
           continue;
         }
 
-        // 날짜/시간 확인 -> 매치 시작
-        if (/^\d{2}-\d{2}\s\d{2}:\d{2}$/.test(line)) {
-          // 다음 라인들에서 팀과 배당 찾기
-          // 구조: [팀A] [배당1] [VS] [배당2] [팀B] -> 혹은 줄바꿈이 다를 수 있음.
-          // 예시 파싱: 
-          // 우크라이나
-          // 5.09
-          // VS
-          // 1.15
-          // 독일 (W)
+        // 경기 데이터 파싱 (날짜 시간 포함 행)
+        if (/^\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
+          const parts = line.split('\t'); // 테이블 복사는 보통 탭으로 구분됨
+          // parts 형태: [날짜, 팀AAA, 스코어, 승무패배당, 핸디캡배당, 오버언더배당, 전반핸디캡, 전반오버언더]
           
-          // 다음 5-6라인을 살펴봄
-          const nextLines = lines.slice(i + 1, i + 10);
-          
-          // 팀과 배당 찾기 (단순화: 배당이 숫자인 것을 찾음)
-          const teams = nextLines.filter(l => /^[가-힣a-zA-Z\s\(\)]+$/.test(l) && l !== 'VS');
-          const odds = nextLines.filter(l => /^\d+\.\d+$/.test(l)).map(l => parseFloat(l));
-          
-          if (teams.length >= 2 && odds.length >= 2) {
-            matchesToSave.push({
-              dateTime: line,
+          if (parts.length >= 6) {
+            const homeTeam = parts[1];
+            const nextLine = lines[i+1]?.split('\t') || [];
+            const awayTeam = nextLine[0] || 'Unknown';
+            const drawOdds = parseFloat(lines[i+2]?.split('\t')[0]) || 0; // '무승부' 줄 찾기
+
+            const match = {
+              dateTime: parts[0],
               league: currentLeague,
-              homeTeam: teams[0],
-              homeDividend: odds[0],
-              awayTeam: teams[1],
-              awayDividend: odds[1],
+              homeTeam: homeTeam,
+              awayTeam: awayTeam,
+              markets: {
+                matchWinner: {
+                  home: parseFloat(parts[3]) || 0,
+                  draw: drawOdds,
+                  away: parseFloat(nextLine[1]) || 0
+                },
+                handicap: {
+                  value: parts[4].split(' ')[0], 
+                  oddsHome: parseFloat(parts[4].split(' ')[1]) || 0,
+                  oddsAway: parseFloat(nextLine[2]) || 0
+                },
+                overUnder: {
+                  value: parts[5].split(' ')[1],
+                  oddsOver: parseFloat(parts[5].split(' ')[2]) || 0,
+                  oddsUnder: parseFloat(nextLine[3].split(' ')[1]) || 0
+                }
+              },
               status: 'pending',
               createdAt: new Date().toISOString()
-            });
-            // 파싱한 만큼 건너뛰기
-            i += 5; 
+            };
+            matchesToSave.push(match);
+            i += 2; // 홈, 어웨이, 무승부 라인을 고려하여 건너뛰기
           }
-          continue;
         }
       }
 
-      // Firebase에 저장
       for (const match of matchesToSave) {
         await addDoc(collection(db, 'matches'), match);
       }
 
       alert(`${matchesToSave.length}개의 경기가 등록되었습니다.`);
       setInputText('');
-    } catch (error) {
-      console.error('Error registering matches:', error);
-      alert('경기 데이터 파싱 중 오류가 발생했습니다. (팀이름/배당 형식을 확인해주세요.)');
+    } catch (e) {
+      console.error(e);
+      alert('데이터 파싱 오류: 데이터 형식을 확인해주세요.');
     } finally {
       setIsParsing(false);
     }
