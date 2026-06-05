@@ -325,11 +325,13 @@ export default function AdminMatchRegistration() {
                   }
                 }
 
-                handicaps.push({
-                  value: threshold,
-                  home: homeHandiOdds,
-                  away: awayHandiOdds
-                });
+                if (!isZeroHandicap(threshold)) {
+                  handicaps.push({
+                    value: threshold,
+                    home: homeHandiOdds,
+                    away: awayHandiOdds
+                  });
+                }
               }
             }
 
