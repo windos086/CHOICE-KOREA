@@ -147,9 +147,9 @@ export default function AdminMatchRegistration() {
         if (blockLines.length === 0) continue;
 
         const isOddsLine = (txt: string): boolean => {
-          // Look for patterns that contain odds (decimals or integers)
-          // or markers with thresholds.
-          return /\d+(\.\d+)?/.test(txt) || /[HhOoUu][+-]?\d+(\.\d+)?/.test(txt);
+          // Odds line MUST contain at least one float decimal (e.g. 1.50, 2.50)
+          // to avoid incorrectly matching team names/leagues with integers (e.g. "U19" or "디비전 2")
+          return /\d+\.\d+/.test(txt);
         };
 
         let firstOddsLineIdx = -1;
