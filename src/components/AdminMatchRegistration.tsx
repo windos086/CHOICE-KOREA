@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Save, AlertCircle } from 'lucide-react';
+import { Save, AlertCircle, Trash2 } from 'lucide-react';
 
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
@@ -77,6 +77,18 @@ export default function AdminMatchRegistration() {
     }
   };
 
+  const handleDeleteAllMatches = async () => {
+    if (!window.confirm('정말로 모든 경기 데이터를 삭제하시겠습니까?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'matches'));
+      await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'matches', d.id))));
+      alert('모든 경기 데이터가 삭제되었습니다.');
+    } catch (e) {
+      console.error(e);
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-lg">
       <h3 className="text-lg font-bold text-white mb-4">경기 데이터 붙여넣기</h3>
@@ -93,6 +105,13 @@ export default function AdminMatchRegistration() {
       >
         <Save className="w-4 h-4" />
         {isParsing ? '등록 중...' : '데이터 분석 및 경기 등록'}
+      </button>
+      <button
+        onClick={handleDeleteAllMatches}
+        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-bold mt-4"
+      >
+        <Trash2 className="w-4 h-4" />
+        모든 경기 데이터 삭제
       </button>
       <div className="mt-4 text-xs text-gray-500">
         <AlertCircle className="inline w-3 h-3 mr-1" />

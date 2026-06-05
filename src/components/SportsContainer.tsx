@@ -25,20 +25,7 @@ export default function SportsContainer() {
 
   return (
     <div className="flex-1 p-6 w-full mx-auto max-w-6xl text-white">
-      {/* Category Selection (Static for now) */}
-      <div className="flex gap-4 mb-6">
-        {[
-          { icon: Trophy, name: '축구' },
-          { icon: Target, name: '농구' },
-          { icon: Circle, name: '야구' },
-          { icon: Circle, name: '배구' },
-        ].map((sport, idx) => (
-          <button key={idx} className="flex flex-col items-center gap-2 p-4 bg-neutral-900 border border-neutral-800 rounded-lg w-24 hover:border-amber-500">
-            <sport.icon className="w-8 h-8 text-amber-500" />
-            <span className="text-sm">{sport.name}</span>
-          </button>
-        ))}
-      </div>
+      {/* Category Selection removed as requested */}
 
       {/* Banner */}
       <div className="bg-gradient-to-r from-neutral-800 to-neutral-900 p-6 rounded-lg mb-6 border border-neutral-700">

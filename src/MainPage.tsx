@@ -1260,7 +1260,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         { key: 'powerball3', name: 'N파워볼(3분)' },
         { key: 'powerladder5', name: 'N파워사다리(5분)' },
         { key: 'ladder5', name: '사다리(5분)' },
-        { key: 'daridari3', name: '다리다리(3분)' }
+        { key: 'daridari3', name: '다리다리(3분)' },
+        { key: 'speedladder1', name: '스피드사다리(1분)' }
       ];
 
       let didAdd = false;
@@ -1333,10 +1334,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
     setIsLoadingGameResults(true);
     try {
       const snap = await getDocs(collection(db, 'gameResults'));
-      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', '다리다리(3분)', 'N파워사다리(5분)'];
+      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', '다리다리(3분)', 'N파워사다리(5분)', '스피드사다리(1분)'];
       const results = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((res: any) => minigameNames.includes(res.gameName));
+        .filter((res: any) => minigameNames.includes(res.gameName.trim()));
       results.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       console.log("Loaded game results:", results);
       setGameResults(results);
@@ -1810,6 +1811,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
         {/* Navigation Menus (Centered) */}
         <nav className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm font-extrabold text-gray-300">
           {['테더가이드', '스포츠', '미니게임', '인플레이', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
+            if (item === '스포츠') {
+              return (
+                  <button 
+                    key={item}
+                    onClick={() => { setShowSports(true); setShowMyPage(false); setShowMiniGame(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowSupportScreen(false); setShowAttendanceChecker(false); }}
+                    className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showSports ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                  >
+                    스포츠
+                  </button>
+              );
+            }
             if (item === '미니게임') {
               return (
                 <div 
@@ -2003,23 +2015,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
           </div>
 
           {/* Sports Menu Button */}
-          <button 
-            type="button"
-            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => {
-              setShowSports(true);
-              setShowMyPage(false);
-              setShowMiniGame(false);
-              setShowDepositScreen(false);
-              setShowWithdrawalScreen(false);
-              setShowGameResultScreen(false);
-              setShowBetHistory(false);
-              setShowSupportScreen(false);
-              setShowAttendanceChecker(false);
-            }}
-          >
-            스포츠
-          </button>
 
           {/* My Page Button */}
           <button 
@@ -2958,7 +2953,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             {/* Game Result Categories */}
             <div className="flex flex-wrap gap-2 mb-6 border-b border-neutral-800/80 pb-6">
-              {['전체', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', '사다리(5분)', '다리다리(3분)'].map(cat => (
+              {['전체', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', '사다리(5분)', '다리다리(3분)', '스피드사다리(1분)'].map(cat => (
                 <button 
                   key={cat} 
                   onClick={() => {
@@ -2986,7 +2981,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
                 
                 const isPowerball = res.gameName === 'N파워볼(5분)' || res.gameName === 'N파워볼(3분)';
-                const isLadder = res.gameName === '사다리(5분)' || res.gameName === '다리다리(3분)' || res.gameName === 'N파워사다리(5분)';
+                const isLadder = res.gameName === '사다리(5분)' || res.gameName === '다리다리(3분)' || res.gameName === 'N파워사다리(5분)' || res.gameName === '스피드사다리(1분)';
                 
                 if (isPowerball) {
                   const details = res.details || {};
@@ -3180,7 +3175,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               };
 
               const allExpandedRows = gameResults
-                .filter((res: any) => gameResultFilter === '전체' ? true : res.gameName === gameResultFilter)
+                .filter((res: any) => gameResultFilter === '전체' ? true : res.gameName.trim() === gameResultFilter)
                 .flatMap(res => expandGameResultToRows(res));
 
               if (allExpandedRows.length === 0) {
