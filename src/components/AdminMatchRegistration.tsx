@@ -16,7 +16,7 @@ const cleanLineValue = (valStr: string): string => {
 const isZeroHandicap = (valStr: string): boolean => {
   const cleaned = cleanLineValue(valStr);
   if (!cleaned) return true;
-  const num = parseFloat(cleaned.replace(/[+-Hh]/g, '').trim());
+  const num = parseFloat(cleaned.replace(/[Hh]/g, '').trim());
   return isNaN(num) || num === 0;
 };
 
@@ -147,19 +147,9 @@ export default function AdminMatchRegistration() {
         if (blockLines.length === 0) continue;
 
         const isOddsLine = (txt: string): boolean => {
-          const tokens = txt.trim().split(/\s+/);
-          let score = 0;
-          for (const t of tokens) {
-            const cleaned = t.replace(/[\[\]\(\)]/g, '').trim();
-            if (/^\d+(\.\d+)?$/.test(cleaned)) {
-              score += 2;
-            } else if (/^[OoUuHh]$/.test(cleaned) || /^[OoUuHh][+-]?\d+(\.\d+)?/.test(cleaned)) {
-              score += 1.5;
-            } else if (/^\d+\/\d+(\.\d+)?$/.test(cleaned)) {
-              score += 2;
-            }
-          }
-          return score >= 3;
+          // Odds line MUST contain at least one float decimal (e.g. 1.50, 2.50)
+          // to avoid incorrectly matching team names/leagues with integers (e.g. "U19" or "디비전 2")
+          return /\d+\.\d+/.test(txt);
         };
 
         let firstOddsLineIdx = -1;
