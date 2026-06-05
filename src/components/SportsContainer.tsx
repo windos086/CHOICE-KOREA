@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Target, Zap, Clock, Trash2, ArrowRight, 
-  Check, AlertTriangle, AlertCircle, ShoppingCart, Calendar, Info
+  Check, AlertTriangle, AlertCircle, ShoppingCart, Calendar, Info,
+  Search, SlidersHorizontal
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -99,6 +100,8 @@ export default function SportsContainer({
   const [loading, setLoading] = useState(true);
   const [activeLeagueTab, setActiveLeagueTab] = useState<string>('전체');
   const [activeSportTab, setActiveSportTab] = useState<'전체' | '축구' | '농구' | '야구'>('전체');
+  const [leagueSearch, setLeagueSearch] = useState<string>('');
+  const [isLeaguesExpanded, setIsLeaguesExpanded] = useState<boolean>(false);
   
   // Selections state: Array of selected folders
   // Each folder: { matchIdMatchOutcome: string, match: any, type: 'home' | 'draw' | 'away', odds: number, label: string }
@@ -106,7 +109,14 @@ export default function SportsContainer({
   const [betAmount, setBetAmount] = useState<number>(10000);
   const [isPlacingBet, setIsPlacingBet] = useState(false);
   
+  const [visibleCount, setVisibleCount] = useState<number>(30);
+  
   const isResolvingRef = useRef(false);
+
+  // Reset visibleCount when active categories change
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [activeSportTab, activeLeagueTab]);
 
   // Fetch matches from Firestore matches collection
   const fetchMatches = async () => {
@@ -311,10 +321,30 @@ export default function SportsContainer({
   // 2. Extract unique leagues under the current selected sport category
   const leagues = ['전체', ...Array.from(new Set(sportFilteredMatches.map(m => m.league).filter(Boolean)))];
 
+  const filteredLeaguesBySearch = leagues.filter(lg => {
+    if (lg === '전체') return true;
+    return lg.toLowerCase().includes(leagueSearch.trim().toLowerCase());
+  });
+
   // 3. Filter matches based on both sport and selected league tab
   const filteredMatches = activeLeagueTab === '전체' 
     ? sportFilteredMatches 
     : sportFilteredMatches.filter(m => m.league === activeLeagueTab);
+
+  // Infinite scroll listener allowing scroll to grow down and shrink up smoothly
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const computedVisible = Math.max(30, Math.min(
+        Math.floor(scrollTop / 110) + 30,
+        filteredMatches.length
+      ));
+      setVisibleCount(computedVisible);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredMatches.length]);
 
   // Toggle selection of a folder bonus
   const handleSelectBonusFolder = (bonus: { id: string, name: string, odds: number, label: string }) => {
@@ -712,22 +742,82 @@ export default function SportsContainer({
       </div>
 
       {/* Leagues Navigation Row */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-none">
-        {leagues.map((lg) => (
-          <button
-            key={lg}
-            role="tab"
-            aria-selected={activeLeagueTab === lg}
-            onClick={() => setActiveLeagueTab(lg)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-black tracking-wider transition-all cursor-pointer whitespace-nowrap border ${
-              activeLeagueTab === lg 
-                ? 'bg-amber-500 text-black border-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.25)]' 
-                : 'bg-neutral-900 hover:bg-neutral-850 border-neutral-800 text-neutral-400 hover:text-white'
-            }`}
-          >
-            {lg}
-          </button>
-        ))}
+      <div className="bg-[#0b0c10]/90 border border-neutral-800/80 rounded-2xl p-4 mb-4 select-none shadow-2xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="text-[11px] md:text-xs font-black tracking-widest text-neutral-300">LEAGUES FILTER</span>
+            {activeLeagueTab !== '전체' && (
+              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 font-extrabold shadow-sm">
+                {activeLeagueTab}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search inputs */}
+            <div className="relative w-full sm:w-48 md:w-56">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
+                <Search size={13} />
+              </span>
+              <input
+                type="text"
+                value={leagueSearch}
+                onChange={(e) => setLeagueSearch(e.target.value)}
+                placeholder="리그명 검색..."
+                className="w-full pl-8 pr-7 py-1 bg-black/40 border border-neutral-800 focus:border-amber-500/60 rounded-lg text-[11px] text-neutral-200 placeholder-neutral-500 focus:outline-none transition-all font-medium"
+              />
+              {leagueSearch && (
+                <button 
+                  onClick={() => setLeagueSearch('')}
+                  className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-neutral-500 hover:text-white text-[11px] cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* View Style Toggle */}
+            <button
+              onClick={() => setIsLeaguesExpanded(!isLeaguesExpanded)}
+              className="flex items-center gap-1.5 px-3 py-1 bg-neutral-900 border border-neutral-800 hover:border-neutral-750 rounded-lg text-[10px] md:text-[11px] text-neutral-450 hover:text-white transition-all cursor-pointer font-bold select-none"
+            >
+              <SlidersHorizontal size={11} className="text-amber-500" />
+              <span>{isLeaguesExpanded ? '간편히 보기 (한줄)' : '리그 전체보기'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Leagues Display Area */}
+        <div className={
+          isLeaguesExpanded 
+            ? "flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1" 
+            : "flex flex-row items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none whitespace-nowrap"
+        }>
+          {filteredLeaguesBySearch.map((lg) => {
+            const isSelected = activeLeagueTab === lg;
+            return (
+              <button
+                key={lg}
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setActiveLeagueTab(lg)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wider transition-all cursor-pointer whitespace-nowrap border shrink-0 ${
+                  isSelected 
+                    ? 'bg-amber-500 text-black border-amber-500 shadow-[0_4px_10px_rgba(245,158,11,0.2)] font-black' 
+                    : 'bg-neutral-950/70 hover:bg-neutral-850/80 border-neutral-850 hover:border-neutral-750 text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {lg}
+              </button>
+            );
+          })}
+          {filteredLeaguesBySearch.length === 0 && (
+            <div className="py-4 text-center text-xs text-neutral-500 w-full font-bold">
+              검색 조건에 맞는 리그가 존재하지 않습니다.
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Grid Content */}
@@ -780,7 +870,7 @@ export default function SportsContainer({
               })}
             </div>
           </div>
-          
+
           {loading ? (
             <div className="text-center py-16 bg-neutral-900 rounded-2xl border border-neutral-800/60 p-4">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500 mx-auto mb-3"></div>
@@ -794,9 +884,12 @@ export default function SportsContainer({
             </div>
           ) : (
             (() => {
+              // Slice filtered matches to visibleCount for infinite-scroll/dynamic rendering
+              const displayedMatches = filteredMatches.slice(0, visibleCount);
+
               // Group filtered matches by league
               const groups: Record<string, any[]> = {};
-              filteredMatches.forEach(m => {
+              displayedMatches.forEach(m => {
                 const lg = m.league || '기타 리그';
                 if (!groups[lg]) groups[lg] = [];
                 groups[lg].push(m);
@@ -809,260 +902,283 @@ export default function SportsContainer({
                 return parseDateTimeToComparableNum(earliestA) - parseDateTimeToComparableNum(earliestB);
               });
 
-              return sortedGroups.map(([leagueName, leagueMatches]) => (
-                <div key={leagueName} className="space-y-3 mb-6">
-                  {/* League Title Bar */}
-                  <div className="bg-neutral-950 border border-neutral-850 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
-                    <span className="font-extrabold tracking-tight text-neutral-105 flex items-center gap-1.5">
-                      {getLeagueHeaderLabel(leagueName)}
-                    </span>
-                    <span className="text-[10px] font-bold text-neutral-500 font-mono tracking-wider bg-neutral-900/40 border border-neutral-850/60 px-2 py-0.5 rounded-md">
-                      {leagueMatches.length}경기 진행 중
-                    </span>
-                  </div>
+              return (
+                <>
+                  {sortedGroups.map(([leagueName, leagueMatches]) => (
+                    <div key={leagueName} className="space-y-3 mb-6">
+                      {/* League Title Bar */}
+                      <div className="bg-neutral-950 border border-neutral-850 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
+                        <span className="font-extrabold tracking-tight text-neutral-105 flex items-center gap-1.5">
+                          {getLeagueHeaderLabel(leagueName)}
+                        </span>
+                        <span className="text-[10px] font-bold text-neutral-500 font-mono tracking-wider bg-neutral-900/40 border border-neutral-850/60 px-2 py-0.5 rounded-md">
+                          {leagueMatches.length}경기 진행 중
+                        </span>
+                      </div>
 
-                  {/* Matches List */}
-                  <div className="space-y-3">
-                    {leagueMatches.map((match) => (
-                      <div key={match.id} className="bg-neutral-900 border border-neutral-850 rounded-xl overflow-hidden shadow-lg hover:border-neutral-800 transition-all self-stretch">
-                        
-                        {/* Row 1: 승무패 (Match Winner) */}
-                        <div className="flex w-full min-h-[44px] md:min-h-[48px] items-stretch border-b border-[#1b1e24] last:border-b-0 bg-[#16181d]/20">
-                          {/* Column 1: DateTime */}
-                          <div className="w-[85px] md:w-[110px] bg-[#0c0e11] border-r border-[#1b1e24] flex flex-col items-center justify-center p-2 text-center shrink-0">
-                            <span className="text-amber-500 font-mono font-bold text-[10px] md:text-[11px] leading-tight select-none">
-                              {match.dateTime || '06-07 00:00'}
-                            </span>
-                          </div>
-
-                          {/* Column 2: Home Team Win Button */}
-                          <button
-                            disabled={match.status !== 'pending'}
-                            onClick={() => handleSelectOption(match, 'home', match.markets?.matchWinner?.home)}
-                            className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left group cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
-                              isSelected(match.id, 'home')
-                                ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
-                              <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
-                                isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'
-                              }`}>
-                                {match.homeTeam}
-                              </span>
-                            </div>
-                            <span className={`font-mono text-xs md:text-[14px] font-black shrink-0 ${
-                              isSelected(match.id, 'home') ? 'text-black' : 'text-amber-500'
-                            }`}>
-                              {match.markets?.matchWinner?.home?.toFixed(2) || '1.00'}
-                            </span>
-                          </button>
-
-                          {/* Column 3: Draw Column */}
-                          <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/40 flex items-center justify-center text-center shrink-0">
-                            {match.status !== 'pending' ? (
-                              <div className="flex flex-col items-center justify-center select-none">
-                                <span className="text-[9px] font-bold text-neutral-505 leading-none mb-0.5">SCORE</span>
-                                <span className="font-mono text-xs md:text-sm font-black text-amber-500 whitespace-nowrap">
-                                  {match.homeScore !== undefined ? match.homeScore : '?'} : {match.awayScore !== undefined ? match.awayScore : '?'}
+                      {/* Matches List */}
+                      <div className="space-y-3">
+                        {leagueMatches.map((match) => (
+                          <div key={match.id} className="bg-neutral-900 border border-neutral-850 rounded-xl overflow-hidden shadow-lg hover:border-neutral-800 transition-all self-stretch">
+                            
+                            {/* Row 1: 승무패 (Match Winner) */}
+                            <div className="flex w-full min-h-[44px] md:min-h-[48px] items-stretch border-b border-[#1b1e24] last:border-b-0 bg-[#16181d]/20">
+                              {/* Column 1: DateTime */}
+                              <div className="w-[85px] md:w-[110px] bg-[#0c0e11] border-r border-[#1b1e24] flex flex-col items-center justify-center p-2 text-center shrink-0">
+                                <span className="text-amber-500 font-mono font-bold text-[10px] md:text-[11px] leading-tight select-none">
+                                  {match.dateTime || '06-07 00:00'}
                                 </span>
                               </div>
-                            ) : match.markets?.matchWinner?.draw && match.markets.matchWinner.draw > 0 ? (
+
+                              {/* Column 2: Home Team Win Button */}
                               <button
                                 disabled={match.status !== 'pending'}
-                                onClick={() => handleSelectOption(match, 'draw', match.markets.matchWinner.draw)}
-                                className={`w-full h-full flex items-center justify-center font-mono text-[11px] md:text-[13px] font-bold transition-all cursor-pointer border-0 select-none ${
-                                  isSelected(match.id, 'draw')
+                                onClick={() => handleSelectOption(match, 'home', match.markets?.matchWinner?.home)}
+                                className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left group cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                  isSelected(match.id, 'home')
                                     ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                    : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-950/70'
+                                    : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
                                 }`}
                               >
-                                {match.markets.matchWinner.draw.toFixed(2)}
+                                <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                  <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
+                                    isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'
+                                  }`}>
+                                    {match.homeTeam}
+                                  </span>
+                                </div>
+                                <span className={`font-mono text-xs md:text-[14px] font-black shrink-0 ${
+                                  isSelected(match.id, 'home') ? 'text-black' : 'text-amber-500'
+                                }`}>
+                                  {match.markets?.matchWinner?.home?.toFixed(2) || '1.00'}
+                                </span>
                               </button>
-                            ) : (
-                              <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-neutral-600 uppercase select-none">
-                                VS
-                              </span>
-                            )}
-                          </div>
 
-                          {/* Column 4: Away Team Win Button */}
-                          <button
-                            disabled={match.status !== 'pending'}
-                            onClick={() => handleSelectOption(match, 'away', match.markets?.matchWinner?.away)}
-                            className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right group cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
-                              isSelected(match.id, 'away')
-                                ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
-                            }`}
-                          >
-                            <span className={`font-mono text-xs md:text-[14px] font-black shrink-0 ${
-                              isSelected(match.id, 'away') ? 'text-black' : 'text-amber-500'
-                            }`}>
-                              {match.markets?.matchWinner?.away?.toFixed(2) || '1.00'}
-                            </span>
-                            <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
-                              <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
-                                isSelected(match.id, 'away') ? 'text-black' : 'text-neutral-200'
-                              }`}>
-                                {match.awayTeam}
-                              </span>
-                            </div>
-                          </button>
-                        </div>
-
-                        {/* Handicaps Row(s) */}
-                        {match.markets?.handicaps?.slice(0, 1).map((handi: any, hIdx: number) => (
-                          <div key={`handi-${hIdx}`} className="flex w-full min-h-[44px] md:min-h-[48px] items-stretch border-b border-[#1b1e24] last:border-b-0 bg-[#16181d]/10">
-                            {/* Column 1: Handicap Label */}
-                            <div className="w-[85px] md:w-[110px] bg-[#0c0e11] border-r border-[#1b1e24] flex items-center justify-center p-2 text-center shrink-0 select-none">
-                              <span className="text-amber-500 font-black text-[10px] md:text-[11px] tracking-tight">
-                                핸디캡
-                              </span>
-                            </div>
-
-                            {/* Column 2: Home Handicap Button */}
-                            <button
-                              disabled={match.status !== 'pending'}
-                              onClick={() => handleSelectHandicap(match, handi, 'home')}
-                              className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
-                                isSelectedHandicap(match.id, handi.value, 'home')
-                                  ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                  : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
-                                <span className={`truncate font-bold text-[11px] md:text-xs ${
-                                  isSelectedHandicap(match.id, handi.value, 'home') ? 'text-black' : 'text-neutral-300'
-                                }`}>
-                                  {match.homeTeam}
-                                </span>
+                              {/* Column 3: Draw Column */}
+                              <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/40 flex items-center justify-center text-center shrink-0">
+                                {match.status !== 'pending' ? (
+                                  <div className="flex flex-col items-center justify-center select-none">
+                                    <span className="text-[9px] font-bold text-neutral-505 leading-none mb-0.5">SCORE</span>
+                                    <span className="font-mono text-xs md:text-sm font-black text-amber-500 whitespace-nowrap">
+                                      {match.homeScore !== undefined ? match.homeScore : '?'} : {match.awayScore !== undefined ? match.awayScore : '?'}
+                                    </span>
+                                  </div>
+                                ) : match.markets?.matchWinner?.draw && match.markets.matchWinner.draw > 0 ? (
+                                  <button
+                                    disabled={match.status !== 'pending'}
+                                    onClick={() => handleSelectOption(match, 'draw', match.markets.matchWinner.draw)}
+                                    className={`w-full h-full flex items-center justify-center font-mono text-[11px] md:text-[13px] font-bold transition-all cursor-pointer border-0 select-none ${
+                                      isSelected(match.id, 'draw')
+                                        ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
+                                        : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-950/70'
+                                    }`}
+                                  >
+                                    {match.markets.matchWinner.draw.toFixed(2)}
+                                  </button>
+                                ) : (
+                                  <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-neutral-600 uppercase select-none">
+                                    VS
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[9px] font-sans font-black text-emerald-450 border border-emerald-900/80 bg-emerald-950/40 px-1 py-0.5 rounded leading-none shrink-0 select-none">
-                                  H
-                                </span>
-                                <span className={`font-mono text-xs md:text-[13px] font-extrabold ${
-                                  isSelectedHandicap(match.id, handi.value, 'home') ? 'text-black' : 'text-neutral-200'
-                                }`}>
-                                  {handi.home?.toFixed(2) || '1.00'}
-                                </span>
-                              </div>
-                            </button>
 
-                            {/* Column 3: Handicap line value */}
-                            <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
-                              <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
-                                {cleanLineValue(handi.value) || '0'}
-                              </span>
+                              {/* Column 4: Away Team Win Button */}
+                              <button
+                                disabled={match.status !== 'pending'}
+                                onClick={() => handleSelectOption(match, 'away', match.markets?.matchWinner?.away)}
+                                className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right group cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                  isSelected(match.id, 'away')
+                                    ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
+                                    : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
+                                }`}
+                              >
+                                <span className={`font-mono text-xs md:text-[14px] font-black shrink-0 ${
+                                  isSelected(match.id, 'away') ? 'text-black' : 'text-amber-500'
+                                }`}>
+                                  {match.markets?.matchWinner?.away?.toFixed(2) || '1.00'}
+                                </span>
+                                <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
+                                  <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
+                                    isSelected(match.id, 'away') ? 'text-black' : 'text-neutral-200'
+                                  }`}>
+                                    {match.awayTeam}
+                                  </span>
+                                </div>
+                              </button>
                             </div>
 
-                            {/* Column 4: Away Handicap Button */}
-                            <button
-                              disabled={match.status !== 'pending'}
-                              onClick={() => handleSelectHandicap(match, handi, 'away')}
-                              className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
-                                isSelectedHandicap(match.id, handi.value, 'away')
-                                  ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                  : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className={`font-mono text-xs md:text-[13px] font-extrabold mr-1.5 ${
-                                  isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-200'
-                                }`}>
-                                  {handi.away?.toFixed(2) || '1.00'}
-                                </span>
-                                <span className="text-[9px] font-sans font-black text-emerald-450 border border-emerald-900/80 bg-emerald-950/40 px-1 py-0.5 rounded leading-none shrink-0 select-none">
-                                  H
-                                </span>
+                            {/* Handicaps Row(s) */}
+                            {match.markets?.handicaps?.slice(0, 1).map((handi: any, hIdx: number) => (
+                              <div key={`handi-${hIdx}`} className="flex w-full min-h-[44px] md:min-h-[48px] items-stretch border-b border-[#1b1e24] last:border-b-0 bg-[#16181d]/10">
+                                {/* Column 1: Handicap Label */}
+                                <div className="w-[85px] md:w-[110px] bg-[#0c0e11] border-r border-[#1b1e24] flex items-center justify-center p-2 text-center shrink-0 select-none">
+                                  <span className="text-amber-500 font-black text-[10px] md:text-[11px] tracking-tight">
+                                    핸디캡
+                                  </span>
+                                </div>
+
+                                {/* Column 2: Home Handicap Button */}
+                                <button
+                                  disabled={match.status !== 'pending'}
+                                  onClick={() => handleSelectHandicap(match, handi, 'home')}
+                                  className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                    isSelectedHandicap(match.id, handi.value, 'home')
+                                      ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
+                                      : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                    <span className={`truncate font-bold text-[11px] md:text-xs ${
+                                      isSelectedHandicap(match.id, handi.value, 'home') ? 'text-black' : 'text-neutral-300'
+                                    }`}>
+                                      {match.homeTeam}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[9px] font-sans font-black text-emerald-450 border border-emerald-900/80 bg-emerald-950/40 px-1 py-0.5 rounded leading-none shrink-0 select-none">
+                                      H
+                                    </span>
+                                    <span className={`font-mono text-xs md:text-[13px] font-extrabold ${
+                                      isSelectedHandicap(match.id, handi.value, 'home') ? 'text-black' : 'text-neutral-200'
+                                    }`}>
+                                      {handi.home?.toFixed(2) || '1.00'}
+                                    </span>
+                                  </div>
+                                </button>
+
+                                {/* Column 3: Handicap line value */}
+                                <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
+                                  <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
+                                    {cleanLineValue(handi.value) || '0'}
+                                  </span>
+                                </div>
+
+                                {/* Column 4: Away Handicap Button */}
+                                <button
+                                  disabled={match.status !== 'pending'}
+                                  onClick={() => handleSelectHandicap(match, handi, 'away')}
+                                  className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                    isSelectedHandicap(match.id, handi.value, 'away')
+                                      ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
+                                      : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className={`font-mono text-xs md:text-[13px] font-extrabold mr-1.5 ${
+                                      isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-200'
+                                    }`}>
+                                      {handi.away?.toFixed(2) || '1.00'}
+                                    </span>
+                                    <span className="text-[9px] font-sans font-black text-emerald-450 border border-emerald-900/80 bg-emerald-950/40 px-1 py-0.5 rounded leading-none shrink-0 select-none">
+                                      H
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
+                                    <span className={`truncate font-bold text-[11px] md:text-xs ${
+                                      isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-300'
+                                    }`}>
+                                      {match.awayTeam}
+                                    </span>
+                                  </div>
+                                </button>
                               </div>
-                              <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
-                                <span className={`truncate font-bold text-[11px] md:text-xs ${
-                                  isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-300'
-                                }`}>
-                                  {match.awayTeam}
-                                </span>
+                            ))}
+
+                            {/* OverUnders Row(s) */}
+                            {match.markets?.overUnders?.slice(0, 1).map((ou: any, ouIdx: number) => (
+                              <div key={`ou-${ouIdx}`} className="flex w-full min-h-[44px] md:min-h-[48px] items-stretch border-b border-[#1b1e24] last:border-b-0 bg-[#16181d]/10">
+                                {/* Column 1: OverUnder Label */}
+                                <div className="w-[85px] md:w-[110px] bg-[#0c0e11] border-r border-[#1b1e24] flex items-center justify-center p-2 text-center shrink-0 select-none">
+                                  <span className="text-amber-500 font-black text-[10px] md:text-[11px] tracking-tight">
+                                    오버언더
+                                  </span>
+                                </div>
+
+                                {/* Column 2: Over Button */}
+                                <button
+                                  disabled={match.status !== 'pending'}
+                                  onClick={() => handleSelectOverUnder(match, ou, 'over')}
+                                  className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                    isSelectedOverUnder(match.id, ou.value, 'over')
+                                      ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
+                                      : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className={`text-[11px] md:text-xs font-bold ${
+                                        isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-neutral-300'
+                                      }`}>오버</span>
+                                      <span className="text-rose-500 font-sans font-black text-[9px] md:text-xs select-none">▲</span>
+                                    </div>
+                                  </div>
+                                  <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 ${
+                                    isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-rose-400'
+                                  }`}>
+                                    {ou.over?.toFixed(2) || '1.00'}
+                                  </span>
+                                </button>
+
+                                {/* Column 3: Line value */}
+                                <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
+                                  <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
+                                    {cleanLineValue(ou.value) || '2.5'}
+                                  </span>
+                                </div>
+
+                                {/* Column 4: Under Button */}
+                                <button
+                                  disabled={match.status !== 'pending'}
+                                  onClick={() => handleSelectOverUnder(match, ou, 'under')}
+                                  className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                    isSelectedOverUnder(match.id, ou.value, 'under')
+                                      ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
+                                      : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
+                                  }`}
+                                >
+                                  <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 ${
+                                    isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black' : 'text-sky-450'
+                                  }`}>
+                                    {ou.under?.toFixed(2) || '1.00'}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="text-sky-450 font-sans font-black text-[9px] md:text-xs select-none">▼</span>
+                                      <span className={`text-[11px] md:text-xs font-bold ${
+                                        isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black' : 'text-neutral-300'
+                                      }`}>언더</span>
+                                    </div>
+                                  </div>
+                                </button>
                               </div>
-                            </button>
+                            ))}
+
                           </div>
                         ))}
-
-                        {/* OverUnders Row(s) */}
-                        {match.markets?.overUnders?.slice(0, 1).map((ou: any, ouIdx: number) => (
-                          <div key={`ou-${ouIdx}`} className="flex w-full min-h-[44px] md:min-h-[48px] items-stretch border-b border-[#1b1e24] last:border-b-0 bg-[#16181d]/10">
-                            {/* Column 1: OverUnder Label */}
-                            <div className="w-[85px] md:w-[110px] bg-[#0c0e11] border-r border-[#1b1e24] flex items-center justify-center p-2 text-center shrink-0 select-none">
-                              <span className="text-amber-500 font-black text-[10px] md:text-[11px] tracking-tight">
-                                오버언더
-                              </span>
-                            </div>
-
-                            {/* Column 2: Over Button */}
-                            <button
-                              disabled={match.status !== 'pending'}
-                              onClick={() => handleSelectOverUnder(match, ou, 'over')}
-                              className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
-                                isSelectedOverUnder(match.id, ou.value, 'over')
-                                  ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                  : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <span className={`text-[11px] md:text-xs font-bold ${
-                                    isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-neutral-300'
-                                  }`}>오버</span>
-                                  <span className="text-rose-500 font-sans font-black text-[9px] md:text-xs select-none">▲</span>
-                                </div>
-                              </div>
-                              <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 ${
-                                isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-rose-400'
-                              }`}>
-                                {ou.over?.toFixed(2) || '1.00'}
-                              </span>
-                            </button>
-
-                            {/* Column 3: Line value */}
-                            <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
-                              <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
-                                {cleanLineValue(ou.value) || '2.5'}
-                              </span>
-                            </div>
-
-                            {/* Column 4: Under Button */}
-                            <button
-                              disabled={match.status !== 'pending'}
-                              onClick={() => handleSelectOverUnder(match, ou, 'under')}
-                              className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
-                                isSelectedOverUnder(match.id, ou.value, 'under')
-                                  ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
-                                  : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
-                              }`}
-                            >
-                              <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 ${
-                                isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black' : 'text-sky-450'
-                              }`}>
-                                {ou.under?.toFixed(2) || '1.00'}
-                              </span>
-                              <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <span className="text-sky-450 font-sans font-black text-[9px] md:text-xs select-none">▼</span>
-                                  <span className={`text-[11px] md:text-xs font-bold ${
-                                    isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black' : 'text-neutral-300'
-                                  }`}>언더</span>
-                                </div>
-                              </div>
-                            </button>
-                          </div>
-                        ))}
-
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ));
+                    </div>
+                  ))}
+
+                  {filteredMatches.length > 30 && (
+                    <div className="mt-2 mb-6 p-4 bg-[#0a0c10] border border-neutral-850/80 rounded-2xl text-center space-y-1.5 shadow-xl">
+                      <div className="text-xs text-neutral-350 font-black">
+                        전체 {filteredMatches.length}경기 중 {Math.min(visibleCount, filteredMatches.length)}개의 경기 표시 중
+                      </div>
+                      <div className="text-[10px] text-neutral-520 font-bold">
+                        {visibleCount < filteredMatches.length ? (
+                          <span className="animate-pulse text-amber-500 flex items-center justify-center gap-1">
+                            <span>⬇️</span> 스크롤을 아래로 내리면 자동으로 추가 경기가 로드됩니다
+                          </span>
+                        ) : (
+                          <span className="text-emerald-450 flex items-center justify-center gap-1">
+                            <span>✨</span> 모든 매치를 원활하게 가져왔습니다. 위로 올리면 다시 컴팩트하게 접힙니다
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
             })()
           )}
         </div>

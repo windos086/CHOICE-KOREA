@@ -112,129 +112,199 @@ export default function AdminMatchRegistration() {
       let currentLeague = '일반 리그';
       let addedCount = 0;
       let updatedCount = 0;
-      
-      const cleanAndTokenize = (rawLine: string): string[] => {
-        if (!rawLine) return [];
-        const index = rawLine.indexOf('<');
-        let text = index !== -1 ? rawLine.substring(0, index) : rawLine;
-        text = text.replace(/분석/g, ' ');
-        return text.trim().split(/\s+/).filter(Boolean);
-      };
+
+      interface MatchBlock {
+        dateTime: string;
+        allLines: string[];
+      }
+
+      const matchBlocks: MatchBlock[] = [];
+      let currentBlock: MatchBlock | null = null;
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
+        if (/^\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
+          currentBlock = { dateTime: line, allLines: [] };
+          matchBlocks.push(currentBlock);
+        } else {
+          if (currentBlock) {
+            currentBlock.allLines.push(line);
+          } else {
+            if (!/^\d+\.\d+/.test(line)) {
+              currentLeague = line;
+            }
+          }
+        }
+      }
 
-        // 리그 헤더 체크 (시간 포맷이나 배당이 없는 라인을 리그로 간주)
-        if (!/^\d{2}-\d{2}/.test(line) && !/^\d+\.\d+/.test(line)) {
-          currentLeague = line;
-          continue;
+      for (const block of matchBlocks) {
+        const blockLines = block.allLines;
+        if (blockLines.length === 0) continue;
+
+        const isOddsLine = (txt: string): boolean => {
+          return /\d+\.\d+/.test(txt) || /[HhOoUu][+-]?\d/.test(txt);
+        };
+
+        let firstOddsLineIdx = -1;
+        for (let j = 0; j < blockLines.length; j++) {
+          if (isOddsLine(blockLines[j])) {
+            firstOddsLineIdx = j;
+            break;
+          }
         }
 
-        // 경기 데이터 파싱 (날짜 시간 포함 행)
-        if (/^\d{2}-\d{2}\s\d{2}:\d{2}/.test(line)) {
-          if (i + 4 >= lines.length) continue;
+        if (firstOddsLineIdx === -1) continue;
 
-          const homeTeam = lines[i + 1];
-          const homeOddsLine = lines[i + 2];
-          const awayTeamLine = lines[i + 3];
-          const drawOddsLine = lines[i + 4];
+        const homeTeam = blockLines[firstOddsLineIdx - 1];
+        if (!homeTeam) continue;
 
-          try {
-            const isMarketToken = (token: string): boolean => {
-              if (token === 'O' || token === 'U') return true;
-              if (/[가-힣<>]/.test(token)) return false;
-              const cleaned = token.replace(/[\[\]\(\)]/g, '').trim();
-              return /^[+-]?\d+/.test(cleaned) || /^\d/.test(cleaned) || /^[Hh][+-]?\d+/.test(cleaned) || /^[Hh]\d/.test(cleaned);
-            };
+        let matchLeague = currentLeague;
+        if (firstOddsLineIdx - 1 > 0) {
+          matchLeague = blockLines[firstOddsLineIdx - 2];
+        }
 
-            const cleanBrackets = (token: string) => token.replace(/[\[\]\(\)]/g, '').trim();
+        const homeOddsLine = blockLines[firstOddsLineIdx];
+        const awayTeamLine = blockLines[firstOddsLineIdx + 1];
+        const drawOddsLine = blockLines[firstOddsLineIdx + 2];
 
-            // 1) Parse Draw match line tokens
-            const rawDrawTokens = drawOddsLine.split(/\s+/).filter(Boolean);
+        if (!homeOddsLine || !awayTeamLine) continue;
+
+        try {
+          const formatOddsStr = (raw: string): string => {
+            return raw
+              .replace(/\[/g, ' [')
+              .replace(/\]/g, '] ')
+              .replace(/\(/g, ' [')
+              .replace(/\)/g, '] ')
+              .replace(/\s+/g, ' ')
+              .trim();
+          };
+
+          const formattedHomeLine = formatOddsStr(homeOddsLine);
+          const formattedAwayLine = formatOddsStr(awayTeamLine);
+          const formattedDrawLine = drawOddsLine ? formatOddsStr(drawOddsLine) : '';
+
+          const isMarketToken = (token: string): boolean => {
+            if (/[가-힣<>]/.test(token)) return false;
+            const cleaned = token.replace(/[\[\]\(\)]/g, '').trim();
+            if (cleaned === '') return false;
+            return /^[OoUuHh]?([+-]?\d+)/.test(cleaned) || /^[OoUuHh]$/.test(cleaned);
+          };
+
+          const cleanBrackets = (token: string) => token.replace(/[\[\]\(\)]/g, '').trim();
+
+          let drawOdds = 0;
+          if (formattedDrawLine) {
+            const rawDrawTokens = formattedDrawLine.split(/\s+/).filter(Boolean);
             const drawMarketTokens = rawDrawTokens.filter(isMarketToken).map(cleanBrackets);
-            const drawOdds = drawMarketTokens.length > 0 ? (parseFloat(drawMarketTokens[0]) || 0) : 0;
+            drawOdds = drawMarketTokens.length > 0 ? (parseFloat(drawMarketTokens[0]) || 0) : 0;
+          }
 
-            // 2) Parse Home match line tokens
-            const rawHomeTokens = homeOddsLine.split(/\s+/).filter(Boolean);
-            const homeMarketTokens = rawHomeTokens.filter(isMarketToken).map(cleanBrackets);
-            const homeOdds = homeMarketTokens.length > 0 ? (parseFloat(homeMarketTokens[0]) || 1.00) : 1.00;
+          const rawHomeTokens = formattedHomeLine.split(/\s+/).filter(Boolean);
+          const homeMarketTokens = rawHomeTokens.filter(isMarketToken).map(cleanBrackets);
+          const homeOdds = homeMarketTokens.length > 0 ? (parseFloat(homeMarketTokens[0]) || 1.00) : 1.00;
 
-            // 3) Parse Away match line tokens and team name
-            const rawAwayTokens = awayTeamLine.split(/\s+/).filter(Boolean);
-            let firstOddsIndex = -1;
+          const rawAwayTokens = formattedAwayLine.split(/\s+/).filter(Boolean);
+          let firstOddsIndex = -1;
+          for (let j = 0; j < rawAwayTokens.length; j++) {
+            const cleanedX = rawAwayTokens[j].replace(/[\[\]\(\)]/g, '').trim();
+            if (/^\d+\.\d+$/.test(cleanedX)) {
+              firstOddsIndex = j;
+              break;
+            }
+          }
+          if (firstOddsIndex === -1) {
             for (let j = 0; j < rawAwayTokens.length; j++) {
               const cleanedX = rawAwayTokens[j].replace(/[\[\]\(\)]/g, '').trim();
-              if (/^\d+\.\d+$/.test(cleanedX)) {
+              if (/^\d+$/.test(cleanedX)) {
                 firstOddsIndex = j;
                 break;
               }
             }
-            if (firstOddsIndex === -1) {
-              for (let j = 0; j < rawAwayTokens.length; j++) {
-                const cleanedX = rawAwayTokens[j].replace(/[\[\]\(\)]/g, '').trim();
-                if (/^\d+$/.test(cleanedX)) {
-                  firstOddsIndex = j;
-                  break;
-                }
-              }
-            }
+          }
 
-            if (firstOddsIndex === -1) continue;
+          if (firstOddsIndex === -1) continue;
 
-            const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ');
-            const awayOddsTokensRaw = rawAwayTokens.slice(firstOddsIndex);
-            const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken).map(cleanBrackets);
-            const awayOdds = awayMarketTokens.length > 0 ? (parseFloat(awayMarketTokens[0]) || 1.00) : 1.00;
+          const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ');
+          const awayOddsTokensRaw = rawAwayTokens.slice(firstOddsIndex);
+          const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken).map(cleanBrackets);
+          const awayOdds = awayMarketTokens.length > 0 ? (parseFloat(awayMarketTokens[0]) || 1.00) : 1.00;
 
-            const homeRemains = homeMarketTokens.slice(1);
-            const awayRemains = awayMarketTokens.slice(1);
+          const homeRemains = homeMarketTokens.slice(1);
+          const awayRemains = awayMarketTokens.slice(1);
 
-            const handicaps: any[] = [];
-            const overUnders: any[] = [];
+          const handicaps: any[] = [];
+          const overUnders: any[] = [];
 
-            let hIdxAll = 0;
-            let aIdxAll = 0;
+          let hIdxAll = 0;
+          let aIdxAll = 0;
 
-            while (hIdxAll < homeRemains.length) {
-              const prevIdx = hIdxAll;
-              const currentToken = homeRemains[hIdxAll];
-              if (!currentToken) break;
+          while (hIdxAll < homeRemains.length) {
+            const prevIdx = hIdxAll;
+            const currentToken = homeRemains[hIdxAll];
+            if (!currentToken) break;
 
-              if (currentToken === 'O' || currentToken === 'U') {
-                const isOverHome = currentToken === 'O';
-                const threshold = homeRemains[hIdxAll + 1];
-                
-                // Do not register over/under standard is missing / empty
-                if (threshold && threshold.trim() !== '') {
-                  const overOdds = parseFloat(homeRemains[hIdxAll + 2]) || 1.00;
+            const isOU = currentToken === 'O' || currentToken === 'U' || /^[OoUu]/.test(currentToken);
 
-                  let underOdds = 1.00;
-                  if (aIdxAll < awayRemains.length) {
-                    const awayToken = awayRemains[aIdxAll];
-                    if (awayToken === 'U' || awayToken === 'O') {
-                      underOdds = parseFloat(awayRemains[aIdxAll + 2]) || 1.00;
-                      aIdxAll += 3;
-                    } else {
-                      underOdds = parseFloat(awayToken) || 1.00;
-                      aIdxAll += 1;
-                    }
-                  }
+            if (isOU) {
+              const isOverHome = currentToken.toUpperCase().startsWith('O');
+              let threshold = '';
+              let overOdds = 1.00;
 
-                  overUnders.push({
-                    value: threshold,
-                    over: isOverHome ? overOdds : underOdds,
-                    under: isOverHome ? underOdds : overOdds
-                  });
-                }
+              if (currentToken === 'O' || currentToken === 'U' || currentToken.toUpperCase() === 'O' || currentToken.toUpperCase() === 'U') {
+                threshold = homeRemains[hIdxAll + 1] || '';
+                overOdds = parseFloat(homeRemains[hIdxAll + 2]) || 1.00;
                 hIdxAll += 3;
               } else {
-                const threshold = currentToken;
-                const homeHandiOdds = parseFloat(homeRemains[hIdxAll + 1]) || 1.00;
-                let awayHandiOdds = 1.00;
+                threshold = currentToken.substring(1);
+                overOdds = parseFloat(homeRemains[hIdxAll + 1]) || 1.00;
+                hIdxAll += 2;
+              }
 
+              if (threshold && threshold.trim() !== '') {
+                let underOdds = 1.00;
                 if (aIdxAll < awayRemains.length) {
                   const awayToken = awayRemains[aIdxAll];
-                  if (/^[Hh+-]/.test(awayToken) && !/^\d+\.\d+$/.test(awayToken)) {
+                  if (awayToken === 'U' || awayToken === 'O' || awayToken.toUpperCase() === 'U' || awayToken.toUpperCase() === 'O') {
+                    underOdds = parseFloat(awayRemains[aIdxAll + 2]) || 1.00;
+                    aIdxAll += 3;
+                  } else if (/^[OoUu]\d/.test(awayToken)) {
+                    underOdds = parseFloat(awayRemains[aIdxAll + 1]) || 1.00;
+                    aIdxAll += 2;
+                  } else {
+                    underOdds = parseFloat(awayToken) || 1.00;
+                    aIdxAll += 1;
+                  }
+                }
+
+                overUnders.push({
+                  value: threshold,
+                  over: isOverHome ? overOdds : underOdds,
+                  under: isOverHome ? underOdds : overOdds
+                });
+              }
+            } else {
+              let threshold = '';
+              let homeHandiOdds = 1.00;
+
+              if (currentToken === 'H' || currentToken === 'h' || currentToken.toUpperCase() === 'H') {
+                threshold = homeRemains[hIdxAll + 1] || '';
+                homeHandiOdds = parseFloat(homeRemains[hIdxAll + 2]) || 1.00;
+                hIdxAll += 3;
+              } else {
+                threshold = currentToken;
+                homeHandiOdds = parseFloat(homeRemains[hIdxAll + 1]) || 1.00;
+                hIdxAll += 2;
+              }
+
+              if (threshold && threshold.trim() !== '') {
+                let awayHandiOdds = 1.00;
+                if (aIdxAll < awayRemains.length) {
+                  const awayToken = awayRemains[aIdxAll];
+                  if (awayToken === 'H' || awayToken === 'h' || awayToken.toUpperCase() === 'H') {
+                    awayHandiOdds = parseFloat(awayRemains[aIdxAll + 2]) || 1.00;
+                    aIdxAll += 3;
+                  } else if (/^[Hh][+-]?\d/.test(awayToken)) {
                     awayHandiOdds = parseFloat(awayRemains[aIdxAll + 1]) || 1.00;
                     aIdxAll += 2;
                   } else {
@@ -243,67 +313,59 @@ export default function AdminMatchRegistration() {
                   }
                 }
 
-                // Do not register handicap standard is 0
-                if (!isZeroHandicap(threshold)) {
-                  handicaps.push({
-                    value: threshold,
-                    home: homeHandiOdds,
-                    away: awayHandiOdds
-                  });
-                }
-                hIdxAll += 2;
-              }
-
-              if (hIdxAll <= prevIdx) {
-                hIdxAll++;
-              }
-            }
-
-            const parsedMarkets = {
-              matchWinner: {
-                home: homeOdds,
-                draw: drawOdds,
-                away: awayOdds
-              },
-              handicap: handicaps.length > 0 ? handicaps[0] : { value: '', home: 0, away: 0 },
-              overUnder: overUnders.length > 0 ? overUnders[0] : { value: '', oddsOver: 0, oddsUnder: 0 },
-              handicaps: handicaps,
-              overUnders: overUnders
-            };
-
-            const key = `${homeTeam.trim()}_${awayTeam.trim()}_${line.trim()}`;
-            const existingMatch = existingMap.get(key);
-
-            if (existingMatch) {
-              // Existing match! Update the odds and line/bases if shifted
-              if (areMarketsDifferent(parsedMarkets, existingMatch.markets)) {
-                await updateDoc(doc(db, 'matches', existingMatch.docId), {
-                  markets: parsedMarkets,
-                  updatedAt: new Date().toISOString()
+                handicaps.push({
+                  value: threshold,
+                  home: homeHandiOdds,
+                  away: awayHandiOdds
                 });
-                updatedCount++;
               }
-            } else {
-              // New match! Register with standard pending state
-              const newMatchDoc = {
-                dateTime: line,
-                league: currentLeague,
-                homeTeam: homeTeam.trim(),
-                awayTeam: awayTeam.trim(),
-                homeScore: 0,
-                awayScore: 0,
-                markets: parsedMarkets,
-                status: 'pending',
-                createdAt: new Date().toISOString()
-              };
-              await addDoc(collection(db, 'matches'), newMatchDoc);
-              addedCount++;
             }
 
-            i += 4; // Skip the lines we parsed
-          } catch (err) {
-            console.error("Failed to parse match block:", err);
+            if (hIdxAll <= prevIdx) {
+              hIdxAll++;
+            }
           }
+
+          const parsedMarkets = {
+            matchWinner: {
+              home: homeOdds,
+              draw: drawOdds,
+              away: awayOdds
+            },
+            handicap: handicaps.length > 0 ? handicaps[0] : { value: '', home: 0, away: 0 },
+            overUnder: overUnders.length > 0 ? overUnders[0] : { value: '', oddsOver: 0, oddsUnder: 0 },
+            handicaps: handicaps,
+            overUnders: overUnders
+          };
+
+          const key = `${homeTeam.trim()}_${awayTeam.trim()}_${block.dateTime.trim()}`;
+          const existingMatch = existingMap.get(key);
+
+          if (existingMatch) {
+            if (areMarketsDifferent(parsedMarkets, existingMatch.markets)) {
+              await updateDoc(doc(db, 'matches', existingMatch.docId), {
+                markets: parsedMarkets,
+                updatedAt: new Date().toISOString()
+              });
+              updatedCount++;
+            }
+          } else {
+            const newMatchDoc = {
+              dateTime: block.dateTime,
+              league: matchLeague,
+              homeTeam: homeTeam.trim(),
+              awayTeam: awayTeam.trim(),
+              homeScore: 0,
+              awayScore: 0,
+              markets: parsedMarkets,
+              status: 'pending',
+              createdAt: new Date().toISOString()
+            };
+            await addDoc(collection(db, 'matches'), newMatchDoc);
+            addedCount++;
+          }
+        } catch (err) {
+          console.error("Failed to parse match block:", err);
         }
       }
 
