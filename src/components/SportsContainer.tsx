@@ -4,8 +4,7 @@ import {
   Check, AlertTriangle, AlertCircle, ShoppingCart, Calendar, Info,
   Search, SlidersHorizontal
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, getDocs, query, orderBy, doc, updateDoc, db } from '../lib/firebase';
 
 interface SportsContainerProps {
   currentUserData?: any;

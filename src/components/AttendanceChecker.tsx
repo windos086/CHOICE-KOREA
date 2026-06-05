@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db, doc, getDoc, setDoc, collection, query, where, getDocs } from '../lib/firebase';
 
 interface AttendanceCalendarProps {
   userId: string;

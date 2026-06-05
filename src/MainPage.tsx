@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot } from './lib/firebase';
 import { db, auth } from './lib/firebase';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
+import AdminMinigameResolution from './components/AdminMinigameResolution';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
+import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2 } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -114,7 +115,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [gameResultPage, setGameResultPage] = useState(1);
 
   // State for Admin Deposit & Withdrawal Requests panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames'>('users');
   const [adminDepositRequests, setAdminDepositRequests] = useState<any[]>([]);
   const [exchangeRate, setExchangeRate] = useState(1537); // Default
   const [newExchangeRate, setNewExchangeRate] = useState(''); // New state
@@ -4138,6 +4139,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   >
                     <Edit className="w-3 h-3 text-white" /> 경기 등록
                   </button>
+                  <button
+                    onClick={() => setAdminActiveTab('minigames')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'minigames' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Gamepad2 className="w-3 h-3 text-emerald-450" /> 미니게임 결과 관리
+                  </button>
                 </div>
               </div>
               <button 
@@ -4465,6 +4472,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </button>
                   </div>
                 </div>
+              ) : adminActiveTab === 'minigames' ? (
+                <AdminMinigameResolution />
               ) : (
                 <>
                   {/* Search Bar */}
