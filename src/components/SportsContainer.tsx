@@ -428,15 +428,22 @@ export default function SportsContainer({
     return trimmed;
   };
 
-  const formatHandicapDisplay = (valStr: string): string => {
+  const formatHandicapDisplay = (valStr: string, homeOdds?: number, awayOdds?: number): string => {
     if (!valStr) return '0';
     const cleaned = cleanLineValue(valStr);
     const num = parseFloat(cleaned);
     if (isNaN(num) || num === 0) return '0';
     
-    // Check if it starts with minus
-    const isNegative = cleaned.startsWith('-');
     const withoutSign = cleaned.replace(/[+-]/g, '').trim();
+    if (homeOdds !== undefined && awayOdds !== undefined && homeOdds !== 0 && awayOdds !== 0) {
+      if (homeOdds < awayOdds) {
+        return `-${withoutSign}`;
+      } else {
+        return `+${withoutSign}`;
+      }
+    }
+
+    const isNegative = cleaned.startsWith('-');
     if (isNegative) {
       return `-${withoutSign}`;
     } else {
@@ -458,7 +465,11 @@ export default function SportsContainer({
 
   const handleSelectHandicap = (match: any, handi: any, type: 'home' | 'away') => {
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
-    const cleanedLineValue = formatHandicapDisplay(handi.value);
+    const cleanedLineValue = formatHandicapDisplay(
+      handi.value, 
+      match.markets?.matchWinner?.home, 
+      match.markets?.matchWinner?.away
+    );
 
     const newFolderObj = {
       matchId: match.id,
@@ -517,7 +528,17 @@ export default function SportsContainer({
   };
 
   const isSelectedHandicap = (matchId: string, value: string, type: 'home' | 'away') => {
-    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'handicap' && formatHandicapDisplay(f.lineValue) === formatHandicapDisplay(value) && f.type === type);
+    const match = matches.find(m => m.id === matchId);
+    const homeOdds = match?.markets?.matchWinner?.home;
+    const awayOdds = match?.markets?.matchWinner?.away;
+    const formattedVal = formatHandicapDisplay(value, homeOdds, awayOdds);
+    
+    return selectedFolders.some(f => 
+      f.matchId === matchId && 
+      f.marketType === 'handicap' && 
+      formatHandicapDisplay(f.lineValue, homeOdds, awayOdds) === formattedVal && 
+      f.type === type
+    );
   };
 
   const isSelectedOverUnder = (matchId: string, value: string, type: 'over' | 'under') => {
@@ -1065,7 +1086,7 @@ export default function SportsContainer({
                                 {/* Column 3: Handicap line value */}
                                 <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
                                   <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
-                                    {formatHandicapDisplay(handi.value)}
+                                    {formatHandicapDisplay(handi.value, match.markets?.matchWinner?.home, match.markets?.matchWinner?.away)}
                                   </span>
                                 </div>
 
