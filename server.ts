@@ -30,6 +30,60 @@ async function startServer() {
     res.json({ serverTime: Date.now() });
   });
 
+  // Bypass CORS to retrieve standard real-time N Powerball result JSON from Entry
+  app.get("/api/game-result/powerball", async (req, res) => {
+    try {
+      const response = await fetch("https://www.ntry.com/data/json/games/powerball/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from ntry" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Bypass CORS to retrieve N Power Ladder result JSON from Entry
+  app.get("/api/game-result/powerladder", async (req, res) => {
+    try {
+      const response = await fetch("https://www.ntry.com/data/json/games/power_ladder/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from ntry" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Bypass CORS to retrieve standard Ladder result JSON (using keno_ladder since it matches 5-minute schedule/RNG) from Entry
+  app.get("/api/game-result/ladder", async (req, res) => {
+    try {
+      const response = await fetch("https://www.ntry.com/data/json/games/keno_ladder/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from ntry" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // Vite middleware setup
   let vite: any;
   if (process.env.NODE_ENV !== "production") {

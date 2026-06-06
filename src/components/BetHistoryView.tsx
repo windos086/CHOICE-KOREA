@@ -27,13 +27,15 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
       <div className="space-y-3">
         {currentBets.length > 0 ? (
           currentBets.map((bet: any) => {
-            const timeParts = bet.betTime?.includes(' ') ? bet.betTime.split(' ') : [bet.betTime || '', ''];
+            const betDate = bet.createdAt ? new Date(bet.createdAt).toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' }) : (bet.betTime?.includes(' ') ? bet.betTime.split(' ')[0] : bet.betTime);
+            const betTime = bet.createdAt ? new Date(bet.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : (bet.betTime?.includes(' ') ? bet.betTime.split(' ')[1] : bet.betTime);
+
             return (
               <div key={bet.id} className="bg-gradient-to-r from-[#0d0e12] via-[#07080a] to-[#0d0e12] border border-neutral-800/80 hover:border-amber-500/30 rounded-xl p-4 flex flex-wrap items-center gap-4 transition-all duration-300 shadow-[0_5px_15px_rgba(0,0,0,0.5)] group">
                 {/* Date/Time */}
                 <div className="flex flex-col items-center justify-center min-w-[90px] text-xs font-mono bg-black/40 py-2 px-3 rounded-lg border border-neutral-850/60 shadow-inner">
-                  <span className="text-gray-500">{timeParts[0]}</span>
-                  <span className="text-amber-400 font-extrabold text-[13px] tracking-wide mt-0.5">{timeParts[1]}</span>
+                  <span className="text-gray-500">{betDate}</span>
+                  <span className="text-amber-400 font-extrabold text-[13px] tracking-wide mt-0.5">{betTime}</span>
                 </div>
 
                 {/* Game Info */}

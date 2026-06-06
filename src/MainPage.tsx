@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db, auth } from './lib/firebase';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
+import AdminMinigameManagement from './components/AdminMinigameManagement';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings } from 'lucide-react';
+import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2 } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -114,7 +115,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [gameResultPage, setGameResultPage] = useState(1);
 
   // State for Admin Deposit & Withdrawal Requests panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames'>('users');
   const [adminDepositRequests, setAdminDepositRequests] = useState<any[]>([]);
   const [exchangeRate, setExchangeRate] = useState(1537); // Default
   const [newExchangeRate, setNewExchangeRate] = useState(''); // New state
@@ -159,6 +160,37 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [userPoints, setUserPoints] = useState<number>(0);
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+
+  const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'support' | 'mypage') => {
+    setShowSports(false);
+    setShowBetHistory(false);
+    setShowSupportScreen(false);
+    setShowMyPage(false);
+    setShowDepositScreen(false);
+    setShowWithdrawalScreen(false);
+    setShowGameResultScreen(false);
+    setShowMiniGame(false);
+    setShowAdminPanel(false);
+    setShowAttendanceChecker(false);
+
+    if (target === 'sports') {
+      setShowSports(true);
+    } else if (target === 'minigame') {
+      setShowMiniGame(true);
+    } else if (target === 'deposit') {
+      setShowDepositScreen(true);
+    } else if (target === 'withdrawal') {
+      setShowWithdrawalScreen(true);
+    } else if (target === 'gameresult') {
+      setShowGameResultScreen(true);
+    } else if (target === 'bethistory') {
+      setShowBetHistory(true);
+    } else if (target === 'support') {
+      setShowSupportScreen(true);
+    } else if (target === 'mypage') {
+      setShowMyPage(true);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -225,11 +257,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
     // Total elapsed seconds of the day in KST
     const secondsInDay = totalSeconds % 86400;
     
-    // We adjust the boundaries so they match the actual iframe streams:
-    // 5-minute games end exactly 25 seconds before the 5-minute mark on the iframe.
-    // 3-minute games end exactly 15 seconds before the 3-minute mark on the iframe.
-    // This shifts the calculation forward, decreasing the remaining time.
-    const iframeOffset = tab === 'speedladder1' ? 23 : tab.includes('5') ? 25 : tab.includes('3') ? 15 : 5;
+    // We adjust the boundaries so they match the actual iframe streams exactly:
+    // 5-minute games draw at R * 300 - 25 seconds of the KST day (offset = 25)
+    // 3-minute games draw at R * 180 - 20 seconds of the KST day (offset = 20)
+    // 1-minute games draw at R * 60 - 10 seconds of the KST day (offset = 10)
+    const iframeOffset = tab === 'speedladder1' ? 10 : tab.includes('5') ? 25 : tab.includes('3') ? 20 : 5;
     const adjustedSeconds = secondsInDay + iframeOffset;
     
     const interval = tab.includes('5') ? 5 : tab.includes('3') ? 3 : 1;
@@ -359,11 +391,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
           console.log("Resolving background-style:", bet.id);
           let isWin = false;
           let winningOutcome = '';
+          let someNotReady = false;
 
           if (bet.folders && bet.folders.length > 0) {
             const updatedFolders = [];
             for (const f of bet.folders) {
               const gameRes = await getOrInsertAuthoritativeRoundResult(f.gameType, f.round);
+              if (!gameRes) {
+                someNotReady = true;
+                break;
+              }
               const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails(f, gameRes.details || {});
               updatedFolders.push({
                 ...f,
@@ -371,11 +408,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 rollResult: folderOutcome
               });
             }
+            if (someNotReady) {
+              console.log(`Skipping resolution of folder bet ${bet.id} because live API results are not yet ready.`);
+              continue;
+            }
             isWin = updatedFolders.every((f: any) => f.status === 'win');
             winningOutcome = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
             bet.folders = updatedFolders;
           } else {
             const gameRes = await getOrInsertAuthoritativeRoundResult(bet.gameType, bet.round || 0);
+            if (!gameRes) {
+              console.log(`Skipping resolution of single bet ${bet.id} because live API results are not yet ready.`);
+              continue;
+            }
             const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails({
               gameType: bet.gameType,
               group: bet.group,
@@ -496,8 +541,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     for (const opt of selectedOptions) {
       const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
 
-      if (opt.round === currentRound && secondsRemaining <= 10) {
-        alert(`선택된 [${opt.game} ${opt.round}회차]는 마감 10초 전(남은 시간: ${secondsRemaining}초)에 진입하여 배팅이 제한됩니다. 해당 폴더의 선택을 무효하고 다른 판을 선택해 주세요.`);
+      if (opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10)) {
+        alert(`선택된 [${opt.game} ${opt.round}회차]는 이미 마감되었거나 마감 10초 전(남은 시간: ${secondsRemaining}초)에 진입하여 배팅이 제한됩니다. 해당 폴더의 선택을 무효하고 다른 판을 선택해 주세요.`);
         return;
       }
     }
@@ -583,7 +628,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // Generate current + 5 upcoming rounds dynamically based on clock
   const getUpcomingRounds = (type: string) => {
     const { currentRound } = getRoundAndSecondsRemaining(type);
-    const interval = type.includes('5') ? 5 : 3;
+    const interval = type === 'speedladder1' ? 1 : type.includes('5') ? 5 : type.includes('3') ? 3 : 5;
     
     const list = [];
     for (let i = 0; i <= 5; i++) {
@@ -728,8 +773,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const handleToggleOption = (group: string, name: string, dividend: number, round: number, game: string) => {
     const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(activeMiniGameTab);
 
-    if (round === currentRound && secondsRemaining <= 10) {
-      alert(`해당 ${round}회차는 마감 10초 전(남은 시간: ${secondsRemaining}초)이므로 배팅 선택이 불가능합니다. 다음 회차를 선택하여 배팅해 주세요.`);
+    if (round < currentRound || (round === currentRound && secondsRemaining <= 10)) {
+      alert(`해당 ${round}회차는 마감되었거나 마감 10초 전(남은 시간: ${secondsRemaining}초)이므로 배팅 선택이 불가능합니다. 다음 회차를 선택하여 배팅해 주세요.`);
       return;
     }
 
@@ -1190,9 +1235,48 @@ export default function MainPage({ onLogout }: MainPageProps) {
     loadExchangeRate();
   }, []);
 
+  const getDeterministicResult = (gameType: string, roundNum: number, dateString: string) => {
+    // A stable, completely localized PRNG seeded by the unique combination of game, date, and round.
+    // This guarantees that any client or backend container computes the EXACT same results, preventing race conditions or browser mismatches.
+    const seed = `${gameType}_${dateString}_${roundNum}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const rnd = () => {
+      hash = (hash * 1103515245 + 12345) & 0x7fffffff;
+      return hash / 0x7fffffff;
+    };
+
+    let resultStr = '';
+    let details: any = {};
+    
+    if (gameType === 'powerball5' || gameType === 'powerball3') {
+      const rolledOddEven = rnd() < 0.5 ? '홀' : '짝';
+      const rolledUnderOver = rnd() < 0.5 ? '언더' : '오버';
+      const sizeSeed = rnd();
+      const size = sizeSeed < 0.3 ? '소' : sizeSeed < 0.7 ? '중' : '대';
+      
+      const pbOddEven = rnd() < 0.5 ? '홀' : '짝';
+      const pbUnderOver = rnd() < 0.5 ? '언더' : '오버';
+      
+      resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+      details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+    } else {
+      const start = rnd() < 0.5 ? '좌' : '우';
+      const lines = rnd() < 0.5 ? '3줄' : '4줄';
+      const outcome = (start === '좌' && lines === '3줄') || (start === '우' && lines === '4줄') ? '짝' : '홀';
+      
+      resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+      details = { start, lines, outcome };
+    }
+
+    return { resultStr, details };
+  };
+
   const getOrInsertAuthoritativeRoundResult = async (gameType: string, roundNum: number) => {
     const docId = `${gameType}_${roundNum}`;
-    const docRef = doc(db, 'gameResults', docId);
+    const docRef = doc(db, 'gameResultsTTL', docId);
     try {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -1212,26 +1296,107 @@ export default function MainPage({ onLogout }: MainPageProps) {
     };
     const name = gamesMap[gameType] || gameType;
     
+    // Calculate precise target stable date in KST for this specific round based on scheduled timestamp
+    const secureNow = new Date(Date.now() + serverTimeOffset);
+    const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(gameType);
+    const intervalMin = gameType === 'speedladder1' ? 1 : gameType.includes('5') ? 5 : gameType.includes('3') ? 3 : 5;
+    const roundTime = new Date(secureNow.getTime() - (currentRound - roundNum) * intervalMin * 60 * 1000);
+    const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
+    const dateString = roundKst.toISOString().split('T')[0];
+
     let resultStr = '';
     let details: any = {};
     
-    if (gameType === 'powerball5' || gameType === 'powerball3') {
-      const rolledOddEven = Math.random() < 0.5 ? '홀' : '짝';
-      const rolledUnderOver = Math.random() < 0.5 ? '언더' : '오버';
-      const size = Math.random() < 0.3 ? '소' : Math.random() < 0.7 ? '중' : '대';
+    // For powerball5 (N파워볼 5분), try to fetch the precise actual outcome of the round from live Entry
+    if (gameType === 'powerball5') {
+      try {
+        const response = await fetch('/api/game-result/powerball');
+        if (response.ok) {
+          const liveData = await response.json();
+          const liveRound = parseInt(liveData.fixed_date_round || liveData.date_round, 10);
+          if (liveRound === roundNum) {
+            const rolledOddEven = liveData.def_ball_oe;
+            const rolledUnderOver = liveData.def_ball_unover;
+            const size = liveData.def_ball_size;
+            const pbOddEven = liveData.pow_ball_oe;
+            const pbUnderOver = liveData.pow_ball_unover;
+
+            resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+            details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+            console.log(`Matched real-world live results for powerball5 Round ${roundNum}!`);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching live powerball results:", err);
+      }
+    }
+
+    // For powerladder5 (N파워사다리 5분), try to fetch from Entry
+    if (gameType === 'powerladder5') {
+      try {
+        const response = await fetch('/api/game-result/powerladder');
+        if (response.ok) {
+          const liveData = await response.json();
+          const liveRound = parseInt(liveData.r, 10);
+          if (liveRound === roundNum) {
+            const s = liveData.s;
+            const l = liveData.l;
+            const o = liveData.o;
+
+            const start = s === 'LEFT' ? '좌' : '우';
+            const lines = l == 3 || l === '3' ? '3줄' : '4줄';
+            const outcome = o === 'ODD' ? '홀' : '짝';
+
+            resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+            details = { start, lines, outcome };
+            console.log(`Matched real-world live results for powerladder5 Round ${roundNum}!`);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching live powerladder results:", err);
+      }
+    }
+
+    // For ladder5 (사다리 5분), try to fetch from keno_ladder Entry
+    if (gameType === 'ladder5') {
+      try {
+        const response = await fetch('/api/game-result/ladder');
+        if (response.ok) {
+          const liveData = await response.json();
+          const liveRound = parseInt(liveData.r, 10);
+          if (liveRound === roundNum) {
+            const s = liveData.s;
+            const l = liveData.l;
+            const o = liveData.o;
+
+            const start = s === 'LEFT' ? '좌' : '우';
+            const lines = l == 3 || l === '3' ? '3줄' : '4줄';
+            const outcome = o === 'ODD' ? '홀' : '짝';
+
+            resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+            details = { start, lines, outcome };
+            console.log(`Matched real-world live results for ladder5 Round ${roundNum}!`);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching live ladder results:", err);
+      }
+    }
+
+    // Postpone fallback if the round was recently completed and the live API hasn't updated yet
+    if (!resultStr) {
+      const isLiveGame = gameType === 'powerball5' || gameType === 'powerladder5' || gameType === 'ladder5';
+      const secondsElapsed = (intervalMin * 60) - secondsRemaining;
       
-      const pbOddEven = Math.random() < 0.5 ? '홀' : '짝';
-      const pbUnderOver = Math.random() < 0.5 ? '언더' : '오버';
-      
-      resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-      details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-    } else {
-      const start = Math.random() < 0.5 ? '좌' : '우';
-      const lines = Math.random() < 0.5 ? '3줄' : '4줄';
-      const outcome = (start === '좌' && lines === '3줄') || (start === '우' && lines === '4줄') ? '짝' : '홀';
-      
-      resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-      details = { start, lines, outcome };
+      if (isLiveGame && roundNum === currentRound - 1 && secondsElapsed < 35) {
+        console.log(`Postponing result generation for recently completed live game ${gameType} Round ${roundNum} to give API time to update...`);
+        return null;
+      }
+
+      // Fallback: If no real-world results could be fetched or matched, use the deterministic formula
+      const determ = getDeterministicResult(gameType, roundNum, dateString);
+      resultStr = determ.resultStr;
+      details = determ.details;
     }
     
     const docData = {
@@ -1239,7 +1404,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       round: roundNum,
       result: resultStr,
       details,
-      createdAt: new Date().toISOString()
+      createdAt: Timestamp.fromDate(new Date())
     };
     
     try {
@@ -1252,7 +1417,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   const autoInsertRecentGameResults = async () => {
     try {
-      const snap = await getDocs(collection(db, 'gameResults'));
+      const snap = await getDocs(collection(db, 'gameResultsTTL'));
       const existingIds = new Set(snap.docs.map(d => d.id));
 
       const games = [
@@ -1266,9 +1431,31 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
       let didAdd = false;
 
-      // 1. Backfill Minigame Rounds (past 25 rounds)
+      // Pull multi-game live results in parallel to boost match rate and execution speed
+      let livePowerballData: any = null;
+      let livePowerladderData: any = null;
+      let liveLadderData: any = null;
+
+      try {
+        const [pbRes, plRes, ldRes] = await Promise.all([
+          fetch('/api/game-result/powerball').catch(() => null),
+          fetch('/api/game-result/powerladder').catch(() => null),
+          fetch('/api/game-result/ladder').catch(() => null)
+        ]);
+
+        if (pbRes && pbRes.ok) livePowerballData = await pbRes.json().catch(() => null);
+        if (plRes && plRes.ok) livePowerladderData = await plRes.json().catch(() => null);
+        if (ldRes && ldRes.ok) liveLadderData = await ldRes.json().catch(() => null);
+      } catch (err) {
+        console.error("Error pre-fetching live results during backfill:", err);
+      }
+
+      // Convert current time to KST in a client-timezone independent way
+      const secureNow = new Date(Date.now() + serverTimeOffset);
+
+      // Backfill Minigame Rounds (past 25 rounds)
       for (const g of games) {
-        const { currentRound } = getRoundAndSecondsRemaining(g.key);
+        const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(g.key);
         const startRound = Math.max(1, currentRound - 25);
         const endRound = currentRound - 1;
 
@@ -1277,37 +1464,82 @@ export default function MainPage({ onLogout }: MainPageProps) {
           if (!existingIds.has(docId)) {
             let resultStr = '';
             let details: any = {};
-            if (g.key === 'powerball5' || g.key === 'powerball3') {
-              const rolledOddEven = Math.random() < 0.5 ? '홀' : '짝';
-              const rolledUnderOver = Math.random() < 0.5 ? '언더' : '오버';
-              const size = Math.random() < 0.3 ? '소' : Math.random() < 0.7 ? '중' : '대';
-              
-              const pbOddEven = Math.random() < 0.5 ? '홀' : '짝';
-              const pbUnderOver = Math.random() < 0.5 ? '언더' : '오버';
-              
-              resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-              details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-            } else {
-              const start = Math.random() < 0.5 ? '좌' : '우';
-              const lines = Math.random() < 0.5 ? '3줄' : '4줄';
-              const outcome = (start === '좌' && lines === '3줄') || (start === '우' && lines === '4줄') ? '짝' : '홀';
-              
-              resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-              details = { start, lines, outcome };
+
+            // Calculate precise target stable date in KST for this specific historical round
+            const intervalMin = g.key === 'speedladder1' ? 1 : g.key.includes('5') ? 5 : g.key.includes('3') ? 3 : 5;
+            const roundTime = new Date(secureNow.getTime() - (currentRound - r) * intervalMin * 60 * 1000);
+            const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
+            const dateString = roundKst.toISOString().split('T')[0];
+
+            if (g.key === 'powerball5' && livePowerballData) {
+              const liveRound = parseInt(livePowerballData.fixed_date_round || livePowerballData.date_round, 10);
+              if (liveRound === r) {
+                const rolledOddEven = livePowerballData.def_ball_oe;
+                const rolledUnderOver = livePowerballData.def_ball_unover;
+                const size = livePowerballData.def_ball_size;
+                const pbOddEven = livePowerballData.pow_ball_oe;
+                const pbUnderOver = livePowerballData.pow_ball_unover;
+
+                resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+                details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+              }
             }
 
-            const intervalMin = g.key.includes('5') ? 5 : 3;
-            // Approximate date
-            const now = new Date();
-            const roundTime = new Date(now.getTime() - (currentRound - r) * intervalMin * 60 * 1000);
+            if (g.key === 'powerladder5' && livePowerladderData) {
+              const liveRound = parseInt(livePowerladderData.r, 10);
+              if (liveRound === r) {
+                const s = livePowerladderData.s;
+                const l = livePowerladderData.l;
+                const o = livePowerladderData.o;
 
-            const docRef = doc(db, 'gameResults', docId);
+                const start = s === 'LEFT' ? '좌' : '우';
+                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
+                const outcome = o === 'ODD' ? '홀' : '짝';
+
+                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+                details = { start, lines, outcome };
+              }
+            }
+
+            if (g.key === 'ladder5' && liveLadderData) {
+              const liveRound = parseInt(liveLadderData.r, 10);
+              if (liveRound === r) {
+                const s = liveLadderData.s;
+                const l = liveLadderData.l;
+                const o = liveLadderData.o;
+
+                const start = s === 'LEFT' ? '좌' : '우';
+                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
+                const outcome = o === 'ODD' ? '홀' : '짝';
+
+                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+                details = { start, lines, outcome };
+              }
+            }
+
+            if (!resultStr) {
+              const secondsElapsed = (intervalMin * 60) - secondsRemaining;
+              // Postpone writing result if it's the most recently completed round and the live API hasn't synchronized yet
+              const isRecent = r === currentRound - 1;
+              const isLiveGame = g.key === 'powerball5' || g.key === 'powerladder5' || g.key === 'ladder5';
+              
+              if (isRecent && isLiveGame && secondsElapsed < 35) {
+                console.log(`Postponing result creation in backfill for ${g.key} Round ${r} to wait for API update...`);
+                continue;
+              }
+
+              const determ = getDeterministicResult(g.key, r, dateString);
+              resultStr = determ.resultStr;
+              details = determ.details;
+            }
+
+            const docRef = doc(db, 'gameResultsTTL', docId);
             await setDoc(docRef, {
               gameName: g.name,
               round: r,
               result: resultStr,
               details,
-              createdAt: roundTime.toISOString()
+              createdAt: Timestamp.fromDate(roundTime)
             });
             didAdd = true;
           }
@@ -1333,12 +1565,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const loadGameResults = async () => {
     setIsLoadingGameResults(true);
     try {
-      const snap = await getDocs(collection(db, 'gameResults'));
+      const snap = await getDocs(collection(db, 'gameResultsTTL'));
       const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', '다리다리(3분)', 'N파워사다리(5분)', '스피드사다리(1분)'];
       const results = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter((res: any) => minigameNames.includes(res.gameName.trim()));
-      results.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      results.sort((a: any, b: any) => {
+        const timeA = (a.createdAt && typeof a.createdAt.toMillis === 'function') ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
+        const timeB = (b.createdAt && typeof b.createdAt.toMillis === 'function') ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
       console.log("Loaded game results:", results);
       setGameResults(results);
     } catch (e) {
@@ -1765,14 +2001,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
         {/* Logo */}
         <button 
-          onClick={() => {
-            setShowMyPage(false);
-            setShowMiniGame(false);
-            setShowDepositScreen(false);
-            setShowWithdrawalScreen(false);
-            setShowGameResultScreen(false);
-            setShowBetHistory(false);
-          }}
+          onClick={() => navigateTo('home')}
           className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300"
         >
           <span className="inline-flex items-center font-sans">
@@ -1815,7 +2044,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               return (
                   <button 
                     key={item}
-                    onClick={() => { setShowSports(true); setShowMyPage(false); setShowMiniGame(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowSupportScreen(false); setShowAttendanceChecker(false); }}
+                    onClick={() => navigateTo('sports')}
                     className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showSports ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
                   >
                     스포츠
@@ -1831,7 +2060,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   onMouseLeave={closeMiniGameSubmenu}
                 >
                   <button 
-                    onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                    onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                     className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
                   >
                     미니게임
@@ -1844,37 +2073,37 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       onMouseLeave={closeMiniGameSubmenu}
                     >
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerball3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerball3'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워볼 (3분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('powerladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                        onClick={() => { setActiveMiniGameTab('powerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         N파워사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('ladder5'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                        onClick={() => { setActiveMiniGameTab('ladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         사다리 (5분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('daridari3'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                        onClick={() => { setActiveMiniGameTab('daridari3'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         다리다리 (3분)
                       </button>
                       <button 
-                        onClick={() => { setActiveMiniGameTab('speedladder1'); setShowMiniGame(true); setShowMyPage(false); setShowBetHistory(false); setShowDepositScreen(false); setShowWithdrawalScreen(false); setShowMiniGameSubmenu(false); setShowSupportScreen(false); }}
+                        onClick={() => { setActiveMiniGameTab('speedladder1'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
                         className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                       >
                         스피드사다리 (1분)
@@ -1889,15 +2118,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               return (
                 <button 
                   key={item} 
-                  onClick={() => {
-                    setShowDepositScreen(true);
-                    setShowWithdrawalScreen(false);
-                    setShowMyPage(false);
-                    setShowMiniGame(false);
-                    setShowBetHistory(false);
-                    setShowGameResultScreen(false);
-                    setShowSupportScreen(false);
-                  }}
+                  onClick={() => navigateTo('deposit')}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
                   입금신청
@@ -1909,15 +2130,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               return (
                 <button 
                   key={item} 
-                  onClick={() => {
-                    setShowWithdrawalScreen(true);
-                    setShowDepositScreen(false);
-                    setShowGameResultScreen(false);
-                    setShowMyPage(false);
-                    setShowMiniGame(false);
-                    setShowBetHistory(false);
-                    setShowSupportScreen(false);
-                  }}
+                  onClick={() => navigateTo('withdrawal')}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
                   출금신청
@@ -1929,15 +2142,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               return (
                 <button 
                   key={item} 
-                  onClick={() => {
-                    setShowGameResultScreen(true);
-                    setShowWithdrawalScreen(false);
-                    setShowDepositScreen(false);
-                    setShowMyPage(false);
-                    setShowMiniGame(false);
-                    setShowBetHistory(false);
-                    setShowSupportScreen(false);
-                  }}
+                  onClick={() => navigateTo('gameresult')}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
                   경기결과
@@ -1949,15 +2154,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               return (
                 <button 
                   key={item} 
-                  onClick={() => {
-                    setShowBetHistory(true);
-                    setShowMyPage(false);
-                    setShowGameResultScreen(false);
-                    setShowWithdrawalScreen(false);
-                    setShowDepositScreen(false);
-                    setShowMiniGame(false);
-                    setShowSupportScreen(false);
-                  }}
+                  onClick={() => navigateTo('bethistory')}
                   className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
                 >
                   베팅내역
@@ -2020,15 +2217,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <button 
             type="button"
             className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => {
-              setShowMyPage(true);
-              setShowMiniGame(false);
-              setShowDepositScreen(false);
-              setShowWithdrawalScreen(false);
-              setShowGameResultScreen(false);
-              setShowBetHistory(false);
-              setShowSupportScreen(false);
-            }}
+            onClick={() => navigateTo('mypage')}
           >
             My Page
           </button>
@@ -2046,15 +2235,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <button 
             type="button"
             className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => {
-              setShowSupportScreen(true);
-              setShowMyPage(false);
-              setShowMiniGame(false);
-              setShowDepositScreen(false);
-              setShowWithdrawalScreen(false);
-              setShowGameResultScreen(false);
-              setShowBetHistory(false);
-            }}
+            onClick={() => navigateTo('support')}
           >
             고객센터
           </button>
@@ -2422,10 +2603,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </button>
                 )}
                 <button 
-                  onClick={() => {
-                    setShowSupportScreen(true);
-                    setShowMyPage(false);
-                  }}
+                  onClick={() => navigateTo('support')}
                   className="bg-lime-700 hover:bg-lime-600 text-white font-bold py-2 px-12 rounded cursor-pointer transition-all active:scale-95 duration-200"
                 >
                   문의하기 (고객센터)
@@ -2981,7 +3159,30 @@ export default function MainPage({ onLogout }: MainPageProps) {
             ) : (() => {
               const expandGameResultToRows = (res: any) => {
                 const rows: any[] = [];
-                const dt = new Date(res.createdAt);
+                let dt: Date;
+                if (!res.createdAt) {
+                  dt = new Date();
+                } else if (typeof res.createdAt.toDate === 'function') {
+                  dt = res.createdAt.toDate();
+                } else if (typeof res.createdAt.toMillis === 'function') {
+                  dt = new Date(res.createdAt.toMillis());
+                } else if (typeof res.createdAt === 'object' && typeof res.createdAt.seconds === 'number') {
+                  dt = new Date(res.createdAt.seconds * 1000);
+                } else if (typeof res.createdAt === 'object' && typeof res.createdAt._seconds === 'number') {
+                  dt = new Date(res.createdAt._seconds * 1000);
+                } else {
+                  const parsed = new Date(res.createdAt);
+                  if (isNaN(parsed.getTime())) {
+                    const num = Number(res.createdAt);
+                    if (!isNaN(num) && num > 0) {
+                      dt = new Date(num);
+                    } else {
+                      dt = new Date();
+                    }
+                  } else {
+                    dt = parsed;
+                  }
+                }
                 const dateStr = dt.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
                 const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
                 
@@ -3552,7 +3753,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                             const { currentRound } = getRoundAndSecondsRemaining(activeMiniGameTab);
                             const isCurrentRound = row.round === currentRound;
-                            const isClosed = isCurrentRound && secondsLeft <= 10;
+                            const isClosed = row.round < currentRound || (row.round === currentRound && secondsLeft <= 10);
 
                             return (
                               <tr key={`${row.round}-${idx}`} className="hover:bg-neutral-900/40 transition-colors">
@@ -4014,23 +4215,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     whileHover={{ y: -6, scale: 1.02 }}
                     key={idx} 
                     onClick={() => {
-                      if (cat.label === '미니게임') {
+                      if (cat.label === '스포츠') {
+                        navigateTo('sports');
+                      } else if (cat.label === '미니게임') {
                         setActiveMiniGameTab('powerball3');
-                        setShowMiniGame(true);
-                        setShowMyPage(false);
-                        setShowBetHistory(false);
-                        setShowDepositScreen(false);
-                        setShowWithdrawalScreen(false);
-                        setShowSupportScreen(false);
-                        setShowGameResultScreen(false);
+                        navigateTo('minigame');
                       } else if (cat.label === '경기결과') {
-                        setShowGameResultScreen(true);
-                        setShowWithdrawalScreen(false);
-                        setShowDepositScreen(false);
-                        setShowMyPage(false);
-                        setShowMiniGame(false);
-                        setShowBetHistory(false);
-                        setShowSupportScreen(false);
+                        navigateTo('gameresult');
                       } else {
                         alert(`${cat.label} 기능은 준비 중입니다.`);
                       }
@@ -4137,6 +4328,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'matches' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Edit className="w-3 h-3 text-white" /> 경기 등록
+                  </button>
+                  <button
+                    onClick={() => setAdminActiveTab('minigames')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'minigames' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Gamepad2 className="w-3 h-3 text-amber-500" /> 미니게임 조정
                   </button>
                 </div>
               </div>
@@ -4323,6 +4520,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
               ) : adminActiveTab === 'matches' ? (
                 <AdminMatchRegistration />
+              ) : adminActiveTab === 'minigames' ? (
+                <AdminMinigameManagement
+                  gameResults={gameResults}
+                  onResultsUpdated={loadGameResults}
+                  currentUserData={currentUserData}
+                  setCurrentUserData={setCurrentUserData}
+                />
               ) : adminActiveTab === 'inquiries' ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center bg-black/60 p-4 rounded border border-neutral-800">

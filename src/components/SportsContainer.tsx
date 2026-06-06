@@ -382,8 +382,20 @@ export default function SportsContainer({
   const handleSelectOption = (match: any, type: 'home' | 'draw' | 'away', odds: number) => {
     if (!odds || odds <= 0) return;
 
-    // We can only select one option per match to prevent direct arbitrage/contradiction parlay
-    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
+    // Find existing selection with same matchId AND same marketType
+    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'matchWinner');
+
+    const isExactDeselect = existingSameMatchIndex > -1 && 
+      selectedFolders[existingSameMatchIndex].type === type;
+
+    if (!isExactDeselect) {
+      // Check if handicap exists FOR THIS MATCH
+      const hasHandicapInSameMatch = selectedFolders.some(f => f.matchId === match.id && f.marketType === 'handicap');
+      if (hasHandicapInSameMatch) {
+        alert('동일 경기 내에서 승무패와 핸디캡을 함께 조합할 수 없습니다.');
+        return;
+      }
+    }
 
     const newFolderObj = {
       matchId: match.id,
@@ -398,11 +410,11 @@ export default function SportsContainer({
     if (existingSameMatchIndex > -1) {
       const existingSelection = selectedFolders[existingSameMatchIndex];
       // If user clicks the exact same option again, we deselect it
-      if (existingSelection.marketType === 'matchWinner' && existingSelection.type === type) {
-        setSelectedFolders(prev => prev.filter(f => f.matchId !== match.id));
+      if (existingSelection.type === type) {
+        setSelectedFolders(prev => prev.filter(f => !(f.matchId === match.id && f.marketType === 'matchWinner')));
       } else {
-        // Replace with the new chosen option for the same match
-        setSelectedFolders(prev => prev.map(f => f.matchId === match.id ? newFolderObj : f));
+        // Replace with the new chosen option for the same match AND same marketType
+        setSelectedFolders(prev => prev.map(f => (f.matchId === match.id && f.marketType === 'matchWinner') ? newFolderObj : f));
       }
     } else {
       // Add as a new parlay leg (max 10 folds limit)
@@ -464,12 +476,26 @@ export default function SportsContainer({
   };
 
   const handleSelectHandicap = (match: any, handi: any, type: 'home' | 'away') => {
-    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
+    // Find existing selection with same matchId AND same marketType
+    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'handicap');
     const cleanedLineValue = formatHandicapDisplay(
       handi.value, 
       match.markets?.matchWinner?.home, 
       match.markets?.matchWinner?.away
     );
+
+    const isExactDeselect = existingSameMatchIndex > -1 && 
+      selectedFolders[existingSameMatchIndex].lineValue === cleanedLineValue && 
+      selectedFolders[existingSameMatchIndex].type === type;
+
+    if (!isExactDeselect) {
+      // Check if match winner exists FOR THIS MATCH
+      const hasMatchWinnerInSameMatch = selectedFolders.some(f => f.matchId === match.id && f.marketType === 'matchWinner');
+      if (hasMatchWinnerInSameMatch) {
+        alert('동일 경기 내에서 승무패와 핸디캡을 함께 조합할 수 없습니다.');
+        return;
+      }
+    }
 
     const newFolderObj = {
       matchId: match.id,
@@ -483,10 +509,12 @@ export default function SportsContainer({
 
     if (existingSameMatchIndex > -1) {
       const existingSelection = selectedFolders[existingSameMatchIndex];
-      if (existingSelection.marketType === 'handicap' && existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
-        setSelectedFolders(prev => prev.filter(f => f.matchId !== match.id));
+      // If user clicks exact same option again, deselect it
+      if (existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
+        setSelectedFolders(prev => prev.filter(f => !(f.matchId === match.id && f.marketType === 'handicap')));
       } else {
-        setSelectedFolders(prev => prev.map(f => f.matchId === match.id ? newFolderObj : f));
+        // Replace selection for this match AND this marketType
+        setSelectedFolders(prev => prev.map(f => (f.matchId === match.id && f.marketType === 'handicap') ? newFolderObj : f));
       }
     } else {
       if (selectedFolders.length >= 10) {
@@ -498,7 +526,8 @@ export default function SportsContainer({
   };
 
   const handleSelectOverUnder = (match: any, ou: any, type: 'over' | 'under') => {
-    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
+    // Find existing selection with same matchId AND same marketType
+    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'overUnder');
     const cleanedLineValue = cleanLineValue(ou.value);
 
     const newFolderObj = {
@@ -513,10 +542,12 @@ export default function SportsContainer({
 
     if (existingSameMatchIndex > -1) {
       const existingSelection = selectedFolders[existingSameMatchIndex];
-      if (existingSelection.marketType === 'overUnder' && existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
-        setSelectedFolders(prev => prev.filter(f => f.matchId !== match.id));
+      // If user clicks exact same option again, deselect it
+      if (existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
+        setSelectedFolders(prev => prev.filter(f => !(f.matchId === match.id && f.marketType === 'overUnder')));
       } else {
-        setSelectedFolders(prev => prev.map(f => f.matchId === match.id ? newFolderObj : f));
+        // Replace selection for this match AND this marketType
+        setSelectedFolders(prev => prev.map(f => (f.matchId === match.id && f.marketType === 'overUnder') ? newFolderObj : f));
       }
     } else {
       if (selectedFolders.length >= 10) {
@@ -597,6 +628,16 @@ export default function SportsContainer({
       }
     }
 
+    // Check for same-match forbidden combinations (matchWinner + handicap)
+    for (const folder of selectedFolders) {
+        const correspondingWinner = selectedFolders.find(f => f.matchId === folder.matchId && f.marketType === 'matchWinner');
+        const correspondingHandicap = selectedFolders.find(f => f.matchId === folder.matchId && f.marketType === 'handicap');
+        if (correspondingWinner && correspondingHandicap) {
+            alert('동일 경기 내에서 승무패와 핸디캡을 함께 조합할 수 없습니다.');
+            return;
+        }
+    }
+
     if (betAmount < 10000) {
       alert('최소 배팅금액은 10,000원입니다.');
       return;
@@ -609,8 +650,8 @@ export default function SportsContainer({
       alert('최대 배팅 가능 금액은 2,000,000원입니다.');
       return;
     }
-    if (estimatedPayout > 4000000) {
-      alert('최대 당첨 가능 금액은 4,000,000원입니다.');
+    if (estimatedPayout > 50000000) {
+      alert('최대 당첨 가능 금액은 50,000,000원입니다.');
       return;
     }
 
@@ -663,7 +704,7 @@ export default function SportsContainer({
           : foldersForSave.map((f: any) => `${f.option}(${f.dividend})`).join(' x '),
         dividend: formattedTotalOdds,
         amount: betAmount,
-        betTime: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+        betTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
         status: 'pending',
         rollResult: '대기 중',
         folders: foldersForSave,
@@ -1247,9 +1288,9 @@ export default function SportsContainer({
               </div>
             ) : (
               selectedFolders.map((item, index) => (
-                <div key={item.matchId} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
+                <div key={`${item.matchId}-${item.marketType}-${item.type}-${item.lineValue}`} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
                   <button
-                    onClick={() => setSelectedFolders(prev => prev.filter(f => f.matchId !== item.matchId))}
+                    onClick={() => setSelectedFolders(prev => prev.filter((_, i) => i !== index))}
                     className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
                     title="제거"
                   >

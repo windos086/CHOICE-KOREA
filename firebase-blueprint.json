@@ -109,9 +109,9 @@
       "schema": "withdrawalRequest",
       "description": "Store money exchange/withdrawal request records"
     },
-    "/gameResults/{resultId}": {
+    "/gameResultsTTL/{resultId}": {
       "schema": "gameResult",
-      "description": "Store game results by round"
+      "description": "Store game results (TTL enabled)"
     },
     "/inquiries/{inquiryId}": {
       "schema": "inquiry",
