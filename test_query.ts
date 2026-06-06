@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, query, limit } from 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,14 +8,13 @@ async function run() {
   const app = initializeApp(configFile);
   const db = getFirestore(app, configFile.firestoreDatabaseId);
 
-  const snap = await getDocs(collection(db, 'matches'));
+  const q = query(collection(db, 'matches'), limit(100));
+  const snap = await getDocs(q);
   const matches = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+  const leagues = new Set(matches.map((m: any) => m.league));
   console.log(`FOUND ${matches.length} matches`);
-  matches.slice(0, 10).forEach((m: any) => {
-    console.log(`\nMatch: ${m.homeTeam} vs ${m.awayTeam} (${m.dateTime})`);
-    console.log(`Markets:`, JSON.stringify(m.markets, null, 2));
-  });
+  console.log(`Distinct leagues:`, Array.from(leagues));
 }
 
 run().catch(console.error);

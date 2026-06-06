@@ -209,9 +209,13 @@ export default function AdminMatchRegistration() {
         const homeTeam = blockLines[firstOddsLineIdx - 1];
         if (!homeTeam) continue;
 
-        let matchLeague = currentLeague;
+        let matchLeague = '일반 리그';
         if (firstOddsLineIdx - 1 > 0) {
-          matchLeague = blockLines[firstOddsLineIdx - 2];
+          const possibleLeague = blockLines[firstOddsLineIdx - 2];
+          // Allow if it doesn't look like an odds line
+          if (possibleLeague && !/^\d+\.\d+$/.test(possibleLeague)) {
+             matchLeague = possibleLeague;
+          }
         }
         if (matchLeague) {
           matchLeague = matchLeague.replace(/[\[\]\(\)]/g, '').trim();
