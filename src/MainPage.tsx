@@ -698,6 +698,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       }
 
       const isLadderGame = ['powerladder5', 'redpowerladder5', 'ladder5', 'powerladder3min'].includes(activeMiniGameTab);
+      const isPowerballGame = ['powerball5', 'powerball3'].includes(activeMiniGameTab);
 
       if (isLadderGame) {
         rows.push({
@@ -728,6 +729,47 @@ export default function MainPage({ onLogout }: MainPageProps) {
           marketName: '최종결과 [홀짝]',
           left: { label: '홀', dividend: 1.95, value: '홀', group: '최종결과' },
           right: { label: '짝', dividend: 1.95, value: '짝', group: '최종결과' },
+          middle: 'VS'
+        });
+      } else if (isPowerballGame) {
+        rows.push({
+          time: rObj.time,
+          round: rObj.round,
+          label: rObj.label,
+          league: gameLabel,
+          marketName: '일반볼 [홀짝]',
+          left: { label: '홀', dividend: 1.95, value: '홀', group: '일반볼홀짝' },
+          right: { label: '짝', dividend: 1.95, value: '짝', group: '일반볼홀짝' },
+          middle: 'VS'
+        });
+        rows.push({
+          time: rObj.time,
+          round: rObj.round,
+          label: rObj.label,
+          league: gameLabel,
+          marketName: '일반볼 [언더오버]',
+          left: { label: '언더', dividend: 1.95, value: '언더', group: '일반볼언오버' },
+          right: { label: '오버', dividend: 1.95, value: '오버', group: '일반볼언오버' },
+          middle: 'VS'
+        });
+        rows.push({
+          time: rObj.time,
+          round: rObj.round,
+          label: rObj.label,
+          league: gameLabel,
+          marketName: '파워볼 [홀짝]',
+          left: { label: '홀', dividend: 1.95, value: '홀', group: '파워볼홀짝' },
+          right: { label: '짝', dividend: 1.95, value: '짝', group: '파워볼홀짝' },
+          middle: 'VS'
+        });
+        rows.push({
+          time: rObj.time,
+          round: rObj.round,
+          label: rObj.label,
+          league: gameLabel,
+          marketName: '파워볼 [언더오버]',
+          left: { label: '언더', dividend: 1.95, value: '언더', group: '파워볼언오버' },
+          right: { label: '오버', dividend: 1.95, value: '오버', group: '파워볼언오버' },
           middle: 'VS'
         });
       }
@@ -4140,7 +4182,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 {/* 승 (왼쪽 베팅 피스) */}
                                 <td className="py-2 px-1">
                                   <button
-                                    onClick={() => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
+                                    disabled={isClosed}
+                                    onClick={isClosed ? undefined : () => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
                                     className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
                                       isClosed
                                         ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
@@ -4158,7 +4201,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 <td className="py-2 px-1 align-middle">
                                   {row.middle && typeof row.middle === 'object' ? (
                                     <button
-                                      onClick={() => handleToggleOption((row.middle as any).group, (row.middle as any).value, (row.middle as any).dividend, row.round, row.league)}
+                                      disabled={isClosed}
+                                      onClick={isClosed ? undefined : () => handleToggleOption((row.middle as any).group, (row.middle as any).value, (row.middle as any).dividend, row.round, row.league)}
                                       className={`w-full py-2 px-2 rounded flex items-center justify-between transition text-xs group ${
                                         isClosed
                                           ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
@@ -4180,7 +4224,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 {/* 패 (오른쪽 베팅 피스) */}
                                 <td className="py-2 px-1">
                                   <button
-                                    onClick={() => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
+                                    disabled={isClosed}
+                                    onClick={isClosed ? undefined : () => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
                                     className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
                                       isClosed
                                         ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'

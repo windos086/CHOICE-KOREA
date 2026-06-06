@@ -36,7 +36,8 @@ export const MobileBettingList = ({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
+                onClick={isClosed ? undefined : () => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
+                disabled={isClosed}
                 className={`w-full py-3 px-3 rounded flex items-center justify-between transition text-xs group ${
                   isClosed
                     ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
@@ -49,7 +50,8 @@ export const MobileBettingList = ({
                 <span className={`font-black ${isLeftSelected ? 'text-white' : 'text-amber-500'}`}>{row.left.dividend}</span>
               </button>
               <button
-                onClick={() => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
+                onClick={isClosed ? undefined : () => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
+                disabled={isClosed}
                 className={`w-full py-3 px-3 rounded flex items-center justify-between transition text-xs group ${
                   isClosed
                     ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
