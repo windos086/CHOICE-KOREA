@@ -376,17 +376,14 @@ export default function AdminMatchRegistration() {
                 }
 
                 if (!isZeroHandicap(threshold)) {
+                  // Keep existing sign if present, otherwise assume positive if no sign
+                  let sign = '';
+                  if (threshold.includes('-')) sign = '-';
+                  else if (threshold.includes('+')) sign = '+';
+                  else sign = '+'; // Default to + for positive handicap if no sign provided
+
                   const cleanThreshold = threshold.trim().replace(/[+-]/g, '');
-                  let adjustedThreshold = threshold;
-                  if (homeOdds < awayOdds) {
-                    // Home team is favorite: Home gets minus handicap
-                    adjustedThreshold = `-${cleanThreshold}`;
-                  } else if (awayOdds < homeOdds) {
-                    // Away team is favorite: Away gets minus handicap (so Home gets plus handicap)
-                    adjustedThreshold = `+${cleanThreshold}`;
-                  } else {
-                    adjustedThreshold = `+${cleanThreshold}`;
-                  }
+                  const adjustedThreshold = `${sign}${cleanThreshold}`;
 
                   handicaps.push({
                     value: adjustedThreshold,
