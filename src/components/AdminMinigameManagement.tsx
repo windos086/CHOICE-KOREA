@@ -53,6 +53,8 @@ export default function AdminMinigameManagement({
     { key: 'ladder5', name: '사다리(5분)', type: 'ladder' },
     { key: 'daridari3', name: '다리다리(3분)', type: 'daridari' },
     { key: 'powerladder5', name: 'N파워사다리(5분)', type: 'ladder' },
+    { key: 'powerladder3min', name: 'N파워사다리(3분)', type: 'ladder' },
+    { key: 'redpowerladder5', name: '레드파워사다리(5분)', type: 'ladder' },
     { key: 'powerball5', name: 'N파워볼(5분)', type: 'powerball' },
     { key: 'powerball3', name: 'N파워볼(3분)', type: 'powerball' }
   ];
@@ -433,8 +435,8 @@ export default function AdminMinigameManagement({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
           {gamesConfig.map((game) => {
-            const currentMode = minigameModes[game.key] || (game.key === 'powerball5' || game.key === 'powerladder5' ? 'api' : 'manual');
-            const hasLiveApi = game.key === 'powerball5' || game.key === 'powerladder5';
+            const currentMode = minigameModes[game.key] || (game.key === 'powerball5' || game.key === 'powerladder5' || game.key === 'powerball3' ? 'api' : 'manual');
+            const hasLiveApi = game.key === 'powerball5' || game.key === 'powerladder5' || game.key === 'powerball3';
             
             return (
               <div key={game.key} className="bg-[#12141c] border border-neutral-850 rounded-lg p-3.5 space-y-3 shadow-inner">

@@ -30,10 +30,10 @@ async function startServer() {
     res.json({ serverTime: Date.now() });
   });
 
-  // Bypass CORS to retrieve standard real-time N Powerball result JSON from Entry
+  // Bypass CORS to retrieve standard real-time N Powerball result JSON from Frame domain (matching the live dashboard exactly)
   app.get("/api/game-result/powerball", async (req, res) => {
     try {
-      const response = await fetch("https://www.ntry.com/data/json/games/powerball/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/result.json", {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -42,16 +42,16 @@ async function startServer() {
         const data = await response.json();
         return res.json(data);
       }
-      return res.status(response.status).json({ error: "Failed to fetch from ntry" });
+      return res.status(response.status).json({ error: "Failed to fetch from co" });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
   });
 
-  // Bypass CORS to retrieve N Power Ladder result JSON from Entry
-  app.get("/api/game-result/powerladder", async (req, res) => {
+  // Recent results for Powerball (5분)
+  app.get("/api/game-result/powerball/recent", async (req, res) => {
     try {
-      const response = await fetch("https://www.ntry.com/data/json/games/power_ladder/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/recent.json", {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -60,7 +60,187 @@ async function startServer() {
         const data = await response.json();
         return res.json(data);
       }
-      return res.status(response.status).json({ error: "Failed to fetch from ntry" });
+      return res.status(response.status).json({ error: "Failed to fetch from co recent" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // N Powerball (3분) result
+  app.get("/api/game-result/powerball3", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co powerball3" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Recent results for Powerball (3분)
+  app.get("/api/game-result/powerball3/recent", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/recent.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co powerball3 recent" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // N Power Ladder result (5분)
+  app.get("/api/game-result/powerladder", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Recent results for Power Ladder (5분)
+  app.get("/api/game-result/powerladder/recent", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/recent.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co powerladder recent" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Red Power Ladder result
+  app.get("/api/game-result/redpowerladder", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co red" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Recent results for Red Power Ladder
+  app.get("/api/game-result/redpowerladder/recent", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/recent.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co red recent" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // N Power Ladder (3분) result
+  app.get("/api/game-result/powerladder3min", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co powerladder3" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Recent results for Power Ladder (3분)
+  app.get("/api/game-result/powerladder3min/recent", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/recent.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co powerladder3 recent" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Speed Ladder 1min result
+  app.get("/api/game-result/speedladder1", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/result.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co speedladder1" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Recent results for Speed Ladder 1min
+  app.get("/api/game-result/speedladder1/recent", async (req, res) => {
+    try {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/recent.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const data = await response.json();
+        return res.json(data);
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from co speedladder1 recent" });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
