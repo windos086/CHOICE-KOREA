@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
-import { collection, query, where, getDocs } from './lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from './lib/firebase';
 
 enum OperationType {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User, Lock, Hash, Wallet } from 'lucide-react';
-import { collection, setDoc, doc, serverTimestamp, query, where, getDocs } from './lib/firebase';
+import { collection, setDoc, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from './lib/firebase';
 
 interface RegistrationScreenProps {
