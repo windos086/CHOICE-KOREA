@@ -117,6 +117,7 @@ export default function AdminMatchRegistration() {
       interface MatchBlock {
         dateTime: string;
         allLines: string[];
+        league: string;
       }
 
       const matchBlocks: MatchBlock[] = [];
@@ -165,7 +166,7 @@ export default function AdminMatchRegistration() {
             }
           }
 
-          currentBlock = { dateTime: dateStr, allLines: [] };
+          currentBlock = { dateTime: dateStr, allLines: [], league: currentLeague };
           matchBlocks.push(currentBlock);
         } else {
           if (currentBlock) {
@@ -209,7 +210,7 @@ export default function AdminMatchRegistration() {
         const homeTeam = blockLines[firstOddsLineIdx - 1];
         if (!homeTeam) continue;
 
-        let matchLeague = '일반 리그';
+        let matchLeague = block.league || '일반 리그';
         if (firstOddsLineIdx - 1 > 0) {
           const possibleLeague = blockLines[firstOddsLineIdx - 2];
           // Allow if it doesn't look like an odds line
