@@ -380,10 +380,13 @@ export default function AdminMatchRegistration() {
                   const trimmedThreshold = threshold.trim();
                   const cleanThreshold = trimmedThreshold.replace(/[+-]/g, '');
                   
+                  // Favorite gets minus handicap, underdog gets plus handicap
                   let adjustedThreshold = cleanThreshold;
-                  if (trimmedThreshold.includes('-')) {
+                  if (homeOdds < awayOdds) {
+                    // Home is favorite: Home gets minus (-) handicap
                     adjustedThreshold = `-${cleanThreshold}`;
                   } else {
+                    // Away is favorite: Home gets plus (+) handicap
                     adjustedThreshold = `+${cleanThreshold}`;
                   }
 
