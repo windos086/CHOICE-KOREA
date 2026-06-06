@@ -378,11 +378,12 @@ export default function AdminMatchRegistration() {
                 if (!isZeroHandicap(threshold)) {
                   // Keep existing sign if present, otherwise assume positive if no sign
                   let sign = '';
-                  if (threshold.includes('-')) sign = '-';
-                  else if (threshold.includes('+')) sign = '+';
+                  const trimmedThreshold = threshold.trim();
+                  if (trimmedThreshold.includes('-')) sign = '-';
+                  else if (trimmedThreshold.includes('+')) sign = '+';
                   else sign = '+'; // Default to + for positive handicap if no sign provided
 
-                  const cleanThreshold = threshold.trim().replace(/[+-]/g, '');
+                  const cleanThreshold = trimmedThreshold.replace(/[+-]/g, '');
                   const adjustedThreshold = `${sign}${cleanThreshold}`;
 
                   handicaps.push({
