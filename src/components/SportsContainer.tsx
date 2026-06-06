@@ -428,6 +428,22 @@ export default function SportsContainer({
     return trimmed;
   };
 
+  const formatHandicapDisplay = (valStr: string): string => {
+    if (!valStr) return '0';
+    const cleaned = cleanLineValue(valStr);
+    const num = parseFloat(cleaned);
+    if (isNaN(num) || num === 0) return '0';
+    
+    // Check if it starts with minus
+    const isNegative = cleaned.startsWith('-');
+    const withoutSign = cleaned.replace(/[+-]/g, '').trim();
+    if (isNegative) {
+      return `-${withoutSign}`;
+    } else {
+      return `+${withoutSign}`;
+    }
+  };
+
   const parseHandicapValue = (valStr: string): number => {
     if (!valStr) return 0;
     valStr = valStr.trim();
@@ -442,7 +458,7 @@ export default function SportsContainer({
 
   const handleSelectHandicap = (match: any, handi: any, type: 'home' | 'away') => {
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id);
-    const cleanedLineValue = cleanLineValue(handi.value);
+    const cleanedLineValue = formatHandicapDisplay(handi.value);
 
     const newFolderObj = {
       matchId: match.id,
@@ -501,7 +517,7 @@ export default function SportsContainer({
   };
 
   const isSelectedHandicap = (matchId: string, value: string, type: 'home' | 'away') => {
-    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'handicap' && f.lineValue === cleanLineValue(value) && f.type === type);
+    return selectedFolders.some(f => f.matchId === matchId && f.marketType === 'handicap' && formatHandicapDisplay(f.lineValue) === formatHandicapDisplay(value) && f.type === type);
   };
 
   const isSelectedOverUnder = (matchId: string, value: string, type: 'over' | 'under') => {
@@ -1049,7 +1065,7 @@ export default function SportsContainer({
                                 {/* Column 3: Handicap line value */}
                                 <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/20 flex items-center justify-center text-center shrink-0 font-bold select-none">
                                   <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-amber-500">
-                                    {cleanLineValue(handi.value) || '0'}
+                                    {formatHandicapDisplay(handi.value)}
                                   </span>
                                 </div>
 
