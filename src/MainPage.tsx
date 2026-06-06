@@ -208,6 +208,21 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [serverTimeOffset, setServerTimeOffset] = useState<number>(0);
   const [kstClock, setKstClock] = useState<string>('');
 
+  // Minigame operation modes state (api = real-time API, rng = server pseudo-RNG, manual = admin manual input)
+  const [minigameModes, setMinigameModes] = useState<Record<string, 'api' | 'rng' | 'manual'>>({
+    powerball5: 'api',
+    powerladder5: 'api',
+    ladder5: 'manual',
+    speedladder1: 'manual',
+    daridari3: 'manual',
+    powerball3: 'manual'
+  });
+
+  const minigameModesRef = useRef(minigameModes);
+  useEffect(() => {
+    minigameModesRef.current = minigameModes;
+  }, [minigameModes]);
+
   // Synchronize clock with secure node server on mount
   useEffect(() => {
     fetch('/api/time')
@@ -1224,10 +1239,26 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const docRef = doc(db, 'appSettings', 'general');
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setExchangeRate(docSnap.data().usdtToKrwRate);
+        const data = docSnap.data();
+        if (data.usdtToKrwRate !== undefined) {
+          setExchangeRate(data.usdtToKrwRate);
+        }
+        if (data.minigameModes) {
+          const loadedModes = { ...data.minigameModes };
+          // Enforce that only powerball5 and powerladder5 can ever be set to 'api' mode
+          Object.keys(loadedModes).forEach(key => {
+            if (key !== 'powerball5' && key !== 'powerladder5' && loadedModes[key] === 'api') {
+              loadedModes[key] = 'manual';
+            }
+          });
+          setMinigameModes(prev => ({
+            ...prev,
+            ...loadedModes
+          }));
+        }
       }
     } catch (e) {
-      console.error("Error loading exchange rate:", e);
+      console.error("Error loading exchange rate and minigame modes:", e);
     }
   };
 
@@ -1286,6 +1317,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
       console.error("Error reading doc in getOrInsertAuthoritativeRoundResult:", err);
     }
     
+    // Determine active game operation mode
+    const activeMode = minigameModesRef.current[gameType] || 
+      (gameType === 'powerball5' || gameType === 'powerladder5' ? 'api' : 'manual');
+
+    // If manual mode is active, prevent any automatic result generation to keep the round pending
+    if (activeMode === 'manual') {
+      console.log(`[Minigame Manual Mode] Round ${roundNum} for ${gameType} is waiting for explicit admin results registration.`);
+      return null;
+    }
+
     const gamesMap: Record<string, string> = {
       'powerball5': 'N파워볼(5분)',
       'powerball3': 'N파워볼(3분)',
@@ -1307,93 +1348,72 @@ export default function MainPage({ onLogout }: MainPageProps) {
     let resultStr = '';
     let details: any = {};
     
-    // For powerball5 (N파워볼 5분), try to fetch the precise actual outcome of the round from live Entry
-    if (gameType === 'powerball5') {
-      try {
-        const response = await fetch('/api/game-result/powerball');
-        if (response.ok) {
-          const liveData = await response.json();
-          const liveRound = parseInt(liveData.fixed_date_round || liveData.date_round, 10);
-          if (liveRound === roundNum) {
-            const rolledOddEven = liveData.def_ball_oe;
-            const rolledUnderOver = liveData.def_ball_unover;
-            const size = liveData.def_ball_size;
-            const pbOddEven = liveData.pow_ball_oe;
-            const pbUnderOver = liveData.pow_ball_unover;
+    // Fill resultStr using the designated source
+    if (activeMode === 'api') {
+      // For powerball5 (N파워볼 5분), try to fetch the precise actual outcome of the round from live Entry
+      if (gameType === 'powerball5') {
+        try {
+          const response = await fetch('/api/game-result/powerball');
+          if (response.ok) {
+            const liveData = await response.json();
+            const liveRound = parseInt(liveData.fixed_date_round || liveData.date_round, 10);
+            if (liveRound === roundNum) {
+              const rolledOddEven = liveData.def_ball_oe;
+              const rolledUnderOver = liveData.def_ball_unover;
+              const size = liveData.def_ball_size;
+              const pbOddEven = liveData.pow_ball_oe;
+              const pbUnderOver = liveData.pow_ball_unover;
 
-            resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-            details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-            console.log(`Matched real-world live results for powerball5 Round ${roundNum}!`);
+              resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+              details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+              console.log(`Matched real-world live results for powerball5 Round ${roundNum}!`);
+            }
           }
+        } catch (err) {
+          console.error("Error fetching live powerball results:", err);
         }
-      } catch (err) {
-        console.error("Error fetching live powerball results:", err);
       }
-    }
 
-    // For powerladder5 (N파워사다리 5분), try to fetch from Entry
-    if (gameType === 'powerladder5') {
-      try {
-        const response = await fetch('/api/game-result/powerladder');
-        if (response.ok) {
-          const liveData = await response.json();
-          const liveRound = parseInt(liveData.r, 10);
-          if (liveRound === roundNum) {
-            const s = liveData.s;
-            const l = liveData.l;
-            const o = liveData.o;
+      // For powerladder5 (N파워사다리 5분), try to fetch from Entry
+      if (gameType === 'powerladder5') {
+        try {
+          const response = await fetch('/api/game-result/powerladder');
+          if (response.ok) {
+            const liveData = await response.json();
+            const liveRound = parseInt(liveData.r, 10);
+            if (liveRound === roundNum) {
+              const s = liveData.s;
+              const l = liveData.l;
+              const o = liveData.o;
 
-            const start = s === 'LEFT' ? '좌' : '우';
-            const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-            const outcome = o === 'ODD' ? '홀' : '짝';
+              const start = s === 'LEFT' ? '좌' : '우';
+              const lines = l == 3 || l === '3' ? '3줄' : '4줄';
+              const outcome = o === 'ODD' ? '홀' : '짝';
 
-            resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-            details = { start, lines, outcome };
-            console.log(`Matched real-world live results for powerladder5 Round ${roundNum}!`);
+              resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+              details = { start, lines, outcome };
+              console.log(`Matched real-world live results for powerladder5 Round ${roundNum}!`);
+            }
           }
+        } catch (err) {
+          console.error("Error fetching live powerladder results:", err);
         }
-      } catch (err) {
-        console.error("Error fetching live powerladder results:", err);
-      }
-    }
-
-    // For ladder5 (사다리 5분), try to fetch from keno_ladder Entry
-    if (gameType === 'ladder5') {
-      try {
-        const response = await fetch('/api/game-result/ladder');
-        if (response.ok) {
-          const liveData = await response.json();
-          const liveRound = parseInt(liveData.r, 10);
-          if (liveRound === roundNum) {
-            const s = liveData.s;
-            const l = liveData.l;
-            const o = liveData.o;
-
-            const start = s === 'LEFT' ? '좌' : '우';
-            const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-            const outcome = o === 'ODD' ? '홀' : '짝';
-
-            resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-            details = { start, lines, outcome };
-            console.log(`Matched real-world live results for ladder5 Round ${roundNum}!`);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching live ladder results:", err);
       }
     }
 
     // Postpone fallback if the round was recently completed and the live API hasn't updated yet
     if (!resultStr) {
-      const isLiveGame = gameType === 'powerball5' || gameType === 'powerladder5' || gameType === 'ladder5';
-      const secondsElapsed = (intervalMin * 60) - secondsRemaining;
-      
-      if (isLiveGame && roundNum === currentRound - 1 && secondsElapsed < 35) {
-        console.log(`Postponing result generation for recently completed live game ${gameType} Round ${roundNum} to give API time to update...`);
-        return null;
+      if (activeMode === 'api') {
+        const isLiveGame = gameType === 'powerball5' || gameType === 'powerladder5';
+        const secondsElapsed = (intervalMin * 60) - secondsRemaining;
+        
+        if (isLiveGame && roundNum === currentRound - 1 && secondsElapsed < 35) {
+          console.log(`Postponing result generation for recently completed live game ${gameType} Round ${roundNum} to give API time to update...`);
+          return null;
+        }
       }
 
-      // Fallback: If no real-world results could be fetched or matched, use the deterministic formula
+      // Fallback or explicit RNG: use the deterministic formula
       const determ = getDeterministicResult(gameType, roundNum, dateString);
       resultStr = determ.resultStr;
       details = determ.details;
@@ -1455,6 +1475,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
       // Backfill Minigame Rounds (past 25 rounds)
       for (const g of games) {
+        const mode = minigameModesRef.current[g.key] || 
+          (g.key === 'powerball5' || g.key === 'powerladder5' ? 'api' : 'manual');
+        
+        // If manual mode is active, strictly skip automatic backfill to keep these rounds waiting for manual registration
+        if (mode === 'manual') {
+          continue;
+        }
+
         const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(g.key);
         const startRound = Math.max(1, currentRound - 25);
         const endRound = currentRound - 1;
@@ -1471,61 +1499,50 @@ export default function MainPage({ onLogout }: MainPageProps) {
             const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
             const dateString = roundKst.toISOString().split('T')[0];
 
-            if (g.key === 'powerball5' && livePowerballData) {
-              const liveRound = parseInt(livePowerballData.fixed_date_round || livePowerballData.date_round, 10);
-              if (liveRound === r) {
-                const rolledOddEven = livePowerballData.def_ball_oe;
-                const rolledUnderOver = livePowerballData.def_ball_unover;
-                const size = livePowerballData.def_ball_size;
-                const pbOddEven = livePowerballData.pow_ball_oe;
-                const pbUnderOver = livePowerballData.pow_ball_unover;
+            if (mode === 'api') {
+              if (g.key === 'powerball5' && livePowerballData) {
+                const liveRound = parseInt(livePowerballData.fixed_date_round || livePowerballData.date_round, 10);
+                if (liveRound === r) {
+                  const rolledOddEven = livePowerballData.def_ball_oe;
+                  const rolledUnderOver = livePowerballData.def_ball_unover;
+                  const size = livePowerballData.def_ball_size;
+                  const pbOddEven = livePowerballData.pow_ball_oe;
+                  const pbUnderOver = livePowerballData.pow_ball_unover;
 
-                resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-                details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+                  resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
+                  details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
+                }
               }
-            }
 
-            if (g.key === 'powerladder5' && livePowerladderData) {
-              const liveRound = parseInt(livePowerladderData.r, 10);
-              if (liveRound === r) {
-                const s = livePowerladderData.s;
-                const l = livePowerladderData.l;
-                const o = livePowerladderData.o;
+              if (g.key === 'powerladder5' && livePowerladderData) {
+                const liveRound = parseInt(livePowerladderData.r, 10);
+                if (liveRound === r) {
+                  const s = livePowerladderData.s;
+                  const l = livePowerladderData.l;
+                  const o = livePowerladderData.o;
 
-                const start = s === 'LEFT' ? '좌' : '우';
-                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                const outcome = o === 'ODD' ? '홀' : '짝';
+                  const start = s === 'LEFT' ? '좌' : '우';
+                  const lines = l == 3 || l === '3' ? '3줄' : '4줄';
+                  const outcome = o === 'ODD' ? '홀' : '짝';
 
-                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                details = { start, lines, outcome };
+                  resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+                  details = { start, lines, outcome };
+                }
               }
-            }
 
-            if (g.key === 'ladder5' && liveLadderData) {
-              const liveRound = parseInt(liveLadderData.r, 10);
-              if (liveRound === r) {
-                const s = liveLadderData.s;
-                const l = liveLadderData.l;
-                const o = liveLadderData.o;
-
-                const start = s === 'LEFT' ? '좌' : '우';
-                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                const outcome = o === 'ODD' ? '홀' : '짝';
-
-                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                details = { start, lines, outcome };
-              }
             }
 
             if (!resultStr) {
-              const secondsElapsed = (intervalMin * 60) - secondsRemaining;
-              // Postpone writing result if it's the most recently completed round and the live API hasn't synchronized yet
-              const isRecent = r === currentRound - 1;
-              const isLiveGame = g.key === 'powerball5' || g.key === 'powerladder5' || g.key === 'ladder5';
-              
-              if (isRecent && isLiveGame && secondsElapsed < 35) {
-                console.log(`Postponing result creation in backfill for ${g.key} Round ${r} to wait for API update...`);
-                continue;
+              if (mode === 'api') {
+                const secondsElapsed = (intervalMin * 60) - secondsRemaining;
+                // Postpone writing result if it's the most recently completed round and the live API hasn't synchronized yet
+                const isRecent = r === currentRound - 1;
+                const isLiveGame = g.key === 'powerball5' || g.key === 'powerladder5';
+                
+                if (isRecent && isLiveGame && secondsElapsed < 35) {
+                  console.log(`Postponing result creation in backfill for ${g.key} Round ${r} to wait for API update...`);
+                  continue;
+                }
               }
 
               const determ = getDeterministicResult(g.key, r, dateString);
@@ -3569,13 +3586,30 @@ export default function MainPage({ onLogout }: MainPageProps) {
             {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
             <div className="flex-[3] min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden xl:mr-[350px]">
               <div className="bg-neutral-950 p-4 border-b border-red-950/80 flex items-center justify-between">
-                <span className="text-white font-black tracking-wider">
-                  {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
-                   activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
-                   activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
-                   activeMiniGameTab === 'speedladder1' ? '실시간 스피드사다리 (1분)' :
-                   activeMiniGameTab === 'ladder5' ? '실시간 사다리 (5분)' : '실시간 다리다리 (3분)'}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-black tracking-wider">
+                    {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
+                     activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
+                     activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
+                     activeMiniGameTab === 'speedladder1' ? '실시간 스피드사다리 (1분)' :
+                     activeMiniGameTab === 'ladder5' ? '실시간 사다리 (5분)' : '실시간 다리다리 (3분)'}
+                  </span>
+                  {(() => {
+                    const mode = minigameModes[activeMiniGameTab] || 
+                      (activeMiniGameTab === 'powerball5' || activeMiniGameTab === 'powerladder5' ? 'api' : 'manual');
+                    return (
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wide border whitespace-nowrap ${
+                        mode === 'api' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-900/40' : 
+                        mode === 'rng' ? 'bg-blue-950/70 text-blue-400 border-blue-900/40' : 
+                        'bg-amber-950/70 text-amber-500 border-amber-900/40'
+                      }`}>
+                        {mode === 'api' ? '● 실시간 API 자동정산' : 
+                         mode === 'rng' ? '● 자체 RNG 독립운영' : 
+                         '● 관리자 자체 검증정산'}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <button 
                   onClick={() => setShowMiniGame(false)} 
                   className="text-gray-400 hover:text-white text-xs bg-neutral-900 px-3 py-1 rounded border border-neutral-800 transition"

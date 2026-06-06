@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, getDocs, setDoc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Gamepad2, Search, Save, AlertTriangle, CheckCircle, RefreshCw, Edit, Sparkles } from 'lucide-react';
 
@@ -23,6 +23,18 @@ export default function AdminMinigameManagement({
   const [historyList, setHistoryList] = useState<any[]>([]);
   const [actionStatus, setActionStatus] = useState<{ type: 'success' | 'error' | ''; message: string }>({ type: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Minigame mode states (api, rng, manual)
+  const [minigameModes, setMinigameModes] = useState<Record<string, 'api' | 'rng' | 'manual'>>({
+    powerball5: 'api',
+    powerladder5: 'api',
+    ladder5: 'manual',
+    speedladder1: 'manual',
+    daridari3: 'manual',
+    powerball3: 'manual'
+  });
+  const [isSavingModes, setIsSavingModes] = useState(false);
+  const [isLoadingModes, setIsLoadingModes] = useState(false);
 
   // 2. Ladder form states
   const [ladderStart, setLadderStart] = useState<'좌' | '우'>('좌');
@@ -57,6 +69,49 @@ export default function AdminMinigameManagement({
       }
     }
   }, [ladderStart, ladderLines, selectedGameKey]);
+
+  // Load and Save settings for Minigame Operations Modes
+  useEffect(() => {
+    const loadModes = async () => {
+      setIsLoadingModes(true);
+      try {
+        const docSnap = await getDoc(doc(db, 'appSettings', 'general'));
+        if (docSnap.exists() && docSnap.data().minigameModes) {
+          setMinigameModes(prev => ({
+            ...prev,
+            ...docSnap.data().minigameModes
+          }));
+        }
+      } catch (e) {
+        console.error("Error loading minigame modes in admin:", e);
+      } finally {
+        setIsLoadingModes(false);
+      }
+    };
+    loadModes();
+  }, []);
+
+  const saveMinigameModes = async (newModes: Record<string, 'api' | 'rng' | 'manual'>) => {
+    setIsSavingModes(true);
+    setActionStatus({ type: '', message: '' });
+    try {
+      const docRef = doc(db, 'appSettings', 'general');
+      const docSnap = await getDoc(docRef);
+      const existingData = docSnap.exists() ? docSnap.data() : {};
+      await setDoc(docRef, {
+        ...existingData,
+        minigameModes: newModes
+      });
+      setMinigameModes(newModes);
+      setActionStatus({ type: 'success', message: '🎉 미니게임 운영 방식 설정이 성공적으로 저장되었습니다!' });
+      onResultsUpdated();
+    } catch (e: any) {
+      console.error("Error saving minigame modes:", e);
+      setActionStatus({ type: 'error', message: `설정 저장에 실패했습니다: ${e.message}` });
+    } finally {
+      setIsSavingModes(false);
+    }
+  };
 
   // Load registered minigame outcomes list from Firestore
   const loadMinigameHistory = async () => {
@@ -352,7 +407,94 @@ export default function AdminMinigameManagement({
         </div>
       </div>
 
-      {/* 2. Top Game Selection Bar */}
+      {/* 2. Minigame Operation Modes Config Grid */}
+      <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-xl p-5 space-y-4 shadow-lg">
+        <div className="flex items-center justify-between border-b border-neutral-850 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-3.5 bg-red-650 rounded-full"></span>
+            <span className="text-xs font-black text-white tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> 미니게임 운영 방식 최적화 제어판 (RNG / 수동 / API)
+            </span>
+          </div>
+          <button
+            onClick={() => saveMinigameModes(minigameModes)}
+            disabled={isSavingModes}
+            className="bg-red-700 hover:bg-red-600 active:bg-red-800 text-white px-4 py-1.5 rounded-lg text-[10px] font-black tracking-wider transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-55"
+          >
+            {isSavingModes ? <RefreshCw className="w-3" /> : <Save className="w-3.5 h-3.5" />}
+            설정 저장하기
+          </button>
+        </div>
+
+        <p className="text-[11px] text-gray-400 pl-0.5 leading-relaxed">
+          각 미니게임의 정산 결과 생성 방식을 실시간 제어합니다.<br />
+          <strong className="text-amber-500">※ 수동 결과등록</strong>으로 지정 시, 불일치나 오차가 근본적으로 차단되며, 관리자가 경기 결과를 수동으로 정산하기 전까지 회원들의 해당 회차 베팅은 <strong className="text-amber-500">"결과 대기"</strong>로 안전하게 보호됩니다.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+          {gamesConfig.map((game) => {
+            const currentMode = minigameModes[game.key] || (game.key === 'powerball5' || game.key === 'powerladder5' ? 'api' : 'manual');
+            const hasLiveApi = game.key === 'powerball5' || game.key === 'powerladder5';
+            
+            return (
+              <div key={game.key} className="bg-[#12141c] border border-neutral-850 rounded-lg p-3.5 space-y-3 shadow-inner">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black text-white tracking-tight flex items-center gap-1">
+                    <span className="w-1 h-3 bg-neutral-600 rounded"></span> {game.name}
+                  </span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider border ${
+                    currentMode === 'api' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-900/40' : 
+                    currentMode === 'rng' ? 'bg-blue-950/80 text-blue-400 border-blue-900/40' : 
+                    'bg-amber-950/80 text-amber-500 border-amber-900/40'
+                  }`}>
+                    {currentMode === 'api' ? '실시간 API' : currentMode === 'rng' ? '자체 RNG' : '수동 결과등록'}
+                  </span>
+                </div>
+
+                <div className="flex bg-[#0b0c10] p-1 rounded border border-neutral-800 gap-1">
+                  <button
+                    type="button"
+                    disabled={!hasLiveApi}
+                    onClick={() => setMinigameModes(prev => ({ ...prev, [game.key]: 'api' }))}
+                    className={`flex-1 py-1 text-center text-[10px] rounded transition cursor-pointer font-bold ${
+                      currentMode === 'api' 
+                        ? 'bg-emerald-700 text-white font-extrabold shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-300 disabled:opacity-20'
+                    }`}
+                    title={!hasLiveApi ? "이 게임은 실시간 API 결과 자동정산을 지원하지 않습니다." : "실시간 API 자동정산"}
+                  >
+                    실시간 API
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMinigameModes(prev => ({ ...prev, [game.key]: 'rng' }))}
+                    className={`flex-1 py-1 text-center text-[10px] rounded transition cursor-pointer font-bold ${
+                      currentMode === 'rng' 
+                        ? 'bg-blue-800/80 text-white font-extrabold shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    자체 RNG
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMinigameModes(prev => ({ ...prev, [game.key]: 'manual' }))}
+                    className={`flex-1 py-1 text-center text-[10px] rounded transition cursor-pointer font-bold ${
+                      currentMode === 'manual' 
+                        ? 'bg-amber-700 text-white font-extrabold shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    수동 등록
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Top Game Selection Bar */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
         {gamesConfig.map((game) => (
           <button
