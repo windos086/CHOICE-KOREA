@@ -3823,105 +3823,155 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-950/40">
-                  <table className="w-full text-center text-xs text-gray-300">
-                    <thead className="bg-[#0b0e14] border-b border-neutral-800/80 text-gray-400 text-[11px] font-bold tracking-wider">
-                      <tr>
-                        <th className="p-3 text-left pl-6 min-w-[100px]">경기일시</th>
-                        <th className="p-3 text-left">리그 (구분)</th>
-                        <th className="p-3 text-center min-w-[170px]">승 (홈)</th>
-                        <th className="p-3 text-center min-w-[90px]">무 / 기준값</th>
-                        <th className="p-3 text-center min-w-[170px]">패 (원정)</th>
-                        <th className="p-3 text-center min-w-[100px]">스코어</th>
-                        <th className="p-3 text-center pr-6 min-w-[90px]">결과</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-800/40">
-                      {paginatedRows.map((row: any) => (
-                        <tr key={row.id} className="hover:bg-neutral-900/30 transition-colors">
-                          {/* 경기일시 */}
-                          <td className="p-3 text-left pl-6 font-mono text-[11px] text-gray-500 whitespace-nowrap leading-relaxed py-4 align-middle">
-                            <span className="block">{row.dateStr}</span>
-                            <span className="text-amber-500 font-bold mt-0.5 block">{row.timeStr}</span>
-                          </td>
-
-                          {/* 리그(구분) */}
-                          <td className="p-3 text-left align-middle py-4">
-                            <div className="flex items-center gap-3">
-                              {/* Live Square Indicator */}
-                              <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
-                                <span className="block w-2 h-2 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
-                                <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
-                              </div>
-                              <span className="text-white text-xs font-bold font-sans tracking-tight">
-                                {row.league}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* 승(홈) */}
-                          <td className="p-3 text-center align-middle py-4">
-                            <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                {isMobile ? (
+                  <div className="space-y-3 pb-4">
+                    {paginatedRows.map((row: any) => (
+                      <div key={row.id} className="bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 text-xs">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-gray-400 font-mono text-[11px]">{row.dateStr} {row.timeStr}</span>
+                          <span className="text-emerald-400 bg-emerald-950/30 border border-emerald-900/60 px-2 py-0.5 rounded font-bold text-[10px]">
+                            {row.statusText}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-white text-sm">{row.league}</span>
+                          <span className="text-amber-500 font-black text-sm">{row.score}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center bg-[#0b0c10] p-2 rounded border border-neutral-800/60">
+                          <motion.div 
+                            whileTap={{ scale: 0.98 }}
+                            className={`flex flex-col p-1.5 rounded border transition w-[45%] ${
                               row.winner === 'home' 
                                 ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
-                                : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
-                            }`}>
-                              <span className={`font-bold ${row.winner === 'home' ? 'text-amber-400' : 'text-gray-300'}`}>
-                                {row.homeName}
-                              </span>
-                              <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
-                                {row.homeOdds}
-                              </span>
-                            </div>
-                          </td>
+                                : 'bg-transparent border-transparent'
+                            }`}
+                          >
+                            <span className={`font-bold ${row.winner === 'home' ? 'text-amber-400' : 'text-gray-200'}`}>{row.homeName}</span>
+                            <span className="text-amber-500 font-bold text-[10px]">{row.homeOdds}</span>
+                          </motion.div>
 
-                          {/* 무 / 기준값 */}
-                          <td className="p-3 text-center align-middle py-4">
-                            <div className="inline-flex items-center justify-center bg-[#07090d] border border-neutral-800/90 text-gray-400 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md min-w-[44px] h-7">
-                              {row.midStandard}
-                            </div>
-                          </td>
+                          <span className="text-gray-500 font-bold">VS</span>
 
-                          {/* 패(원정) */}
-                          <td className="p-3 text-center align-middle py-4">
-                            <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                          <motion.div 
+                            whileTap={{ scale: 0.98 }}
+                            className={`flex flex-col p-1.5 rounded border transition w-[45%] items-end ${
                               row.winner === 'away' 
                                 ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
-                                : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
-                            }`}>
-                              <span className={`font-bold ${row.winner === 'away' ? 'text-amber-400' : 'text-gray-300'}`}>
-                                {row.awayName}
-                              </span>
-                              <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
-                                {row.awayOdds}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* 스코어 */}
-                          <td className="p-3 text-center align-middle py-4 font-bold text-xs">
-                            {row.winner === 'home' ? (
-                              <span className="text-amber-500 font-black">{row.score} [승]</span>
-                            ) : row.winner === 'away' ? (
-                              <span className="text-amber-500 font-black">{row.score} [승]</span>
-                            ) : row.winner === 'draw' ? (
-                              <span className="text-gray-300 font-bold">{row.score} [무]</span>
-                            ) : (
-                              <span className="text-gray-400">{row.score}</span>
-                            )}
-                          </td>
-
-                          {/* 결과 */}
-                          <td className="p-3 text-center align-middle pr-6 py-4">
-                            <div className="inline-block border border-emerald-900/60 text-emerald-400 bg-emerald-950/30 px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-[0_2px_4px_rgba(16,185,129,0.05)] select-none">
-                              {row.statusText}
-                            </div>
-                          </td>
+                                : 'bg-transparent border-transparent'
+                            }`}
+                          >
+                            <span className={`font-bold ${row.winner === 'away' ? 'text-amber-400' : 'text-gray-200'}`}>{row.awayName}</span>
+                            <span className="text-amber-500 font-bold text-[10px]">{row.awayOdds}</span>
+                          </motion.div>
+                        </div>
+                        <div className="mt-2 text-center text-[10px] text-gray-500">
+                          기준값: {row.midStandard}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-950/40">
+                    <table className="w-full text-center text-xs text-gray-300">
+                      <thead className="bg-[#0b0e14] border-b border-neutral-800/80 text-gray-400 text-[11px] font-bold tracking-wider">
+                        <tr>
+                          <th className="p-3 text-left pl-6 min-w-[100px]">경기일시</th>
+                          <th className="p-3 text-left">리그 (구분)</th>
+                          <th className="p-3 text-center min-w-[170px]">승 (홈)</th>
+                          <th className="p-3 text-center min-w-[90px]">무 / 기준값</th>
+                          <th className="p-3 text-center min-w-[170px]">패 (원정)</th>
+                          <th className="p-3 text-center min-w-[100px]">스코어</th>
+                          <th className="p-3 text-center pr-6 min-w-[90px]">결과</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800/40">
+                        {paginatedRows.map((row: any) => (
+                          <tr key={row.id} className="hover:bg-neutral-900/30 transition-colors">
+                            {/* 경기일시 */}
+                            <td className="p-3 text-left pl-6 font-mono text-[11px] text-gray-500 whitespace-nowrap leading-relaxed py-4 align-middle">
+                              <span className="block">{row.dateStr}</span>
+                              <span className="text-amber-500 font-bold mt-0.5 block">{row.timeStr}</span>
+                            </td>
+  
+                            {/* 리그(구분) */}
+                            <td className="p-3 text-left align-middle py-4">
+                              <div className="flex items-center gap-3">
+                                {/* Live Square Indicator */}
+                                <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
+                                  <span className="block w-2 h-2 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
+                                  <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
+                                </div>
+                                <span className="text-white text-xs font-bold font-sans tracking-tight">
+                                  {row.league}
+                                </span>
+                              </div>
+                            </td>
+  
+                            {/* 승(홈) */}
+                            <td className="p-3 text-center align-middle py-4">
+                              <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                                row.winner === 'home' 
+                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
+                              }`}>
+                                <span className={`font-bold ${row.winner === 'home' ? 'text-amber-400' : 'text-gray-300'}`}>
+                                  {row.homeName}
+                                </span>
+                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                  {row.homeOdds}
+                                </span>
+                              </div>
+                            </td>
+  
+                            {/* 무 / 기준값 */}
+                            <td className="p-3 text-center align-middle py-4">
+                              <div className="inline-flex items-center justify-center bg-[#07090d] border border-neutral-800/90 text-gray-400 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md min-w-[44px] h-7">
+                                {row.midStandard}
+                              </div>
+                            </td>
+  
+                            {/* 패(원정) */}
+                            <td className="p-3 text-center align-middle py-4">
+                              <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                                row.winner === 'away' 
+                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
+                              }`}>
+                                <span className={`font-bold ${row.winner === 'away' ? 'text-amber-400' : 'text-gray-300'}`}>
+                                  {row.awayName}
+                                </span>
+                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                  {row.awayOdds}
+                                </span>
+                              </div>
+                            </td>
+  
+                            {/* 스코어 */}
+                            <td className="p-3 text-center align-middle py-4 font-bold text-xs">
+                              {row.winner === 'home' ? (
+                                <span className="text-amber-500 font-black">{row.score} [승]</span>
+                              ) : row.winner === 'away' ? (
+                                <span className="text-amber-500 font-black">{row.score} [승]</span>
+                              ) : row.winner === 'draw' ? (
+                                <span className="text-gray-300 font-bold">{row.score} [무]</span>
+                              ) : (
+                                <span className="text-gray-400">{row.score}</span>
+                              )}
+                            </td>
+  
+                            {/* 결과 */}
+                            <td className="p-3 text-center align-middle pr-6 py-4">
+                              <div className="inline-block border border-emerald-900/60 text-emerald-400 bg-emerald-950/30 px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-[0_2px_4px_rgba(16,185,129,0.05)] select-none">
+                                {row.statusText}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {/* Beautiful Pagination Control */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 bg-neutral-950/20 py-4 rounded-xl border border-neutral-800/40">
