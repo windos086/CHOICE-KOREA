@@ -34,11 +34,11 @@ export const MobileBettingList = ({
               <span className="text-gray-500 font-semibold">{row.time}</span>
               <span className="text-amber-500/85 font-black">[{row.round}회차] {row.marketName}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={isClosed ? undefined : () => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
                 disabled={isClosed}
-                className={`w-full py-2.5 px-4 rounded-lg flex items-center justify-between transition ${
+                className={`w-full py-2.5 px-2 rounded-lg flex items-center justify-between transition ${
                   isClosed
                     ? 'bg-neutral-950 border border-neutral-800 text-gray-700 cursor-not-allowed'
                     : isLeftSelected
@@ -52,7 +52,7 @@ export const MobileBettingList = ({
               <button
                 onClick={isClosed ? undefined : () => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
                 disabled={isClosed}
-                className={`w-full py-2.5 px-4 rounded-lg flex items-center justify-between transition ${
+                className={`w-full py-2.5 px-2 rounded-lg flex items-center justify-between transition ${
                   isClosed
                     ? 'bg-neutral-950 border border-neutral-800 text-gray-700 cursor-not-allowed'
                     : isRightSelected
