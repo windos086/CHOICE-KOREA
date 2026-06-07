@@ -32,8 +32,11 @@ async function startServer() {
 
   // Bypass CORS to retrieve standard real-time N Powerball result JSON from Frame domain (matching the live dashboard exactly)
   app.get("/api/game-result/powerball", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -50,8 +53,11 @@ async function startServer() {
 
   // Recent results for Powerball (5분)
   app.get("/api/game-result/powerball/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/recent.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -68,8 +74,11 @@ async function startServer() {
 
   // N Powerball (3분) result
   app.get("/api/game-result/powerball3", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -86,8 +95,11 @@ async function startServer() {
 
   // Recent results for Powerball (3분)
   app.get("/api/game-result/powerball3/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/recent.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -104,8 +116,11 @@ async function startServer() {
 
   // N Power Ladder result (5분)
   app.get("/api/game-result/powerladder", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -122,8 +137,11 @@ async function startServer() {
 
   // Recent results for Power Ladder (5분)
   app.get("/api/game-result/powerladder/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/recent.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -140,8 +158,11 @@ async function startServer() {
 
   // Red Power Ladder result
   app.get("/api/game-result/redpowerladder", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -158,8 +179,11 @@ async function startServer() {
 
   // Recent results for Red Power Ladder
   app.get("/api/game-result/redpowerladder/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/recent.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -176,8 +200,11 @@ async function startServer() {
 
   // N Power Ladder (3분) result
   app.get("/api/game-result/powerladder3min", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -194,8 +221,11 @@ async function startServer() {
 
   // Recent results for Power Ladder (3분)
   app.get("/api/game-result/powerladder3min/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/recent.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -212,8 +242,11 @@ async function startServer() {
 
   // Speed Ladder 1min result
   app.get("/api/game-result/speedladder1", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/result.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -230,8 +263,11 @@ async function startServer() {
 
   // Recent results for Speed Ladder 1min
   app.get("/api/game-result/speedladder1/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/recent.json", {
+      const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -248,8 +284,11 @@ async function startServer() {
 
   // Bypass CORS to retrieve standard Ladder result JSON (using keno_ladder since it matches 5-minute schedule/RNG) from Entry
   app.get("/api/game-result/ladder", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
-      const response = await fetch("https://www.ntry.com/data/json/games/keno_ladder/result.json", {
+      const response = await fetch("https://www.ntry.com/data/json/games/keno_ladder/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }

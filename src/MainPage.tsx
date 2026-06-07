@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot, Timestamp, limit, orderBy } from 'firebase/firestore';
 import { db, auth } from './lib/firebase';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
@@ -306,36 +306,39 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return () => clearInterval(token);
   }, [activeMiniGameTab, serverTimeOffset]);
 
-  // Dynamic background pending-bets auto-resolver based on current game round clock
+  // Dynamic background pending-bets auto-resolver based on relaxed 15-second timer instead of per-second ticks
   useEffect(() => {
     if (!currentUserData || !currentUserData.bets) return;
 
     const pendingBets = currentUserData.bets.filter((b: any) => b.status === 'pending');
     if (pendingBets.length === 0) return;
 
-    if (resolvingBetsRef.current) return;
+    const checkAndResolve = async () => {
+      if (resolvingBetsRef.current) return;
 
-    let hasAnyResolvable = false;
-    for (const bet of pendingBets) {
-      if (bet.folders && bet.folders.length > 0) {
-        const allCompleted = bet.folders.every((f: any) => {
-          const { currentRound } = getRoundAndSecondsRemaining(f.gameType);
-          return f.round < currentRound;
-        });
-        if (allCompleted) {
-          hasAnyResolvable = true;
-          break;
-        }
-      } else {
-        const { currentRound } = getRoundAndSecondsRemaining(bet.gameType);
-        if (bet.round && bet.round < currentRound) {
-          hasAnyResolvable = true;
-          break;
+      let hasAnyResolvable = false;
+      for (const bet of pendingBets) {
+        if (bet.folders && bet.folders.length > 0) {
+          const allCompleted = bet.folders.every((f: any) => {
+            const { currentRound } = getRoundAndSecondsRemaining(f.gameType);
+            return f.round < currentRound;
+          });
+          if (allCompleted) {
+            hasAnyResolvable = true;
+            break;
+          }
+        } else {
+          const { currentRound } = getRoundAndSecondsRemaining(bet.gameType);
+          if (bet.round && bet.round < currentRound) {
+            hasAnyResolvable = true;
+            break;
+          }
         }
       }
-    }
 
-    if (!hasAnyResolvable) return;
+      if (!hasAnyResolvable) return;
+      await runResolution();
+    };
 
     const runResolution = async () => {
       resolvingBetsRef.current = true;
@@ -510,9 +513,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
       }
     };
 
-    runResolution();
+    // Run once immediately on mount or user bets update
+    checkAndResolve();
 
-  }, [currentUserData?.bets, secondsLeft]);
+    // Check periodically on a relaxed 15-second interval
+    const interval = setInterval(() => {
+      checkAndResolve();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [currentUserData]);
 
   useEffect(() => {
     if (currentUserData?.id) {
@@ -1611,7 +1621,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   const autoInsertRecentGameResults = async () => {
     try {
-      const snap = await getDocs(collection(db, 'gameResultsTTL'));
+      if (typeof document !== 'undefined' && document.hidden) {
+        console.log("[Optimize Check] Tab is hidden/in-background. Skipping autoInsertRecentGameResults to save Firestore read quota.");
+        return;
+      }
+      // Only fetch the last 30 minutes of game results to check which ones exist, preventing scaling bottlenecks and optimizing performance
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const snap = await getDocs(query(collection(db, 'gameResultsTTL'), where('createdAt', '>=', Timestamp.fromDate(thirtyMinutesAgo))));
       const existingIds = new Set(snap.docs.map(d => d.id));
 
       const games = [
@@ -1939,16 +1955,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   useEffect(() => {
     autoInsertRecentGameResults();
+    // Fetch every 30 seconds instead of 5 seconds to reduce background Firestore reads by 83%
     const interval = setInterval(() => {
       autoInsertRecentGameResults();
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [serverTimeOffset]);
 
   const loadGameResults = async () => {
     setIsLoadingGameResults(true);
     try {
-      const snap = await getDocs(collection(db, 'gameResultsTTL'));
+      // Fetch only the latest 150 results (instead of the entire 24-hour collection) to maintain blistering fast performance and protect read quota
+      const snap = await getDocs(query(
+        collection(db, 'gameResultsTTL'),
+        orderBy('createdAt', 'desc'),
+        limit(150)
+      ));
       const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'];
       const results = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -3982,8 +4004,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="pb5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball5/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
@@ -3992,8 +4014,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="pb3"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
@@ -4002,8 +4024,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="powerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
@@ -4012,8 +4034,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="redpowerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/redball/powerladder/mobile" : "https://xn--950bo4em5v.co/minigame/redball/powerladder/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
@@ -4022,8 +4044,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="ladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/ladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/ladder/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
@@ -4032,8 +4054,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="powerladder3min"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder3/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
@@ -4042,8 +4064,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="speedladder1"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
-                      width="100%"
-                      height="450"
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full"
