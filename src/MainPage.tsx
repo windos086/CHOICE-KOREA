@@ -1955,32 +1955,44 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   useEffect(() => {
     autoInsertRecentGameResults();
-    // Fetch every 30 seconds instead of 5 seconds to reduce background Firestore reads by 83%
+    // Fetch every 1 minute instead of 30 seconds to further conserve Firestore read quota
     const interval = setInterval(() => {
       autoInsertRecentGameResults();
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [serverTimeOffset]);
 
   const loadGameResults = async () => {
     setIsLoadingGameResults(true);
     try {
-      // Fetch only the latest 150 results (instead of the entire 24-hour collection) to maintain blistering fast performance and protect read quota
+      // Fetch the latest 40 results to find the single most recent result for each of the 6 minigames, minimizing read quota usage
       const snap = await getDocs(query(
         collection(db, 'gameResultsTTL'),
         orderBy('createdAt', 'desc'),
-        limit(150)
+        limit(40)
       ));
       const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'];
-      const results = snap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((res: any) => minigameNames.includes(res.gameName.trim()));
+      
+      // Group by gameName and only keep the single most recent record for each gameName to conserve Firestore read quota
+      const latestByGame: Record<string, any> = {};
+      snap.docs.forEach(docSnap => {
+        const data = { id: docSnap.id, ...docSnap.data() } as any;
+        const gName = (data.gameName || '').trim();
+        if (minigameNames.includes(gName)) {
+          if (!latestByGame[gName]) {
+            latestByGame[gName] = data;
+          }
+        }
+      });
+
+      const results = Object.values(latestByGame);
+
       results.sort((a: any, b: any) => {
         const timeA = (a.createdAt && typeof a.createdAt.toMillis === 'function') ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
         const timeB = (b.createdAt && typeof b.createdAt.toMillis === 'function') ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
         return timeB - timeA;
       });
-      console.log("Loaded game results:", results);
+      console.log("Loaded game results (latest per game):", results);
       setGameResults(results);
     } catch (e) {
       console.error("Error loading game results:", e);
