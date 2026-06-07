@@ -34,34 +34,34 @@ export const MobileBettingList = ({
               <span className="text-gray-500 font-semibold">{row.time}</span>
               <span className="text-amber-500/85 font-black">[{row.round}회차] {row.marketName}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={isClosed ? undefined : () => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
                 disabled={isClosed}
-                className={`w-full py-3 px-3 rounded flex items-center justify-between transition text-xs group ${
+                className={`w-full py-2.5 px-4 rounded-lg flex items-center justify-between transition ${
                   isClosed
-                    ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                    ? 'bg-neutral-950 border border-neutral-800 text-gray-700 cursor-not-allowed'
                     : isLeftSelected
-                    ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40'
-                    : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300'
+                    ? 'bg-amber-600/90 text-white shadow-lg border border-amber-500'
+                    : 'bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700 text-gray-300'
                 }`}
               >
-                <span className="font-semibold">{row.left.label}</span>
-                <span className={`font-black ${isLeftSelected ? 'text-white' : 'text-amber-500'}`}>{row.left.dividend}</span>
+                <span className="font-bold text-xs">{row.left.label}</span>
+                <span className={`font-black tracking-tighter ${isLeftSelected ? 'text-white' : 'text-amber-400'}`}>{row.left.dividend.toFixed(2)}</span>
               </button>
               <button
                 onClick={isClosed ? undefined : () => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
                 disabled={isClosed}
-                className={`w-full py-3 px-3 rounded flex items-center justify-between transition text-xs group ${
+                className={`w-full py-2.5 px-4 rounded-lg flex items-center justify-between transition ${
                   isClosed
-                    ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                    ? 'bg-neutral-950 border border-neutral-800 text-gray-700 cursor-not-allowed'
                     : isRightSelected
-                    ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40'
-                    : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300'
+                    ? 'bg-amber-600/90 text-white shadow-lg border border-amber-500'
+                    : 'bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700 text-gray-300'
                 }`}
               >
-                <span className="font-semibold">{row.right.label}</span>
-                <span className={`font-black ${isRightSelected ? 'text-white' : 'text-amber-500'}`}>{row.right.dividend}</span>
+                <span className="font-bold text-xs">{row.right.label}</span>
+                <span className={`font-black tracking-tighter ${isRightSelected ? 'text-white' : 'text-amber-400'}`}>{row.right.dividend.toFixed(2)}</span>
               </button>
             </div>
           </div>

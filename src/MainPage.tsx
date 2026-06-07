@@ -4101,6 +4101,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                   {/* 스포츠 배팅식 컴팩트 보드 테이블 */}
                   <div className="w-full">
+                    {/* 모바일 전용 게임 선택기 */}
+                    {isMobile && (
+                        <div className="flex overflow-x-auto gap-2 pb-2 mb-2 bg-[#0c0e15]/80 p-2">
+                            {[
+                                { key: 'powerball5', name: 'N파워볼(5분)' },
+                                { key: 'powerball3', name: 'N파워볼(3분)' },
+                                { key: 'powerladder5', name: 'N파워사다리(5분)' },
+                                { key: 'powerladder3min', name: 'N파워사다리(3분)' },
+                                { key: 'redpowerladder5', name: '레드파워사다리(5분)' },
+                                { key: 'ladder5', name: '사다리(5분)' }
+                            ].map(game => (
+                                <button 
+                                    key={game.key}
+                                    onClick={() => setActiveMiniGameTab(game.key)}
+                                    className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition ${activeMiniGameTab === game.key ? 'bg-amber-600 text-white' : 'bg-neutral-800 text-gray-400'}`}
+                                >
+                                    {game.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {/* 모바일 전용 카드 리스트 */}
                     <div className="md:hidden">
                       <MobileBettingList 
