@@ -8,7 +8,7 @@ import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import AdminMinigameManagement from './components/AdminMinigameManagement';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2 } from 'lucide-react';
+import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -83,6 +83,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showSports, setShowSports] = useState(false);
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
+  const [mobileBetSlipOpen, setMobileBetSlipOpen] = useState(false);
   const miniGameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resolvingBetsRef = useRef<boolean>(false);
   const [activeMiniGameTab, setActiveMiniGameTab] = useState<string>('powerladder5');
@@ -202,6 +203,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [selectedOptions, setSelectedOptions] = useState<{ group: string; name: string; dividend: number; round: number; game: string; gameType: string }[]>([]);
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
   const [betAmount, setBetAmount] = useState<number>(10000);
+
+  useEffect(() => {
+    if (isMobile && selectedOptions.length > 0) {
+      setMobileBetSlipOpen(true);
+    } else if (selectedOptions.length === 0) {
+      setMobileBetSlipOpen(false);
+    }
+  }, [selectedOptions, isMobile]);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [drawingTimer, setDrawingTimer] = useState<number>(0);
 
@@ -652,7 +661,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const interval = 5;
     
     const list = [];
-    for (let i = 0; i <= 5; i++) {
+    for (let i = 0; i < 1; i++) {
       const rNum = currentRound + i;
       // Round 'rNum' drawn/ends at exactly rNum * interval minutes of the day.
       // Match Time (경기일시) represents this absolute closing limit of the round (e.g., Round 88 is 07:20 KST).
@@ -2631,7 +2640,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const paginatedRows = allExpandedRows.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-[#030304] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-[#030304] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-amber-500 selection:text-black pb-20 md:pb-0">
       {/* Background glow effects */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-red-950/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
       <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-amber-950/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
@@ -3972,17 +3981,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
           </div>
         </div>
       ) : showMiniGame ? (
-        <div className="flex-1 p-4 md:p-8 w-full mx-auto max-w-[1550px]">
-          <div className="mb-4 text-sm text-gray-400">
+        <div className="flex-1 px-1 py-3 md:p-8 w-full mx-auto max-w-[1550px] overflow-hidden">
+          <div className="mb-3 text-xs md:text-sm text-gray-400 px-1">
             <button onClick={() => setShowMiniGame(false)} className="hover:text-white">홈</button> &gt; 미니게임
           </div>
-          <div className="flex flex-col xl:flex-row gap-6 items-start relative w-full">
+          <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 items-start relative w-full max-w-full overflow-hidden">
             
             {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
-            <div className="flex-[3] min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden xl:mr-[350px]">
-              <div className="bg-neutral-950 p-4 border-b border-red-950/80 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-white font-black tracking-wider">
+            <div className="flex-[3] w-full max-w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden xl:mr-[350px]">
+              <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+                  <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
                     {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
                      activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
                      activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
@@ -3994,97 +4003,97 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     const mode = minigameModes[activeMiniGameTab] || 
                       (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'ladder5'].includes(activeMiniGameTab) ? 'api' : 'manual');
                     return (
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wide border whitespace-nowrap ${
+                      <span className={`text-[9px] md:text-[10px] px-1.5 py-0.5 rounded font-black tracking-wide border whitespace-nowrap ${
                         mode === 'api' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-900/40' : 
                         mode === 'rng' ? 'bg-blue-950/70 text-blue-400 border-blue-900/40' : 
                         'bg-amber-950/70 text-amber-500 border-amber-900/40'
                       }`}>
-                        {mode === 'api' ? '● 실시간 API 자동정산' : 
-                         mode === 'rng' ? '● 자체 RNG 독립운영' : 
-                         '● 관리자 자체 검증정산'}
+                        {mode === 'api' ? '● API정산' : 
+                         mode === 'rng' ? '● RNG독립' : 
+                         '● 자체정산'}
                       </span>
                     );
                   })()}
                 </div>
                 <button 
                   onClick={() => setShowMiniGame(false)} 
-                  className="text-gray-400 hover:text-white text-xs bg-neutral-900 px-3 py-1 rounded border border-neutral-800 transition"
+                  className="text-gray-400 hover:text-white text-[10px] md:text-xs bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800 transition shrink-0"
                 >
                   나가기
                 </button>
               </div>
               
-              <div className="p-2 md:p-4 bg-[#0a0e17] flex justify-center items-center overflow-auto">
-                <div className="w-full h-full overflow-hidden flex justify-center items-center">
+              <div className="p-0.5 md:p-4 bg-[#0a0e17] flex flex-col justify-center items-center overflow-hidden w-full max-w-full">
+                <div className="w-full max-w-full overflow-hidden flex justify-center items-center">
                   {activeMiniGameTab === 'powerball5' ? (
                     <iframe 
                       key="pb5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball5/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : activeMiniGameTab === 'powerball3' ? (
                     <iframe 
                       key="pb3"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : activeMiniGameTab === 'powerladder5' ? (
                     <iframe 
                       key="powerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : activeMiniGameTab === 'redpowerladder5' ? (
                     <iframe 
                       key="redpowerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/redball/powerladder/mobile" : "https://xn--950bo4em5v.co/minigame/redball/powerladder/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : activeMiniGameTab === 'ladder5' ? (
                     <iframe 
                       key="ladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/ladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/ladder/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : activeMiniGameTab === 'powerladder3min' ? (
                     <iframe 
                       key="powerladder3min"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder3/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : activeMiniGameTab === 'speedladder1' ? (
                     <iframe 
                       key="speedladder1"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
-                      width={isMobile ? "100%" : "830"}
-                      height={isMobile ? "300" : "630"}
+                      width="100%"
+                      height={isMobile ? "360" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
                     />
                   ) : (
                     <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
@@ -4093,25 +4102,25 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
 
               {/* 실시간 배팅 판넬 */}
-              <div className="bg-[#04060b] border-t border-neutral-900 p-4 md:p-6 space-y-6">
+              <div className="bg-[#04060b] border-t border-neutral-900 p-2 md:p-6 space-y-4 md:space-y-6">
                 
                 {/* 스포츠 경기 리스트 스타일의 배팅 옵션 셀렉터 - 가로 폭 전체 사용 */}
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-3 gap-2">
-                    <h3 className="text-sm font-bold text-gray-200 flex items-center gap-2">
-                      <span className="w-1.5 h-4 bg-red-600 rounded"></span>
+                <div className="space-y-3">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-2 md:pb-3 gap-1 px-1">
+                    <h3 className="text-xs md:text-sm font-bold text-gray-200 flex items-center gap-1.5">
+                      <span className="w-1 h-3.5 bg-red-600 rounded"></span>
                       실시간 회차별 배팅 보드
                     </h3>
-                    <span className="text-[11px] text-amber-500 font-semibold animate-pulse">
-                      * 현재 회차 + 5회차까지 실시간 배팅 메뉴가 활성화됩니다.
+                    <span className="text-[10px] md:text-[11px] text-amber-500 font-semibold animate-pulse">
+                      * 현재 회차 + 5회차까지 실시간 배팅 보드가 활성화됩니다.
                     </span>
                   </div>
 
                   {/* 회차 빠른 필터 단축 탭 */}
-                  <div className="flex flex-wrap gap-1.5 bg-[#0f1118]/80 p-2.5 rounded-lg border border-neutral-850">
+                  <div className="flex overflow-x-auto gap-1.5 bg-[#0f1118]/80 p-2 rounded-lg border border-neutral-850 scrollbar-none whitespace-nowrap w-full">
                     <button
                       onClick={() => setSelectedRoundFilter('all')}
-                      className={`px-3 py-1.5 rounded text-xs font-bold transition cursor-pointer ${
+                      className={`px-3 py-1.5 rounded text-xs font-bold transition cursor-pointer shrink-0 ${
                         selectedRoundFilter === 'all'
                           ? 'bg-[#d97706] text-white shadow-md'
                           : 'bg-neutral-900 border border-neutral-800 text-gray-400 hover:text-white'
@@ -4125,7 +4134,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         <button
                           key={rObj.round}
                           onClick={() => setSelectedRoundFilter(rObj.round)}
-                          className={`px-3 py-1.5 rounded text-xs font-bold transition cursor-pointer ${
+                          className={`px-2.5 py-1.5 rounded text-xs font-bold transition cursor-pointer shrink-0 ${
                             isFiltered
                               ? 'bg-[#d97706] text-white shadow-md'
                               : 'bg-neutral-900 border border-neutral-800 text-gray-400 hover:text-white'
@@ -4328,8 +4337,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
             </div>
 
-            {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 빨간 테두리 박스 완전히 외부로 옆으로 빠짐 */}
-            <div className="w-full xl:w-80 bg-neutral-900/80 border border-neutral-800/60 rounded-xl p-4 flex flex-col justify-between space-y-4 xl:fixed xl:right-6 xl:top-24 z-30 py-4 mr-[70px]">
+            {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 적용 */}
+            <div className={`
+              ${isMobile 
+                ? `fixed bottom-[54px] left-0 right-0 max-h-[72vh] overflow-y-auto bg-neutral-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl px-4 py-3 pb-8 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] flex flex-col space-y-3.5 z-40 transition-all duration-300 transform ${mobileBetSlipOpen ? 'translate-y-0 opacity-100 animate-none' : 'translate-y-full opacity-0 pointer-events-none'}` 
+                : 'w-full xl:w-80 bg-neutral-900/80 border border-neutral-800/60 rounded-xl p-4 flex flex-col justify-between space-y-4 xl:fixed xl:right-6 xl:top-24 z-30 py-4 xl:mr-[70px] mr-0'
+              }
+            `}>
               <div className="space-y-4">
                 <div className="text-xs font-bold text-gray-400 border-b border-neutral-800/60 pb-2 flex items-center justify-between">
                   <span>나의 배팅 슬립 (Bet Slip)</span>
@@ -4473,6 +4487,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </button>
               </div>
             </div>
+
+            {isMobile && selectedOptions.length > 0 && (
+              <div className="fixed bottom-[54px] left-0 right-0 z-50 px-3.5 py-2.5 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 flex items-center justify-between border-t border-amber-500/30 shadow-[0_-8px_25px_rgba(0,0,0,0.85)]">
+                <button
+                  onClick={() => setMobileBetSlipOpen(!mobileBetSlipOpen)}
+                  className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-amber-500 to-amber-650 hover:from-amber-450 hover:to-amber-550 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(245,158,11,0.3)] cursor-pointer border-0"
+                >
+                  <span className="flex items-center gap-2">
+                    🎰 {mobileBetSlipOpen ? '배팅 슬립 접기 ▲' : '배팅 슬립 열기 ▼'}
+                  </span>
+                  <span className="bg-white text-amber-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
+                    {selectedOptions.length}개 선택됨
+                  </span>
+                </button>
+              </div>
+            )}
 
           </div>
         </div>
@@ -5320,6 +5350,92 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </button>
             <AttendanceChecker userId={currentUserData?.id || ''} />
           </div>
+        </div>
+      )}
+
+      {/* Mobile Sticky Bottom Navigation Bar */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0c0e11]/95 backdrop-blur-md border-t border-neutral-800/80 px-2 py-1.5 flex items-center justify-around pb-safe-bottom shadow-[0_-5px_22px_rgba(0,0,0,0.9)] md:hidden">
+          {/* 1. 콤프내역 */}
+          <button
+            onClick={() => {
+              setShowAttendanceChecker(true);
+            }}
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+          >
+            <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
+              <Vote className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+            </div>
+            <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
+              콤프내역
+            </span>
+          </button>
+
+          {/* 2. 머니내역 */}
+          <button
+            onClick={() => {
+              navigateTo('deposit');
+            }}
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+          >
+            <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
+              <Coins className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+            </div>
+            <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
+              머니내역
+            </span>
+          </button>
+
+          {/* 3. Central Home Button with custom glowing container */}
+          <div className="flex-1 relative flex justify-center -mt-6">
+            <button
+              onClick={() => {
+                navigateTo('home');
+              }}
+              className="w-13 h-13 bg-neutral-950 border-4 border-amber-500 rounded-full flex items-center justify-center shadow-[0_4px_18px_rgba(245,158,11,0.65)] cursor-pointer group transition-transform active:scale-90"
+            >
+              <div className="w-full h-full rounded-full bg-gradient-to-b from-[#111215] to-[#040405] flex items-center justify-center">
+                <Home className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-all duration-300" />
+              </div>
+            </button>
+          </div>
+
+          {/* 4. 베팅내역 */}
+          <button
+            onClick={() => {
+              navigateTo('bethistory');
+            }}
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+          >
+            <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
+              <Receipt className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+            </div>
+            <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
+              베팅내역
+            </span>
+          </button>
+
+          {/* 5. 쿠키삭제 */}
+          <button
+            onClick={() => {
+              try {
+                localStorage.clear();
+                sessionStorage.clear();
+                alert("브라우저 쿠키 및 세션 데이터가 성공적으로 삭제되었습니다.\n(로그아웃 후 초기 세션으로 재시작됩니다.)");
+                window.location.reload();
+              } catch (err) {
+                console.error(err);
+              }
+            }}
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-rose-400 transition-colors cursor-pointer group"
+          >
+            <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
+              <Trash2 className="w-5 h-5 text-gray-400 group-hover:text-red-400" />
+            </div>
+            <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
+              쿠키삭제
+            </span>
+          </button>
         </div>
       )}
     </div>
