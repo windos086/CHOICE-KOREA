@@ -362,37 +362,52 @@ export default function MainPage({ onLogout }: MainPageProps) {
           let isWinFolder = false;
           let folderOutcome = '';
 
-          if (folder.gameType === 'powerball5' || folder.gameType === 'powerball3') {
-            if (folder.group === '일반볼') {
-              if (folder.option === '홀' || folder.option === '짝') {
-                isWinFolder = folder.option === details.rolledOddEven;
-                folderOutcome = `${details.rolledOddEven}`;
+          const gType = folder.gameType || '';
+          if (gType === 'powerball5' || gType === 'powerball3') {
+            const grp = (folder.group || '').trim();
+            const opt = (folder.option || '').trim();
+
+            if (grp === '일반볼' || grp === '일반볼홀짝' || grp === '일반볼언오버') {
+              if (opt === '홀' || opt === '짝') {
+                const rolled = (details.rolledOddEven || '').trim();
+                isWinFolder = opt === rolled;
+                folderOutcome = rolled || '대기 중';
               } else {
-                isWinFolder = folder.option === details.rolledUnderOver;
-                folderOutcome = `${details.rolledUnderOver}`;
+                const rolled = (details.rolledUnderOver || '').trim();
+                isWinFolder = opt === rolled;
+                folderOutcome = rolled || '대기 중';
               }
-            } else if (folder.group === '일반볼 대중소') {
-              isWinFolder = folder.option === details.size;
-              folderOutcome = `${details.size}`;
-            } else if (folder.group === '파워볼') {
-              if (folder.option === '홀' || folder.option === '짝') {
-                isWinFolder = folder.option === details.pbOddEven;
-                folderOutcome = `${details.pbOddEven}`;
+            } else if (grp === '일반볼 대중소') {
+              const rolled = (details.size || '').trim();
+              isWinFolder = opt === rolled;
+              folderOutcome = rolled || '대기 중';
+            } else if (grp === '파워볼' || grp === '파워볼홀짝' || grp === '파워볼언오버') {
+              if (opt === '홀' || opt === '짝') {
+                const rolled = (details.pbOddEven || '').trim();
+                isWinFolder = opt === rolled;
+                folderOutcome = rolled || '대기 중';
               } else {
-                isWinFolder = folder.option === details.pbUnderOver;
-                folderOutcome = `${details.pbUnderOver}`;
+                const rolled = (details.pbUnderOver || '').trim();
+                isWinFolder = opt === rolled;
+                folderOutcome = rolled || '대기 중';
               }
             }
           } else {
-            if (folder.group === '출발지') {
-              isWinFolder = folder.option === details.start;
-              folderOutcome = `${details.start}`;
-            } else if (folder.group === '줄개수') {
-              isWinFolder = folder.option === details.lines;
-              folderOutcome = `${details.lines}`;
-            } else if (folder.group === '최종결과') {
-              isWinFolder = folder.option === details.outcome;
-              folderOutcome = `${details.outcome}`;
+            const grp = (folder.group || '').trim();
+            const opt = (folder.option || '').trim();
+
+            if (grp === '출발지') {
+              const rolled = (details.start || '').trim();
+              isWinFolder = opt === rolled;
+              folderOutcome = rolled || '대기 중';
+            } else if (grp === '줄개수') {
+              const rolled = (details.lines || '').trim();
+              isWinFolder = opt === rolled;
+              folderOutcome = rolled || '대기 중';
+            } else if (grp === '최종결과') {
+              const rolled = (details.outcome || '').trim();
+              isWinFolder = opt === rolled;
+              folderOutcome = rolled || '대기 중';
             }
           }
           return { isWinFolder, folderOutcome };
@@ -423,7 +438,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           if (bet.folders && bet.folders.length > 0) {
             const updatedFolders = [];
             for (const f of bet.folders) {
-              const gameRes = await getOrInsertAuthoritativeRoundResult(f.gameType, f.round);
+              const gameRes = await getOfficialRoundResultOnly(f.gameType, f.round);
               if (!gameRes) {
                 someNotReady = true;
                 break;
@@ -443,7 +458,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             winningOutcome = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
             bet.folders = updatedFolders;
           } else {
-            const gameRes = await getOrInsertAuthoritativeRoundResult(bet.gameType, bet.round || 0);
+            const gameRes = await getOfficialRoundResultOnly(bet.gameType, bet.round || 0);
             if (!gameRes) {
               console.log(`Skipping resolution of single bet ${bet.id} because live API results are not yet ready.`);
               continue;
@@ -588,7 +603,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const formattedTotalDividend = Math.round(totalDividend * 100) / 100;
 
     const folders = selectedOptions.map(opt => {
-      const gameLabel = opt.gameType === 'powerladder5' ? 'N파워사다리(5분)' : 'N파워사다리(5분)';
+      const gameLabel = opt.gameType === 'powerladder5' ? 'N파워사다리(5분)' : opt.gameType === 'powerladder3min' ? 'N파워사다리(3분)' : opt.gameType === 'redpowerladder5' ? '레드파워사다리(5분)' : opt.gameType === 'powerball5' ? 'N파워볼(5분)' : opt.gameType === 'powerball3' ? 'N파워볼(3분)' : opt.gameType === 'ladder5' ? '사다리(5분)' : '알 수 없음';
       return {
         game: `${gameLabel} [${opt.round}회차]`,
         gameType: opt.gameType,
@@ -1316,6 +1331,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
 
     return { resultStr, details };
+  };
+
+  const getOfficialRoundResultOnly = async (gameType: string, roundNum: number) => {
+    const docId = `${gameType}_${roundNum}`;
+    const docRef = doc(db, 'gameResultsTTL', docId);
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return snap.data();
+      }
+    } catch (err) {
+      console.error("Error reading doc in getOfficialRoundResultOnly:", err);
+    }
+    return null;
   };
 
   const getOrInsertAuthoritativeRoundResult = async (gameType: string, roundNum: number) => {

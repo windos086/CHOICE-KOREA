@@ -113,6 +113,8 @@ export default function SportsContainer({
   const [leagueSearch, setLeagueSearch] = useState<string>('');
   const [isLeaguesExpanded, setIsLeaguesExpanded] = useState<boolean>(false);
   
+  const betSlipRef = useRef<HTMLDivElement>(null);
+  
   // Selections state: Array of selected folders
   // Each folder: { matchIdMatchOutcome: string, match: any, type: 'home' | 'draw' | 'away', odds: number, label: string }
   const [selectedFolders, setSelectedFolders] = useState<any[]>([]);
@@ -565,13 +567,11 @@ export default function SportsContainer({
       }
       setSelectedFolders(prev => [...prev, newFolderObj]);
       if (isMobile && setMobileBetSlipOpen) setMobileBetSlipOpen(true);
+      if (!isMobile) betSlipRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
   const handleSelectOverUnder = (match: any, ou: any, type: 'over' | 'under') => {
-    // Find existing selection with same matchId AND same marketType
-    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'overUnder');
-    const cleanedLineValue = cleanLineValue(ou.value);
 
     const newFolderObj = {
       matchId: match.id,
@@ -948,8 +948,8 @@ export default function SportsContainer({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
         
         {/* Left Column: Matches List */}
-        <div className="space-y-3">
-
+        <div className="space-y-3 lg:h-[calc(100vh-100px)] lg:overflow-y-auto lg:pr-3">
+          
           {/* Bonus Folders (서비스 폴더, 다폴더 보너스 배당) Container */}
           <div className="mb-4 bg-neutral-900/60 border border-neutral-800/80 p-4 rounded-xl">
             <div className="flex items-center gap-1.5 mb-3 select-none">
@@ -1529,23 +1529,31 @@ export default function SportsContainer({
         </div>
 
         {/* Right Column: Betting Cart Sidebar */}
-        <div className={`bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4 ${isMobile ? `fixed bottom-[100px] left-2 right-2 z-40 max-h-[70vh] overflow-y-auto transition-transform duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` : 'lg:sticky lg:top-6'}`}>
+        <div 
+          ref={betSlipRef}
+          className={`bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4 ${
+            isMobile 
+              ? `fixed bottom-[100px] left-2 right-2 z-40 max-h-[70vh] overflow-y-auto transition-transform duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+              : `lg:sticky lg:top-6`
+          }`}>
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-amber-500" />
               <h3 className="text-md font-black tracking-tight text-white">스포츠 배팅 카트</h3>
             </div>
-            {selectedFolders.length > 0 && (
-              <button 
-                onClick={handleClearCart}
-                className="text-[10px] bg-neutral-950 hover:bg-neutral-800 border border-neutral-850 text-neutral-450 hover:text-white px-2 py-1 rounded transition"
-              >
-                비우기
-              </button>
-            )}
-           {isMobile && (
+            <div className="flex items-center gap-2">
+              {selectedFolders.length > 0 && (
+                <button 
+                  onClick={handleClearCart}
+                  className="text-[10px] bg-neutral-950 hover:bg-neutral-800 border border-neutral-850 text-neutral-450 hover:text-white px-2 py-1 rounded transition"
+                >
+                  비우기
+                </button>
+              )}
+            </div>
+            {isMobile && (
              <button onClick={() => setMobileBetSlipOpen && setMobileBetSlipOpen(false)} className="text-white">닫기</button>
-           )}
+            )}
           </div>
 
           {/* Selections Section */}

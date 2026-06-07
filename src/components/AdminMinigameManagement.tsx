@@ -167,37 +167,52 @@ export default function AdminMinigameManagement({
     let isWinFolder = false;
     let folderOutcome = '';
 
-    if (folder.gameType === 'powerball5' || folder.gameType === 'powerball3') {
-      if (folder.group === '일반볼') {
-        if (folder.option === '홀' || folder.option === '짝') {
-          isWinFolder = folder.option === details.rolledOddEven;
-          folderOutcome = `${details.rolledOddEven}`;
+    const gType = folder.gameType || '';
+    if (gType === 'powerball5' || gType === 'powerball3') {
+      const grp = (folder.group || '').trim();
+      const opt = (folder.option || '').trim();
+
+      if (grp === '일반볼' || grp === '일반볼홀짝' || grp === '일반볼언오버') {
+        if (opt === '홀' || opt === '짝') {
+          const rolled = (details.rolledOddEven || '').trim();
+          isWinFolder = opt === rolled;
+          folderOutcome = rolled || '대기 중';
         } else {
-          isWinFolder = folder.option === details.rolledUnderOver;
-          folderOutcome = `${details.rolledUnderOver}`;
+          const rolled = (details.rolledUnderOver || '').trim();
+          isWinFolder = opt === rolled;
+          folderOutcome = rolled || '대기 중';
         }
-      } else if (folder.group === '일반볼 대중소') {
-        isWinFolder = folder.option === details.size;
-        folderOutcome = `${details.size}`;
-      } else if (folder.group === '파워볼') {
-        if (folder.option === '홀' || folder.option === '짝') {
-          isWinFolder = folder.option === details.pbOddEven;
-          folderOutcome = `${details.pbOddEven}`;
+      } else if (grp === '일반볼 대중소') {
+        const rolled = (details.size || '').trim();
+        isWinFolder = opt === rolled;
+        folderOutcome = rolled || '대기 중';
+      } else if (grp === '파워볼' || grp === '파워볼홀짝' || grp === '파워볼언오버') {
+        if (opt === '홀' || opt === '짝') {
+          const rolled = (details.pbOddEven || '').trim();
+          isWinFolder = opt === rolled;
+          folderOutcome = rolled || '대기 중';
         } else {
-          isWinFolder = folder.option === details.pbUnderOver;
-          folderOutcome = `${details.pbUnderOver}`;
+          const rolled = (details.pbUnderOver || '').trim();
+          isWinFolder = opt === rolled;
+          folderOutcome = rolled || '대기 중';
         }
       }
     } else {
-      if (folder.group === '출발지') {
-        isWinFolder = folder.option === details.start;
-        folderOutcome = `${details.start}`;
-      } else if (folder.group === '줄개수') {
-        isWinFolder = folder.option === details.lines;
-        folderOutcome = `${details.lines}`;
-      } else if (folder.group === '최종결과') {
-        isWinFolder = folder.option === details.outcome;
-        folderOutcome = `${details.outcome}`;
+      const grp = (folder.group || '').trim();
+      const opt = (folder.option || '').trim();
+
+      if (grp === '출발지') {
+        const rolled = (details.start || '').trim();
+        isWinFolder = opt === rolled;
+        folderOutcome = rolled || '대기 중';
+      } else if (grp === '줄개수') {
+        const rolled = (details.lines || '').trim();
+        isWinFolder = opt === rolled;
+        folderOutcome = rolled || '대기 중';
+      } else if (grp === '최종결과') {
+        const rolled = (details.outcome || '').trim();
+        isWinFolder = opt === rolled;
+        folderOutcome = rolled || '대기 중';
       }
     }
     return { isWinFolder, folderOutcome };
