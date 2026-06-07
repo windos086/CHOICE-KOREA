@@ -374,20 +374,24 @@ export default function SportsContainer({
     ? sportFilteredMatches 
     : sportFilteredMatches.filter(m => m.league === activeLeagueTab);
 
-  // Infinite scroll listener allowing scroll to grow down and shrink up smoothly
+  // Infinite scroll listener with IntersectionObserver
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const computedVisible = Math.max(30, Math.min(
-        Math.floor(scrollTop / 110) + 30,
-        filteredMatches.length
-      ));
-      setVisibleCount(computedVisible);
-    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => Math.min(prev + 30, filteredMatches.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [filteredMatches.length]);
+    const trigger = document.getElementById('infinite-scroll-trigger');
+    if (trigger) {
+      observer.observe(trigger);
+    }
+
+    return () => observer.disconnect();
+  }, [filteredMatches.length, visibleCount]);
 
   // Toggle selection of a folder bonus
   const handleSelectBonusFolder = (bonus: { id: string, name: string, odds: number, label: string }) => {
@@ -1507,7 +1511,7 @@ export default function SportsContainer({
                     ))}
 
                   {filteredMatches.length > 30 && (
-                    <div className="mt-2 mb-6 p-4 bg-[#0a0c10] border border-neutral-850/80 rounded-2xl text-center space-y-1.5 shadow-xl">
+                    <div id="infinite-scroll-trigger" className="mt-2 mb-6 p-4 bg-[#0a0c10] border border-neutral-850/80 rounded-2xl text-center space-y-1.5 shadow-xl">
                       <div className="text-xs text-neutral-350 font-black">
                         전체 {filteredMatches.length}경기 중 {Math.min(visibleCount, filteredMatches.length)}개의 경기 표시 중
                       </div>

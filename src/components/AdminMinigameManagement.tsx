@@ -297,7 +297,7 @@ export default function AdminMinigameManagement({
           if (!targetsThisRound) continue;
 
           // Re-grade this bet!
-          let newWin = false;
+          let newStatus = 'pending';
           let newOutcomeStr = '';
 
           if (bet.folders && bet.folders.length > 0) {
@@ -312,7 +312,7 @@ export default function AdminMinigameManagement({
               }
               return f;
             });
-            newWin = updatedFolders.every((f: any) => f.status === 'win');
+            const hasLose = updatedFolders.some((f: any) => f.status === 'lose'); const allWin = updatedFolders.every((f: any) => f.status === 'win'); if (hasLose) { newStatus = 'lose'; } else if (allWin) { newStatus = 'win'; } else { newStatus = 'pending'; }
             newOutcomeStr = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
             bet.folders = updatedFolders;
           } else {
@@ -321,16 +321,16 @@ export default function AdminMinigameManagement({
               group: bet.group,
               option: bet.option
             }, details);
-            newWin = isWinFolder;
+            newStatus = isWinFolder ? 'win' : 'lose';
             newOutcomeStr = `${bet.group} [${folderOutcome}]`;
           }
 
-          const newStatus = newWin ? 'win' : 'lose';
+          
           const oldStatus = bet.status;
 
           if (oldStatus === newStatus) {
             // Already matches, just update metadata if empty
-            if (!bet.rollResult) {
+            if (!bet.rollResult || bet.rollResult !== newOutcomeStr) {
               bet.rollResult = newOutcomeStr;
               updatedBets[i] = bet;
               userModified = true;

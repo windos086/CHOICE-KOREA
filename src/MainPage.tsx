@@ -285,7 +285,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
     // 5-minute games draw at R * 300 - 25 seconds of the KST day (offset = 25)
     // 3-minute games draw at R * 180 - 20 seconds of the KST day (offset = 20)
     // 1-minute games draw at R * 60 - 10 seconds of the KST day (offset = 10)
-    const iframeOffset = tab.includes('5') ? 25 : tab.includes('3') ? 20 : 5;
+    let iframeOffset = tab.includes('5') ? 25 : tab.includes('3') ? 20 : 5;
+    if (tab === 'redpowerladder5') {
+      iframeOffset = 178; // Red power ladder draws at MM:02:00 and MM:07:00, roughly 2m 58s earlier than Npowerball
+    }
     const adjustedSeconds = secondsInDay + iframeOffset;
     
     const interval = tab.includes('5') ? 5 : tab.includes('3') ? 3 : 1;
@@ -315,42 +318,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return () => clearInterval(token);
   }, [activeMiniGameTab, serverTimeOffset]);
 
-  // Dynamic background pending-bets auto-resolver based on relaxed 15-second timer instead of per-second ticks
+  // Dynamic background pending-bets auto-resolver & self-healing precision settlement synchronizer
   useEffect(() => {
-    if (!currentUserData || !currentUserData.bets) return;
+    if (!currentUserData || !currentUserData.bets || currentUserData.bets.length === 0) return;
 
-    const pendingBets = currentUserData.bets.filter((b: any) => b.status === 'pending');
-    if (pendingBets.length === 0) return;
-
-    const checkAndResolve = async () => {
+    const checkAndResolveAndSync = async () => {
       if (resolvingBetsRef.current) return;
-
-      let hasAnyResolvable = false;
-      for (const bet of pendingBets) {
-        if (bet.folders && bet.folders.length > 0) {
-          const allCompleted = bet.folders.every((f: any) => {
-            const { currentRound } = getRoundAndSecondsRemaining(f.gameType);
-            return f.round < currentRound;
-          });
-          if (allCompleted) {
-            hasAnyResolvable = true;
-            break;
-          }
-        } else {
-          const { currentRound } = getRoundAndSecondsRemaining(bet.gameType);
-          if (bet.round && bet.round < currentRound) {
-            hasAnyResolvable = true;
-            break;
-          }
-        }
-      }
-
-      if (!hasAnyResolvable) return;
-      await runResolution();
-    };
-
-    const runResolution = async () => {
       resolvingBetsRef.current = true;
+
       try {
         let nowBalance = Number(currentUserData.balance || 0);
         let nowPoints = Number(currentUserData.points || 0);
@@ -415,7 +390,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
         for (let i = 0; i < updatedBets.length; i++) {
           const bet = { ...updatedBets[i] };
-          if (bet.status !== 'pending') continue;
+          
+          // Only check minigame bets to avoid touching sports bets accidentally
+          const isMinigame = bet.gameType && [
+            'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'ladder5'
+          ].includes(bet.gameType);
+
+          const hasMinigameFolders = bet.folders && bet.folders.length > 0 && bet.folders.every((f: any) => [
+            'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'ladder5'
+          ].includes(f.gameType));
+
+          if (!isMinigame && !hasMinigameFolders) continue;
 
           let isResolvable = false;
           if (bet.folders && bet.folders.length > 0) {
@@ -430,13 +415,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           if (!isResolvable) continue;
 
-          console.log("Resolving background-style:", bet.id);
           let isWin = false;
           let winningOutcome = '';
           let someNotReady = false;
+          const verifiedFolders: any[] = [];
 
           if (bet.folders && bet.folders.length > 0) {
-            const updatedFolders = [];
             for (const f of bet.folders) {
               const gameRes = await getOfficialRoundResultOnly(f.gameType, f.round);
               if (!gameRes) {
@@ -444,48 +428,91 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 break;
               }
               const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails(f, gameRes.details || {});
-              updatedFolders.push({
+              if (folderOutcome === '대기 중') {
+                someNotReady = true;
+                break;
+              }
+              verifiedFolders.push({
                 ...f,
                 status: isWinFolder ? 'win' : 'lose',
                 rollResult: folderOutcome
               });
             }
-            if (someNotReady) {
-              console.log(`Skipping resolution of folder bet ${bet.id} because live API results are not yet ready.`);
-              continue;
-            }
-            isWin = updatedFolders.every((f: any) => f.status === 'win');
-            winningOutcome = updatedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
-            bet.folders = updatedFolders;
+            if (someNotReady) continue;
+            isWin = verifiedFolders.every((f: any) => f.status === 'win');
+            winningOutcome = verifiedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
           } else {
             const gameRes = await getOfficialRoundResultOnly(bet.gameType, bet.round || 0);
-            if (!gameRes) {
-              console.log(`Skipping resolution of single bet ${bet.id} because live API results are not yet ready.`);
-              continue;
-            }
+            if (!gameRes) continue;
+
             const { isWinFolder, folderOutcome } = rollSingleFolderUsingDetails({
               gameType: bet.gameType,
               group: bet.group,
               option: bet.option
             }, gameRes.details || {});
+
+            if (folderOutcome === '대기 중') {
+              continue;
+            }
+
             isWin = isWinFolder;
             winningOutcome = `${bet.group} [${folderOutcome}]`;
           }
 
-          bet.status = isWin ? 'win' : 'lose';
+          const verifiedStatus = isWin ? 'win' : 'lose';
+          const originalStatus = bet.status;
+
+          const originalRollResult = bet.rollResult || '';
+          const outcomeDiffers = originalRollResult !== winningOutcome;
+
+          // If the bet already has the correct verified status
+          if (originalStatus === verifiedStatus) {
+            if (outcomeDiffers) {
+              bet.rollResult = winningOutcome;
+              if (bet.folders && bet.folders.length > 0) {
+                bet.folders = verifiedFolders;
+              }
+              updatedBets[i] = bet;
+              didChange = true;
+            }
+            continue;
+          }
+
+          // Dynamic correction self-healing triggered!
+          console.log(`[Self-Healing] Bet ${bet.id} corrected from '${originalStatus}' to '${verifiedStatus}'. Outcome: ${winningOutcome}`);
+          bet.status = verifiedStatus;
           bet.rollResult = winningOutcome;
+          if (bet.folders && bet.folders.length > 0) {
+            bet.folders = verifiedFolders;
+          }
           updatedBets[i] = bet;
           didChange = true;
 
-          if (isWin) {
-            const payout = Math.floor(bet.amount * bet.dividend);
-            nowBalance = nowBalance + payout;
-            const ptsReward = Math.floor(bet.amount * 0.01);
-            nowPoints = nowPoints + ptsReward;
+          // Backtrack financial balances
+          const originalPayout = originalStatus === 'win' ? Math.floor(bet.amount * bet.dividend) : 0;
+          const originalPoints = originalStatus === 'win' ? Math.floor(bet.amount * 0.01) : 0;
 
-            winningAlerts.push(`🎉 [배팅 적중] 축하합니다!\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n당첨 금액: +${payout.toLocaleString()}원\n포인트 적립: +${ptsReward.toLocaleString()}P`);
+          const correctedPayout = verifiedStatus === 'win' ? Math.floor(bet.amount * bet.dividend) : 0;
+          const correctedPoints = verifiedStatus === 'win' ? Math.floor(bet.amount * 0.01) : 0;
+
+          const balanceOffset = correctedPayout - originalPayout;
+          const pointsOffset = correctedPoints - originalPoints;
+
+          nowBalance += balanceOffset;
+          nowPoints += pointsOffset;
+
+          if (originalStatus === 'pending') {
+            if (verifiedStatus === 'win') {
+              winningAlerts.push(`🎉 [배팅 적중] 축하합니다!\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n당첨 금액: +${correctedPayout.toLocaleString()}원\n포인트 적립: +${correctedPoints.toLocaleString()}P`);
+            } else {
+              winningAlerts.push(`😢 [배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n배팅 금액 ${bet.amount.toLocaleString()}원이 차감되었습니다.`);
+            }
           } else {
-            winningAlerts.push(`😢 [배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n배팅 금액 ${bet.amount.toLocaleString()}원이 차감되었습니다.`);
+            if (verifiedStatus === 'win') {
+              winningAlerts.push(`🔄 [정산 결과 보정] 이전 낙첨 처리되었던 배팅 내역이 정밀 동기화 후 '적중'으로 자동 보정되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n지급 금액: +${correctedPayout.toLocaleString()}원\n포인트 적립: +${correctedPoints.toLocaleString()}P`);
+            } else {
+              winningAlerts.push(`🔄 [정산 결과 보정] 이전 적중 처리되었던 배팅 내역이 정밀 동기화 후 '낙첨'으로 자동 보정되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n회수 금액: -${originalPayout.toLocaleString()}원`);
+            }
           }
         }
 
@@ -511,8 +538,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 points: nowPoints,
                 bets: updatedBets
               }));
-            } catch (err) {
-              console.error(err);
+            } catch (e) {
+              console.error(e);
             }
           }
 
@@ -523,7 +550,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               bets: updatedBets
             });
           } catch (e) {
-            console.error("Failed to resolve pending bets on database: ", e);
+            console.error("Failed to update user in Firebase during self-healing: ", e);
           }
 
           if (winningAlerts.length > 0) {
@@ -531,22 +558,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
           }
         }
       } catch (err) {
-        console.error("Error in runResolution:", err);
+        console.error("Error in checkAndResolveAndSync:", err);
       } finally {
         resolvingBetsRef.current = false;
       }
     };
 
     // Run once immediately on mount or user bets update
-    checkAndResolve();
+    checkAndResolveAndSync();
 
     // Check periodically on a relaxed 15-second interval
     const interval = setInterval(() => {
-      checkAndResolve();
+      checkAndResolveAndSync();
     }, 15000);
 
     return () => clearInterval(interval);
   }, [currentUserData]);
+
 
   useEffect(() => {
     if (currentUserData?.id) {
@@ -1375,9 +1403,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       'powerladder5': 'N파워사다리(5분)',
       'powerladder3min': 'N파워사다리(3분)',
       'redpowerladder5': '레드파워사다리(5분)',
-      /* removed */
       'ladder5': '사다리(5분)'
-      // 'daridari3' removed
     };
     const name = gamesMap[gameType] || gameType;
     
@@ -1412,8 +1438,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 return isMatch;
               });
               
-              if (matchedItem) {
-                console.log(`[DEBUG] API Matched Item:`, matchedItem);
+              if (matchedItem && matchedItem.sum_odd_even && matchedItem.powerball_odd_even) {
                 const rolledOddEven = matchedItem.sum_odd_even === 'EVEN' ? '짝' : '홀';
                 const rolledUnderOver = matchedItem.sum_unover === 'UNDER' ? '언더' : '오버';
                 const size = matchedItem.sum_size === 'S' ? '소' : matchedItem.sum_size === 'L' ? '대' : '중';
@@ -1423,27 +1448,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
                 details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
                 console.log(`Matched real-world recent list results for ${gameType} Round ${roundNum}!`);
-              }
-            }
-          }
-
-          // B. If not found in recent list, try the single most recent result endpoint
-          if (!resultStr) {
-            const singleUrl = gameType === 'powerball5' ? '/api/game-result/powerball' : '/api/game-result/powerball3';
-            const response = await fetch(singleUrl);
-            if (response.ok) {
-              const liveData = await response.json();
-              const liveRound = parseInt(liveData.fixed_date_round || liveData.date_round, 10);
-              if (liveRound === roundNum) {
-                const rolledOddEven = liveData.def_ball_oe;
-                const rolledUnderOver = liveData.def_ball_unover;
-                const size = liveData.def_ball_size;
-                const pbOddEven = liveData.pow_ball_oe;
-                const pbUnderOver = liveData.pow_ball_unover;
-
-                resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-                details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-                console.log(`Matched real-world live single result for ${gameType} Round ${roundNum}!`);
               }
             }
           }
@@ -1465,7 +1469,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 return rNum === roundNum;
               });
 
-              if (matchedItem) {
+              if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
                 const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                 const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                 const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
@@ -1473,28 +1477,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
                 details = { start, lines, outcome };
                 console.log(`Matched real-world recent list results for powerladder5 Round ${roundNum}!`);
-              }
-            }
-          }
-
-          // B. If not found, try the single most recent result endpoint
-          if (!resultStr) {
-            const response = await fetch('/api/game-result/powerladder');
-            if (response.ok) {
-              const liveData = await response.json();
-              const liveRound = parseInt(liveData.r || liveData.date_round, 10);
-              if (liveRound === roundNum) {
-                const s = liveData.s;
-                const l = liveData.l;
-                const o = liveData.o || liveData.odd_even;
-
-                const start = s === 'LEFT' ? '좌' : '우';
-                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                const outcome = o === 'ODD' || o === '홀' ? '홀' : '짝';
-
-                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                details = { start, lines, outcome };
-                console.log(`Matched real-world live single result for powerladder5 Round ${roundNum}!`);
               }
             }
           }
@@ -1510,7 +1492,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           if (response.ok) {
             const liveData = await response.json();
             const liveRound = parseInt(liveData.r, 10);
-            if (liveRound === roundNum) {
+            if (liveRound === roundNum && liveData.s && liveData.l && liveData.o) {
               const start = liveData.s === 'LEFT' ? '좌' : '우';
               const lines = liveData.l == 3 || liveData.l === '3' ? '3줄' : '4줄';
               const outcome = liveData.o === 'ODD' ? '홀' : '짝';
@@ -1537,7 +1519,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 return rNum === roundNum;
               });
 
-              if (matchedItem) {
+              if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
                 const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                 const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                 const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
@@ -1545,27 +1527,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
                 details = { start, lines, outcome };
                 console.log(`Matched real-world recent list results for redpowerladder5 Round ${roundNum}!`);
-              }
-            }
-          }
-
-          if (!resultStr) {
-            const response = await fetch('/api/game-result/redpowerladder');
-            if (response.ok) {
-              const liveData = await response.json();
-              const liveRound = parseInt(liveData.r || liveData.date_round, 10);
-              if (liveRound === roundNum) {
-                const s = liveData.s;
-                const l = liveData.l;
-                const o = liveData.o || liveData.odd_even;
-
-                const start = s === 'LEFT' ? '좌' : '우';
-                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                const outcome = o === 'ODD' || o === '홀' ? '홀' : '짝';
-
-                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                details = { start, lines, outcome };
-                console.log(`Matched real-world live single result for redpowerladder5 Round ${roundNum}!`);
               }
             }
           }
@@ -1586,7 +1547,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 return rNum === roundNum;
               });
 
-              if (matchedItem) {
+              if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
                 const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                 const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                 const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
@@ -1597,32 +1558,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
               }
             }
           }
-
-          if (!resultStr) {
-            const response = await fetch('/api/game-result/powerladder3min');
-            if (response.ok) {
-              const liveData = await response.json();
-              const liveRound = parseInt(liveData.r || liveData.date_round, 10);
-              if (liveRound === roundNum) {
-                const s = liveData.s;
-                const l = liveData.l;
-                const o = liveData.o || liveData.odd_even;
-
-                const start = s === 'LEFT' ? '좌' : '우';
-                const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                const outcome = o === 'ODD' || o === '홀' ? '홀' : '짝';
-
-                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                details = { start, lines, outcome };
-                console.log(`Matched real-world live single result for powerladder3min Round ${roundNum}!`);
-              }
-            }
-          }
         } catch (err) {
           console.error("Error fetching live powerladder3min results:", err);
         }
       }
-
     }
     if (!resultStr) {
       if (activeMode === 'api') {
@@ -1765,18 +1704,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                   resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
                   details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-                } else if (livePowerballData) {
-                  const liveRound = parseInt(livePowerballData.fixed_date_round || livePowerballData.date_round, 10);
-                  if (liveRound === r) {
-                    const rolledOddEven = livePowerballData.def_ball_oe;
-                    const rolledUnderOver = livePowerballData.def_ball_unover;
-                    const size = livePowerballData.def_ball_size;
-                    const pbOddEven = livePowerballData.pow_ball_oe;
-                    const pbUnderOver = livePowerballData.pow_ball_unover;
-
-                    resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-                    details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-                  }
                 }
               }
 
@@ -1796,18 +1723,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                   resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
                   details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-                } else if (livePowerball3Data) {
-                  const liveRound = parseInt(livePowerball3Data.fixed_date_round || livePowerball3Data.date_round, 10);
-                  if (liveRound === r) {
-                    const rolledOddEven = livePowerball3Data.def_ball_oe;
-                    const rolledUnderOver = livePowerball3Data.def_ball_unover;
-                    const size = livePowerball3Data.def_ball_size;
-                    const pbOddEven = livePowerball3Data.pow_ball_oe;
-                    const pbUnderOver = livePowerball3Data.pow_ball_unover;
-
-                    resultStr = `[일반볼] ${rolledOddEven} · ${rolledUnderOver}(${size}) | [파워볼] ${pbOddEven} · ${pbUnderOver}`;
-                    details = { rolledOddEven, rolledUnderOver, size, pbOddEven, pbUnderOver };
-                  }
                 }
               }
 
@@ -1818,27 +1733,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   return rNum === r;
                 }) : null;
 
-                if (matchedItem) {
+                if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
                   const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                   const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                   const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
 
                   resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
                   details = { start, lines, outcome };
-                } else if (livePowerladderData) {
-                  const liveRound = parseInt(livePowerladderData.r || livePowerladderData.date_round, 10);
-                  if (liveRound === r) {
-                    const s = livePowerladderData.s;
-                    const l = livePowerladderData.l;
-                    const o = livePowerladderData.o || livePowerladderData.odd_even;
-
-                    const start = s === 'LEFT' ? '좌' : '우';
-                    const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                    const outcome = o === 'ODD' || o === '홀' ? '홀' : '짝';
-
-                    resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                    details = { start, lines, outcome };
-                  }
                 }
               }
 
@@ -1849,27 +1750,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   return rNum === r;
                 }) : null;
 
-                if (matchedItem) {
+                if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
                   const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                   const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                   const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
 
                   resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
                   details = { start, lines, outcome };
-                } else if (liveRedPowerladderData) {
-                  const liveRound = parseInt(liveRedPowerladderData.r || liveRedPowerladderData.date_round, 10);
-                  if (liveRound === r) {
-                    const s = liveRedPowerladderData.s;
-                    const l = liveRedPowerladderData.l;
-                    const o = liveRedPowerladderData.o || liveRedPowerladderData.odd_even;
-
-                    const start = s === 'LEFT' ? '좌' : '우';
-                    const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                    const outcome = o === 'ODD' || o === '홀' ? '홀' : '짝';
-
-                    resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                    details = { start, lines, outcome };
-                  }
                 }
               }
 
@@ -1880,70 +1767,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   return rNum === r;
                 }) : null;
 
-                if (matchedItem) {
+                if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
                   const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                   const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                   const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
 
                   resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
                   details = { start, lines, outcome };
-                } else if (livePowerladder3Data) {
-                  const liveRound = parseInt(livePowerladder3Data.r || livePowerladder3Data.date_round, 10);
-                  if (liveRound === r) {
-                    const s = livePowerladder3Data.s;
-                    const l = livePowerladder3Data.l;
-                    const o = livePowerladder3Data.o || livePowerladder3Data.odd_even;
-
-                    const start = s === 'LEFT' ? '좌' : '우';
-                    const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                    const outcome = o === 'ODD' || o === '홀' ? '홀' : '짝';
-
-                    resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                    details = { start, lines, outcome };
-                  }
                 }
-              }
-
-              // daridari3
-              if (g.key === 'daridari3') {
-                const matchedItem = Array.isArray(liveDaridari3Recent) ? liveDaridari3Recent.find(item => {
-                  const rNum = parseInt(item.fixed_date_round || item.date_round || item.round, 10);
-                  console.log(`[DEBUG] Daridari3 Backfill Round ${r} - API Item:`, item);
-                  return rNum === r;
-                }) : null;
-
-                if (matchedItem) {
-                  const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
-                  const lines = (matchedItem.line_count == 3 || matchedItem.line_count === '3') ? '3줄' : '4줄';
-                  const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
-
-                  resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                  details = { start, lines, outcome };
-                } else if (liveDaridari3Data && (parseInt(liveDaridari3Data.round, 10) === r)) {
-                  const s = liveDaridari3Data.start_point;
-                  const l = liveDaridari3Data.line_count;
-                  const o = liveDaridari3Data.odd_even;
-
-                  const start = s === 'LEFT' ? '좌' : '우';
-                  const lines = l == 3 || l === '3' ? '3줄' : '4줄';
-                  const outcome = o === 'ODD' ? '홀' : '짝';
-
-                  resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                  details = { start, lines, outcome };
-                }
-              }
-
-              // ladder5
-              if (g.key === 'ladder5' && liveLadderData) {
-                  const liveRound = parseInt(liveLadderData.r || liveLadderData.d, 10);
-                  if (liveRound === r) {
-                      const start = liveLadderData.s === 'LEFT' ? '좌' : '우';
-                      const lines = liveLadderData.l == 3 || liveLadderData.l === '3' ? '3줄' : '4줄';
-                      const outcome = liveLadderData.o === 'ODD' ? '홀' : '짝';
-
-                      resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
-                      details = { start, lines, outcome };
-                  }
               }
             }
 
@@ -1981,13 +1812,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
   };
 
   useEffect(() => {
+    if (!isAdmin) return;
+
     autoInsertRecentGameResults();
     // Fetch every 1 minute instead of 30 seconds to further conserve Firestore read quota
     const interval = setInterval(() => {
       autoInsertRecentGameResults();
     }, 60000);
     return () => clearInterval(interval);
-  }, [serverTimeOffset]);
+  }, [serverTimeOffset, isAdmin]);
 
   const loadGameResults = async () => {
     setIsLoadingGameResults(true);
@@ -2034,10 +1867,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   useEffect(() => {
     if (showGameResultScreen) {
-      autoInsertRecentGameResults();
+      if (isAdmin) {
+        autoInsertRecentGameResults();
+      }
       loadGameResults();
     }
-  }, [showGameResultScreen]);
+  }, [showGameResultScreen, isAdmin]);
 
   useEffect(() => {
     if (showWithdrawalScreen && currentUserData?.id) {
@@ -3834,6 +3669,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </button>
               ))}
             </div>
+
+
 
             {isLoadingGameResults ? (
               <div className="text-center py-24 text-gray-500 font-medium">로딩 중...</div>

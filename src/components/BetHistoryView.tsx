@@ -68,9 +68,21 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                     {bet.option}
                   </div>
                   <div className="text-[10px] text-gray-600 font-black tracking-tighter select-none font-mono">VS</div>
-                  <div className={`flex-1 bg-neutral-900/60 border ${bet.status === 'lose' ? 'border-red-950 bg-red-950/15' : 'border-neutral-850'} rounded-lg px-4 py-2 text-center ${bet.status === 'lose' ? 'text-red-400' : 'text-gray-400'} font-bold text-xs shadow-inner`}>
+                  <div className={`flex-1 bg-neutral-900/60 border ${
+                    bet.status === 'win' ? 'border-emerald-900/50 hover:border-emerald-500/20' : 
+                    bet.status === 'lose' ? 'border-red-950 bg-red-950/15' : 
+                    'border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.05)]'
+                  } rounded-lg px-4 py-2 text-center ${
+                    bet.status === 'win' ? 'text-emerald-400' : 
+                    bet.status === 'lose' ? 'text-red-400' : 
+                    'text-amber-500'
+                  } font-bold text-xs shadow-inner`}>
                      <div className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5 font-sans">최종 결과</div>
-                     {bet.rollResult ? bet.rollResult.split('➔').pop()?.replace(/[\[\]]/g, '') || '-' : '-'}
+                     {bet.status === 'win' || bet.status === 'lose' ? (
+                       bet.rollResult ? bet.rollResult.split('➔').pop()?.replace(/[\[\]]/g, '') || '-' : '-'
+                     ) : (
+                       <span className="text-[10px] font-medium leading-tight text-amber-500/90 animate-pulse tracking-tighter">결과를 정산중입니다..</span>
+                     )}
                   </div>
                 </div>
 
@@ -91,9 +103,9 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                   <span className={`px-3 py-1.5 rounded-lg text-xs font-black border tracking-wider shadow-sm block ${
                     bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/40 text-emerald-450 shadow-[0_0_10px_rgba(16,185,129,0.1)]' :
                     bet.status === 'lose' ? 'border-red-900 bg-red-950/40 text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.1)]' :
-                    'border-blue-900 bg-blue-950/40 text-blue-400 animate-pulse'
+                    'border-amber-900/60 bg-amber-950/30 text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.08)] animate-pulse'
                   }`}>
-                    {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '진행중'}
+                    {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
                   </span>
                 </div>
               </div>
