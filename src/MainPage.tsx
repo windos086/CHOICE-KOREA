@@ -1965,34 +1965,38 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const loadGameResults = async () => {
     setIsLoadingGameResults(true);
     try {
-      // Fetch the latest 40 results to find the single most recent result for each of the 6 minigames, minimizing read quota usage
+      // Fetch the latest 200 results to get enough historical data while protecting read quota
       const snap = await getDocs(query(
         collection(db, 'gameResultsTTL'),
         orderBy('createdAt', 'desc'),
-        limit(40)
+        limit(200)
       ));
       const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', '사다리(5분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'];
       
-      // Group by gameName and only keep the single most recent record for each gameName to conserve Firestore read quota
-      const latestByGame: Record<string, any> = {};
+      // Group by gameName and keep up to 30 records for each gameName to maintain proper history
+      const latestByGame: Record<string, any[]> = {};
+      minigameNames.forEach(name => {
+        latestByGame[name] = [];
+      });
+
       snap.docs.forEach(docSnap => {
         const data = { id: docSnap.id, ...docSnap.data() } as any;
         const gName = (data.gameName || '').trim();
         if (minigameNames.includes(gName)) {
-          if (!latestByGame[gName]) {
-            latestByGame[gName] = data;
+          if (latestByGame[gName].length < 30) {
+            latestByGame[gName].push(data);
           }
         }
       });
 
-      const results = Object.values(latestByGame);
+      const results = Object.values(latestByGame).flat();
 
       results.sort((a: any, b: any) => {
         const timeA = (a.createdAt && typeof a.createdAt.toMillis === 'function') ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
         const timeB = (b.createdAt && typeof b.createdAt.toMillis === 'function') ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
         return timeB - timeA;
       });
-      console.log("Loaded game results (latest per game):", results);
+      console.log("Loaded game results (latest 30 per game):", results);
       setGameResults(results);
     } catch (e) {
       console.error("Error loading game results:", e);
