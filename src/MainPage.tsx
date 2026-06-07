@@ -3982,31 +3982,31 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <iframe 
                       key="pb5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball5/pc"}
-                      width={isMobile ? "360" : "830"}
-                      height={isMobile ? "390" : "630"}
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
                     />
                   ) : activeMiniGameTab === 'powerball3' ? (
                     <iframe 
                       key="pb3"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
-                      width={isMobile ? "360" : "830"}
-                      height={isMobile ? "390" : "630"}
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
                     />
                   ) : activeMiniGameTab === 'powerladder5' ? (
                     <iframe 
                       key="powerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
-                      width={isMobile ? "360" : "830"}
-                      height={isMobile ? "390" : "630"}
+                      width={isMobile ? "100%" : "830"}
+                      height={isMobile ? "300" : "630"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full"
                     />
                   ) : activeMiniGameTab === 'redpowerladder5' ? (
                     <iframe 
