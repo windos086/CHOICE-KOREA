@@ -12,6 +12,8 @@ interface SportsContainerProps {
   userBalance?: number;
   setUserBalance?: (val: number) => void;
   setUserPoints?: (val: number) => void;
+  setMobileBetSlipOpen?: (val: boolean) => void;
+  mobileBetSlipOpen?: boolean;
 }
 
 function getTeamBadge(teamName: string) {
@@ -100,7 +102,9 @@ export default function SportsContainer({
   currentUserData,
   userBalance = 0,
   setUserBalance,
-  setUserPoints
+  setUserPoints,
+  setMobileBetSlipOpen,
+  mobileBetSlipOpen
 }: SportsContainerProps) {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -460,6 +464,7 @@ export default function SportsContainer({
         return;
       }
       setSelectedFolders(prev => [...prev, newFolderObj]);
+      if (isMobile && setMobileBetSlipOpen) setMobileBetSlipOpen(true);
     }
   };
 
@@ -559,6 +564,7 @@ export default function SportsContainer({
         return;
       }
       setSelectedFolders(prev => [...prev, newFolderObj]);
+      if (isMobile && setMobileBetSlipOpen) setMobileBetSlipOpen(true);
     }
   };
 
@@ -592,6 +598,7 @@ export default function SportsContainer({
         return;
       }
       setSelectedFolders(prev => [...prev, newFolderObj]);
+      if (isMobile && setMobileBetSlipOpen) setMobileBetSlipOpen(true);
     }
   };
 
@@ -1522,7 +1529,7 @@ export default function SportsContainer({
         </div>
 
         {/* Right Column: Betting Cart Sidebar */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4 lg:sticky lg:top-6">
+        <div className={`bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4 ${isMobile ? `fixed bottom-[100px] left-2 right-2 z-40 max-h-[70vh] overflow-y-auto transition-transform duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` : 'lg:sticky lg:top-6'}`}>
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-amber-500" />
@@ -1536,6 +1543,9 @@ export default function SportsContainer({
                 비우기
               </button>
             )}
+           {isMobile && (
+             <button onClick={() => setMobileBetSlipOpen && setMobileBetSlipOpen(false)} className="text-white">닫기</button>
+           )}
           </div>
 
           {/* Selections Section */}
@@ -1686,6 +1696,21 @@ export default function SportsContainer({
           </button>
         </div>
 
+        {isMobile && selectedFolders.length > 0 && (
+          <div className="fixed bottom-[54px] left-0 right-0 z-50 px-3.5 py-2.5 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 flex items-center justify-between border-t border-amber-500/30 shadow-[0_-8px_25px_rgba(0,0,0,0.85)]">
+            <button
+              onClick={() => setMobileBetSlipOpen && setMobileBetSlipOpen(!mobileBetSlipOpen)}
+              className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-amber-500 to-amber-650 hover:from-amber-450 hover:to-amber-550 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(245,158,11,0.3)] cursor-pointer border-0"
+            >
+              <span className="flex items-center gap-2">
+                🎰 {mobileBetSlipOpen ? '배팅 슬립 접기 ▲' : '배팅 슬립 열기 ▼'}
+              </span>
+              <span className="bg-white text-amber-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
+                {selectedFolders.length}개 선택됨
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

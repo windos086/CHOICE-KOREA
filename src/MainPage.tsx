@@ -2926,6 +2926,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
           userBalance={userBalance} 
           setUserBalance={setUserBalance} 
           setUserPoints={setUserPoints}
+          setMobileBetSlipOpen={setMobileBetSlipOpen}
+          mobileBetSlipOpen={mobileBetSlipOpen}
         />
       ) : showBetHistory ? (
         <BetHistoryView currentUserData={currentUserData} />
@@ -4535,6 +4537,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 >
                   {betAmount > userBalance ? '잔액이 부족합니다' : '배팅하기 (PLACE BET)'}
                 </button>
+                <div className="pb-20" />
               </div>
             </div>
 
