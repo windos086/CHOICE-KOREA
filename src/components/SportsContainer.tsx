@@ -572,6 +572,8 @@ export default function SportsContainer({
   };
 
   const handleSelectOverUnder = (match: any, ou: any, type: 'over' | 'under') => {
+    const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'overUnder');
+    const cleanedLineValue = cleanLineValue(ou.value || '2.5');
 
     const newFolderObj = {
       matchId: match.id,

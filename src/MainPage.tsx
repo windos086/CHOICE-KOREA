@@ -1626,13 +1626,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
     if (!resultStr) {
       if (activeMode === 'api') {
-        const isLiveGame = ['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'ladder5'].includes(gameType);
-        const secondsElapsed = (intervalMin * 60) - secondsRemaining;
-        
-        if (isLiveGame && roundNum === currentRound - 1 && secondsElapsed < 35) {
-          console.log(`Postponing result generation for recently completed live game ${gameType} Round ${roundNum} to give API time to update...`);
-          return null;
-        }
+        console.log(`Live API result not yet ready for ${gameType} Round ${roundNum}. Skipping fallback to prevent dirty state.`);
+        return null;
       }
 
       // Fallback or explicit RNG: use the deterministic formula
@@ -1954,15 +1949,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             if (!resultStr) {
               if (mode === 'api') {
-                const secondsElapsed = (intervalMin * 60) - secondsRemaining;
-                // Postpone writing result if it's the most recently completed round and the live API hasn't synchronized yet
-                const isRecent = r === currentRound - 1;
-                const isLiveGame = g.key === 'powerball5' || g.key === 'powerladder5' || g.key === 'powerball3' || g.key === 'ladder5' || g.key === 'redpowerladder5' || g.key === 'powerladder3min';
-                
-                if (isRecent && isLiveGame && secondsElapsed < 35) {
-                  console.log(`Postponing result creation in backfill for ${g.key} Round ${r} to wait for API update...`);
-                  continue;
-                }
+                // If live API results are not yet available or empty, we NEVER write a fallback deterministic result.
+                // We keep it empty/pending until the real API result loads or admin manually inputs it.
+                continue;
               }
 
               const determ = getDeterministicResult(g.key, r, dateString);
