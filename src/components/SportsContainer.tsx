@@ -71,7 +71,7 @@ function getSportCategory(match: any): '축구' | '농구' | '야구' | '배구'
   if (name.includes('야구') || name.includes('mlb') || name.includes('kbo') || name.includes('npb') || name.includes('baseball')) {
     return '야구';
   }
-  if (name.includes('배구') || name.includes('kovo') || name.includes('v-리그') || name.includes('volleyball')) {
+  if (name.includes('배구') || name.includes('kovo') || name.includes('volleyball')) {
     return '배구';
   }
   if (name.includes('하키') || name.includes('아이스하키') || name.includes('nhl') || name.includes('hockey')) {
@@ -369,10 +369,20 @@ export default function SportsContainer({
     return lg.toLowerCase().includes(leagueSearch.trim().toLowerCase());
   });
 
-  // 3. Filter matches based on both sport and selected league tab
-  const filteredMatches = activeLeagueTab === '전체' 
-    ? sportFilteredMatches 
-    : sportFilteredMatches.filter(m => m.league === activeLeagueTab);
+  // 3. Filter matches based on both sport, selected league tab AND search term (League Name or Team Name)
+  const filteredMatches = sportFilteredMatches.filter(m => {
+    const leagueMatch = activeLeagueTab === '전체' || m.league === activeLeagueTab;
+    if (!leagueMatch) return false;
+    
+    if (leagueSearch.trim() === '') return true;
+    
+    const search = leagueSearch.trim().toLowerCase();
+    return (
+      (m.league && m.league.toLowerCase().includes(search)) ||
+      (m.homeTeam && m.homeTeam.toLowerCase().includes(search)) ||
+      (m.awayTeam && m.awayTeam.toLowerCase().includes(search))
+    );
+  });
 
   // Infinite scroll listener with IntersectionObserver
   useEffect(() => {
@@ -894,7 +904,7 @@ export default function SportsContainer({
                 type="text"
                 value={leagueSearch}
                 onChange={(e) => setLeagueSearch(e.target.value)}
-                placeholder="리그명 검색..."
+                placeholder="리그명/팀명 검색..."
                 className="w-full pl-8 pr-7 py-1 bg-black/40 border border-neutral-800 focus:border-amber-500/60 rounded-lg text-[11px] text-neutral-200 placeholder-neutral-500 focus:outline-none transition-all font-medium"
               />
               {leagueSearch && (

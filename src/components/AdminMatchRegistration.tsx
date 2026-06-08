@@ -207,7 +207,7 @@ export default function AdminMatchRegistration() {
 
         console.log('Found odds line in block', block.dateTime, 'at index', firstOddsLineIdx);
 
-        const homeTeam = blockLines[firstOddsLineIdx - 1];
+        const homeTeam = blockLines[firstOddsLineIdx - 1].replace(/\[\d+\]/g, '').trim();
         if (!homeTeam) continue;
 
         let matchLeague = block.league || '일반 리그';
@@ -287,7 +287,7 @@ export default function AdminMatchRegistration() {
 
           if (firstOddsIndex === -1) continue;
 
-          const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ');
+          const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ').replace(/\[\d+\]/g, '').trim();
           const awayOddsTokensRaw = rawAwayTokens.slice(firstOddsIndex);
           const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken).map(cleanBrackets);
           const awayOdds = awayMarketTokens.length > 0 ? (parseFloat(awayMarketTokens[0]) || 1.00) : 1.00;
