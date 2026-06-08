@@ -209,7 +209,7 @@ export default function AdminMinigameManagement({
         const rolled = (details.lines || '').trim();
         isWinFolder = opt === rolled;
         folderOutcome = rolled || '대기 중';
-      } else if (grp === '최종결과') {
+      } else if (grp === '최종결과' || grp === '홀짝') {
         const rolled = (details.outcome || '').trim();
         isWinFolder = opt === rolled;
         folderOutcome = rolled || '대기 중';
