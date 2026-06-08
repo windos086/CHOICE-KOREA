@@ -71,26 +71,37 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
 
     // Determine option layout for Sports
     if (bet.gameType === 'sports') {
-      const parts = bet.game ? bet.game.split(' vs ') : [];
-      const homeTeam = parts[0] || '홈';
-      const awayTeam = parts[1] || '원정';
-      const mkt = bet.marketType || 'matchWinner';
+      const parts = bet.game ? bet.game.split(/ vs /i) : [];
+      const homeTeam = parts[0] ? parts[0].trim() : '홈';
+      const awayTeam = parts[1] ? parts[1].trim() : '원정';
+      let mkt = bet.marketType;
+      // Fallback detection if marketType is missing
+      if (!mkt) {
+        if (bet.type === 'under' || bet.type === 'over') {
+          mkt = 'underOver';
+        } else if (bet.lineValue && (bet.type === 'home' || bet.type === 'away')) {
+          mkt = 'handicap';
+        } else {
+          mkt = 'matchWinner';
+        }
+      }
+
 
       homeOdds = String(bet.dividend || '1.95');
       awayOdds = String(bet.dividend || '1.95');
 
-      if (mkt === 'underOver') {
+      if (mkt === 'underOver' || mkt === 'overUnder') {
         const threshold = bet.lineValue || '2.5';
-        homeName = `언더 [${threshold}]`;
-        awayName = `오버 [${threshold}]`;
-        selectedSide = bet.type === 'under' ? 'home' : 'away';
+        homeName = `${homeTeam} (오버)`;
+        awayName = `${awayTeam} (언더)`;
+        selectedSide = bet.type === 'over' ? 'home' : 'away';
         midStandard = threshold;
       } else if (mkt === 'handicap') {
         const hVal = bet.lineValue || '0';
-        homeName = `${homeTeam} [${hVal}]`;
+        homeName = homeTeam;
         awayName = awayTeam;
         selectedSide = bet.type === 'home' ? 'home' : 'away';
-        midStandard = '핸디';
+        midStandard = hVal;
       } else {
         // matchWinner
         homeName = homeTeam;
@@ -336,7 +347,17 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                     const displaySign = bet.status === 'win' ? '+' : (bet.status === 'lose' ? '-' : '');
                     
                     const hasFolders = bet.folders && bet.folders.length > 0;
-                    const items = hasFolders ? bet.folders : [bet];
+                    const items = hasFolders 
+                      ? [...bet.folders].sort((a: any, b: any) => {
+                          const getPriority = (x: any) => {
+                            const m = x.marketType || '';
+                            if (m === 'handicap') return 1;
+                            if (m === 'overUnder' || m === 'underOver') return 3;
+                            return 2;
+                          };
+                          return getPriority(a) - getPriority(b);
+                        })
+                      : [bet];
 
                     return (
                       <React.Fragment key={bet.id}>
@@ -496,7 +517,17 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                 const displaySign = bet.status === 'win' ? '+' : (bet.status === 'lose' ? '-' : '');
                 
                 const hasFolders = bet.folders && bet.folders.length > 0;
-                const items = hasFolders ? bet.folders : [bet];
+                const items = hasFolders 
+                  ? [...bet.folders].sort((a: any, b: any) => {
+                      const getPriority = (x: any) => {
+                        const m = x.marketType || '';
+                        if (m === 'handicap') return 1;
+                        if (m === 'overUnder' || m === 'underOver') return 3;
+                        return 2;
+                      };
+                      return getPriority(a) - getPriority(b);
+                    })
+                  : [bet];
 
                 return (
                   <div key={bet.id} className="bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 text-xs flex flex-col gap-3">
@@ -531,25 +562,25 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                               </span>
                             </div>
 
-                            <div className="flex justify-between items-center bg-[#0b0c10] p-2 rounded border border-neutral-800/60">
-                              <div className={`flex flex-col p-1.5 rounded border transition w-[45%] ${
+                            <div className="flex justify-between items-center bg-[#0b0c10] p-1 rounded border border-neutral-800/60 gap-0.5">
+                              <div className={`flex flex-col p-1 rounded border transition w-[40%] text-[10px] items-center truncate ${
                                 layout.selectedSide === 'home' 
                                   ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
                                   : 'bg-transparent border-transparent'
                               }`}>
-                                <span className={`font-bold ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
-                                <span className="text-amber-500 font-bold text-[10px]">{layout.homeOdds}</span>
+                                <span className={`font-bold truncate w-full text-center ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
+                                <span className="text-amber-500 font-bold text-[9px]">{layout.homeOdds}</span>
                               </div>
 
-                              <span className="text-gray-500 font-bold">VS</span>
+                              <span className="text-gray-500 font-bold text-[9px] uppercase tracking-tighter whitespace-nowrap px-0.5">{layout.midStandard}</span>
 
-                              <div className={`flex flex-col p-1.5 rounded border transition w-[45%] items-end ${
+                              <div className={`flex flex-col p-1 rounded border transition w-[40%] items-center text-[10px] truncate ${
                                 layout.selectedSide === 'away' 
                                   ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
                                   : 'bg-transparent border-transparent'
                               }`}>
-                                <span className={`font-bold ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
-                                <span className="text-amber-500 font-bold text-[10px]">{layout.awayOdds}</span>
+                                <span className={`font-bold truncate w-full text-center ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
+                                <span className="text-amber-500 font-bold text-[9px]">{layout.awayOdds}</span>
                               </div>
                             </div>
                           </div>

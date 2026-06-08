@@ -7,7 +7,7 @@ import AttendanceChecker from './components/AttendanceChecker';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home } from 'lucide-react';
+import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -160,6 +160,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [userPoints, setUserPoints] = useState<number>(0);
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'support' | 'mypage') => {
     setShowSports(false);
@@ -2470,69 +2471,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
           score: details.lines ? `${details.lines}` : '대기 중',
           statusText: '결과완료'
         });
-        
-        // 3. [결과]
-        rows.push({
-          id: `${res.id}_outcome`,
-          dateStr,
-          timeStr,
-          gameName: res.gameName,
-          league: `[${res.round}회차] 최종결과_홀짝`,
-          homeName: '홀',
-          homeOdds: '1.95',
-          awayName: '짝',
-          awayOdds: '1.95',
-          midStandard: 'VS',
-          winner: details.outcome === '홀' ? 'home' : details.outcome === '짝' ? 'away' : 'none',
-          score: details.outcome ? `${details.outcome}` : '대기 중',
-          statusText: '결과완료'
-        });
-      } else {
-        // Sports (e.g. 축구, 야구 등)
-        const matchStr = res.result || '';
-        const parts = matchStr.split(/\[(.*?)\]/);
-        let home = '';
-        let score = '';
-        let away = '';
-        if (parts.length >= 3) {
-          home = parts[0].trim();
-          score = parts[1].trim();
-          away = parts[2].trim();
-        } else {
-          home = '홈팀';
-          away = '원정팀';
-          score = matchStr;
-        }
-        
-        let winner = 'none';
-        if (score) {
-          const scoreParts = score.split('-').map((s: string) => parseInt(s.trim()));
-          if (scoreParts.length === 2) {
-            if (scoreParts[0] > scoreParts[1]) {
-              winner = 'home';
-            } else if (scoreParts[0] < scoreParts[1]) {
-              winner = 'away';
-            } else {
-              winner = 'draw';
-            }
-          }
-        }
-        
-        rows.push({
-          id: res.id,
-          dateStr,
-          timeStr,
-          gameName: res.gameName,
-          league: `[리그 매치] ${res.gameName}`,
-          homeName: home,
-          homeOdds: '1.90',
-          awayName: away,
-          awayOdds: '1.90',
-          midStandard: 'VS',
-          winner,
-          score: score || '경기종료',
-          statusText: '경기완료'
-        });
       }
       return rows;
     };
@@ -2564,271 +2502,645 @@ export default function MainPage({ onLogout }: MainPageProps) {
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-40"></div>
         <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40"></div>
 
-        {/* Admin Menu Switch for Operators (Top Right on desktop) */}
-        {isAdmin && (
-          <div className="sm:absolute sm:top-6 sm:right-6 mt-1 sm:mt-0 z-30">
-            <button
-              onClick={() => setShowAdminPanel(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-900 hover:from-red-500 hover:to-red-700 text-white font-extrabold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.6)] border border-red-500/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95"
-            >
-              <Shield className="w-4 h-4 animate-pulse text-red-100" />
-              어드민 관리자 메뉴
-            </button>
-          </div>
-        )}
-
-        {/* Logo */}
-        <button 
-          onClick={() => navigateTo('home')}
-          className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300"
-        >
-          <span className="inline-flex items-center font-sans">
-            <span className="relative inline-block mr-1">
-              {/* Dynamic 3D Sparkling Floating Crown */}
-              <motion.div 
-                animate={{ y: [0, -6, 0], rotate: [0, -6, 6, 0], scale: [1, 1.05, 0.95, 1] }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-[32px] left-1/2 -ml-4 w-8 h-8 text-amber-400 group-hover:text-yellow-300 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.95)]"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" style={{ marginTop: '16px', paddingBottom: '0px', paddingRight: '0px', paddingLeft: '0px', marginRight: '0px', marginLeft: '0px' }}>
-                  {/* Highly polished crown silhouette */}
-                  <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
-                  <circle cx="5" cy="9" r="1" className="fill-white animate-pulse" />
-                  <circle cx="12" cy="4" r="1.2" className="fill-white animate-pulse" />
-                  <circle cx="19" cy="9" r="1" className="fill-white animate-pulse" />
-                </svg>
-              </motion.div>
-              {/* Luxury Deep Gothic Bold C with premium gradient & intense shadow */}
-              <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-tight transition-transform group-hover:scale-105 block">
-                C
-              </span>
-            </span>
-            <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-wide transition-all group-hover:text-red-400">
-              HOICE
-            </span>
-            <span className="text-[10px] font-black text-amber-400/90 not-italic uppercase ml-5 border-l border-neutral-800 pl-5 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
-              <span>SPORTS</span>
-              <span className="text-gray-400 text-[8px] tracking-[0.3em] font-normal">& CASINO</span>
-            </span>
-          </span>
-          {/* Neon shimmer underline on hover */}
-          <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-red-600 via-amber-500 to-red-600 group-hover:w-full transition-all duration-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
-        </button>
-
-        {/* Navigation Menus (Centered) */}
-        <nav className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm font-extrabold text-gray-300">
-          {['테더가이드', '스포츠', '미니게임', '인플레이', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
-            if (item === '스포츠') {
-              return (
-                  <button 
-                    key={item}
-                    onClick={() => navigateTo('sports')}
-                    className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showSports ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
-                  >
-                    스포츠
-                  </button>
-              );
-            }
-            if (item === '미니게임') {
-              return (
-                <div 
-                  key={item}
-                  className="relative"
-                  onMouseEnter={openMiniGameSubmenu}
-                  onMouseLeave={closeMiniGameSubmenu}
+        {isMobile ? (
+          /* ========================================================
+             MOBILE OVERVIEW HEADER
+             ======================================================== */
+          <div className="flex flex-col gap-4 w-full select-none">
+            {/* Top row: Menu, Reload, Centered Logo, Telegram/Admin */}
+            <div className="flex items-center justify-between w-full relative">
+              
+              {/* Left Side: Hamburger & Refresh */}
+              <div className="flex items-center gap-1.5 z-20">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="bg-[#121620] hover:bg-neutral-850 border border-neutral-800 text-white p-2 text-sans rounded-lg active:scale-95 transition-all shadow-md cursor-pointer flex items-center justify-center"
+                  aria-label="메뉴 열기"
                 >
-                  <button 
-                    onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                    className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
-                  >
-                    미니게임
-                  </button>
-                  {showMiniGameSubmenu && (
-                    <div 
-                      className="absolute top-full left-0 w-[140px] bg-neutral-900 border border-neutral-800 rounded-lg shadow-2xl mt-1.5 z-[999] overflow-hidden p-1 space-y-1 backdrop-blur-lg"
+                  <Menu className="w-5 h-5 text-emerald-400 hover:text-amber-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="bg-[#121620] hover:bg-neutral-850 border border-neutral-800 text-white p-2 text-sans rounded-lg active:scale-95 transition-all shadow-md cursor-pointer flex items-center justify-center font-bold"
+                  aria-label="새로고침"
+                >
+                  <RotateCw className="w-4 h-4 text-gray-300" />
+                </button>
+              </div>
 
+              {/* Centered Logo */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <button 
+                  type="button"
+                  onClick={() => navigateTo('home')}
+                  className="pointer-events-auto flex items-center font-sans select-none active:scale-95 transition-all"
+                >
+                  <span className="relative inline-block mr-1 pb-1">
+                    {/* Small crown icon for mobile */}
+                    <motion.div 
+                      animate={{ y: [0, -2, 0], rotate: [0, -3, 3, 0], scale: [1, 1.02, 0.98, 1] }}
+                      transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute -top-[10px] left-1/2 -ml-2 w-4 h-4 text-amber-400 filter drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
+                      </svg>
+                    </motion.div>
+                    <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-xl tracking-tight block mt-[1px]">
+                      C
+                    </span>
+                  </span>
+                  <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-505 to-red-950 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-xl tracking-wide">
+                    HOICE
+                  </span>
+                  <span className="text-[6px] font-black text-amber-400/90 not-italic uppercase ml-2 border-l border-neutral-800 pl-2 tracking-[0.15em] self-center flex flex-col items-start gap-0 leading-none opacity-80">
+                    <span>SPORTS</span>
+                    <span className="text-gray-500 text-[5px] tracking-[0.2em] font-normal">& CASINO</span>
+                  </span>
+                </button>
+              </div>
+
+              {/* Right Side: Admin or Telegram */}
+              <div className="flex items-center gap-1.5 z-20">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPanel(true)}
+                    className="flex items-center justify-center bg-gradient-to-r from-red-600 to-red-850 border border-red-500/40 text-white p-2 rounded-lg shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Shield className="w-4 h-4" />
+                  </button>
+                )}
+                <a
+                  href="https://t.me/choice_sports"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#121620] hover:bg-neutral-850 border border-neutral-800 text-white p-2 rounded-lg active:scale-95 transition-all shadow-md flex items-center justify-center cursor-pointer"
+                >
+                  <Send className="w-4 h-4 text-sky-450 transform -rotate-12" />
+                </a>
+              </div>
+            </div>
+
+            {/* Bottom info bar for mobile: simple tier & wallet holdings */}
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-sans pt-1">
+              {/* Balance Box */}
+              <div 
+                onClick={() => navigateTo('deposit')}
+                className="flex items-center justify-between bg-neutral-950/85 px-2 py-2 rounded-lg border border-emerald-500/30 shadow-inner hover:border-emerald-500/50 cursor-pointer transition-all whitespace-nowrap overflow-hidden"
+              >
+                <div className="flex items-center gap-1 flex-shrink-0 mr-1">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse flex-shrink-0"></div>
+                  <span className="text-emerald-400 font-bold whitespace-nowrap">보유머니</span>
+                </div>
+                <span className="text-white font-extrabold tracking-wide font-mono text-[10.5px] truncate select-all">
+                  {userBalance.toLocaleString()}<span className="text-[8.5px] text-gray-400 font-sans ml-0.5">원</span>
+                </span>
+              </div>
+
+              {/* Points Box */}
+              <div 
+                onClick={() => setShowAttendanceChecker(true)}
+                className="flex items-center justify-between bg-neutral-950/85 px-2 py-2 rounded-lg border border-amber-400/25 shadow-inner hover:border-amber-400/40 cursor-pointer transition-all whitespace-nowrap overflow-hidden"
+              >
+                <div className="flex items-center gap-1 flex-shrink-0 mr-1">
+                  <span className="text-amber-400 font-bold whitespace-nowrap">포인트 P</span>
+                </div>
+                <span className="text-white font-extrabold tracking-wide font-mono text-[10.5px] truncate select-all">
+                  {userPoints.toLocaleString()}<span className="text-[8.5px] text-gray-400 font-sans ml-0.5">P</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ========================================================
+             DESKTOP ORIGINAL HEADER (Untouched!)
+             ======================================================== */
+          <>
+            {/* Admin Menu Switch for Operators (Top Right on desktop) */}
+            {isAdmin && (
+              <div className="sm:absolute sm:top-6 sm:right-6 mt-1 sm:mt-0 z-30">
+                <button
+                  onClick={() => setShowAdminPanel(true)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-900 hover:from-red-500 hover:to-red-700 text-white font-extrabold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.6)] border border-red-500/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                >
+                  <Shield className="w-4 h-4 animate-pulse text-red-100" />
+                  어드민 관리자 메뉴
+                </button>
+              </div>
+            )}
+
+            {/* Logo */}
+            <button 
+              onClick={() => navigateTo('home')}
+              className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300"
+            >
+              <span className="inline-flex items-center font-sans">
+                <span className="relative inline-block mr-1">
+                  {/* Dynamic 3D Sparkling Floating Crown */}
+                  <motion.div 
+                    animate={{ y: [0, -6, 0], rotate: [0, -6, 6, 0], scale: [1, 1.05, 0.95, 1] }}
+                    transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -top-[32px] left-1/2 -ml-4 w-8 h-8 text-amber-400 group-hover:text-yellow-300 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.95)]"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" style={{ marginTop: '16px', paddingBottom: '0px', paddingRight: '0px', paddingLeft: '0px', marginRight: '0px', marginLeft: '0px' }}>
+                      {/* Highly polished crown silhouette */}
+                      <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
+                      <circle cx="5" cy="9" r="1" className="fill-white animate-pulse" />
+                      <circle cx="12" cy="4" r="1.2" className="fill-white animate-pulse" />
+                      <circle cx="19" cy="9" r="1" className="fill-white animate-pulse" />
+                    </svg>
+                  </motion.div>
+                  {/* Luxury Deep Gothic Bold C with premium gradient & intense shadow */}
+                  <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-tight transition-transform group-hover:scale-105 block">
+                    C
+                  </span>
+                </span>
+                <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-505 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-wide transition-all group-hover:text-red-400">
+                  HOICE
+                </span>
+                <span className="text-[10px] font-black text-amber-400/90 not-italic uppercase ml-5 border-l border-neutral-800 pl-5 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
+                  <span>SPORTS</span>
+                  <span className="text-gray-400 text-[8px] tracking-[0.3em] font-normal">& CASINO</span>
+                </span>
+              </span>
+              {/* Neon shimmer underline on hover */}
+              <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-red-600 via-amber-500 to-red-600 group-hover:w-full transition-all duration-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
+            </button>
+
+            {/* Navigation Menus (Centered) */}
+            <nav className="flex flex-wrap justify-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300">
+              {['테더가이드', '스포츠', '미니게임', '인플레이', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
+                if (item === '스포츠') {
+                  return (
+                      <button 
+                        key={item}
+                        onClick={() => navigateTo('sports')}
+                        className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showSports ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                      >
+                        스포츠
+                      </button>
+                  );
+                }
+                if (item === '미니게임') {
+                  return (
+                    <div 
+                      key={item}
+                      className="relative"
                       onMouseEnter={openMiniGameSubmenu}
                       onMouseLeave={closeMiniGameSubmenu}
                     >
                       <button 
                         onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-amber-400 font-extrabold animate-pulse"
+                        className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
                       >
-                        N파워볼 (5분)
+                        미니게임
                       </button>
-                      <button 
-                        onClick={() => { setActiveMiniGameTab('powerball3'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-amber-400 font-extrabold animate-pulse"
-                      >
-                        N파워볼 (3분)
-                      </button>
-                      <button 
-                        onClick={() => { setActiveMiniGameTab('powerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
-                      >
-                        N파워사다리 (5분)
-                      </button>
-                      <button 
-                        onClick={() => { setActiveMiniGameTab('powerladder3min'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
-                      >
-                        N파워사다리 (3분)
-                      </button>
-                      <button 
-                        onClick={() => { setActiveMiniGameTab('redpowerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                        className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
-                      >
-                        레드파워사다리 (5분)
-                      </button>
+                      {showMiniGameSubmenu && (
+                        <div 
+                          className="absolute top-full left-0 w-[140px] bg-neutral-900 border border-neutral-800 rounded-lg shadow-2xl mt-1.5 z-[999] overflow-hidden p-1 space-y-1 backdrop-blur-lg"
+                          onMouseEnter={openMiniGameSubmenu}
+                          onMouseLeave={closeMiniGameSubmenu}
+                        >
+                          <button 
+                            onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-amber-400 font-extrabold animate-pulse"
+                          >
+                            N파워볼 (5분)
+                          </button>
+                          <button 
+                            onClick={() => { setActiveMiniGameTab('powerball3'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-amber-400 font-extrabold animate-pulse"
+                          >
+                            N파워볼 (3분)
+                          </button>
+                          <button 
+                            onClick={() => { setActiveMiniGameTab('powerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                          >
+                            N파워사다리 (5분)
+                          </button>
+                          <button 
+                            onClick={() => { setActiveMiniGameTab('powerladder3min'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                          >
+                            N파워사다리 (3분)
+                          </button>
+                          <button 
+                            onClick={() => { setActiveMiniGameTab('redpowerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                          >
+                            레드파워사다리 (5분)
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            }
-            
-            if (item === '입금신청') {
-              return (
-                <button 
-                  key={item} 
-                  onClick={() => navigateTo('deposit')}
-                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
-                >
-                  입금신청
-                </button>
-              );
-            }
+                  );
+                }
+                
+                if (item === '입금신청') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('deposit')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                    >
+                      입금신청
+                    </button>
+                  );
+                }
 
-            if (item === '출금신청') {
-              return (
-                <button 
-                  key={item} 
-                  onClick={() => navigateTo('withdrawal')}
-                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
-                >
-                  출금신청
-                </button>
-              );
-            }
+                if (item === '출금신청') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('withdrawal')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                    >
+                      출금신청
+                    </button>
+                  );
+                }
 
-            if (item === '경기결과') {
-              return (
-                <button 
-                  key={item} 
-                  onClick={() => navigateTo('gameresult')}
-                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
-                >
-                  경기결과
-                </button>
-              );
-            }
+                if (item === '경기결과') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('gameresult')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                    >
+                      경기결과
+                    </button>
+                  );
+                }
 
-            if (item === '베팅내역') {
-              return (
-                <button 
-                  key={item} 
-                  onClick={() => navigateTo('bethistory')}
-                  className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
-                >
-                  베팅내역
-                </button>
-              );
-            }
+                if (item === '베팅내역') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('bethistory')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                    >
+                      베팅내역
+                    </button>
+                  );
+                }
 
-            return (
+                return (
+                  <button 
+                    key={item} 
+                    onClick={() => {
+                      alert(`${item} 기능은 준비 중입니다.`);
+                    }}
+                    className="hover:text-amber-400 transition-colors cursor-pointer"
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* User Stats and Actions (VIP Polished Tones & High-contrast Luxury Cards) */}
+            <div className="flex flex-wrap items-center justify-center gap-3 text-xs w-full max-w-full my-1.5 select-none font-sans">
+              {/* Level & Nickname Box */}
+              <div className="flex items-center gap-2 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)] transition-transform hover:scale-105 duration-250">
+                <span className="bg-gradient-to-r from-amber-400 to-amber-600 text-black font-extrabold px-1.5 py-0.5 rounded text-[10px] tracking-tight uppercase shadow-inner">
+                  VIP 등급
+                </span>
+                <span className="text-gray-150 font-black tracking-tight">{nickname} <span className="text-gray-400 font-normal">님</span></span>
+              </div>
+
+              {/* Holdings Box (Emerald Glow) */}
+              <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105 duration-250">
+                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                <span className="text-emerald-400 font-black">보유머니</span>
+                <span className="text-white font-extrabold tracking-wide text-sm font-mono drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                  {userBalance.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">원</span>
+                </span>
+              </div>
+
+              {/* Points Box (Gold Glow) */}
+              <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-400/30 shadow-[0_0_15px_rgba(251,191,36,0.1)] transition-transform hover:scale-105 duration-250">
+                <span className="text-amber-400 font-black">포인트</span>
+                <span className="text-white font-extrabold tracking-wide font-mono text-sm">
+                  {userPoints.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">P</span>
+                </span>
+              </div>
+
+              {/* Messages Box (Crimson Flame Glow) */}
+              <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.1)] transition-transform hover:scale-105 duration-250">
+                <span className="text-rose-450 font-black">신규쪽지</span>
+                <span className="bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
+                  0
+                </span>
+              </div>
+
+              {/* My Page Button */}
               <button 
-                key={item} 
-                onClick={() => {
-                  alert(`${item} 기능은 준비 중입니다.`);
-                }}
-                className="hover:text-amber-400 transition-colors cursor-pointer"
+                type="button"
+                className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+                onClick={() => navigateTo('mypage')}
               >
-                {item}
+                My Page
               </button>
-            );
-          })}
-        </nav>
 
-        {/* User Stats and Actions (VIP Polished Tones & High-contrast Luxury Cards) */}
-        <div className="flex flex-wrap items-center justify-center gap-3 text-xs w-full max-w-full my-1.5 select-none font-sans">
-          {/* Level & Nickname Box */}
-          <div className="flex items-center gap-2 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)] transition-transform hover:scale-105 duration-250">
-            <span className="bg-gradient-to-r from-amber-400 to-amber-600 text-black font-extrabold px-1.5 py-0.5 rounded text-[10px] tracking-tight uppercase shadow-inner">
-              VIP 등급
-            </span>
-            <span className="text-gray-150 font-black tracking-tight">{nickname} <span className="text-gray-400 font-normal">님</span></span>
-          </div>
+              {/* Attendance Calendar Button */}
+              <button 
+                type="button"
+                className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+                onClick={() => setShowAttendanceChecker(true)}
+              >
+                출석체크
+              </button>
 
-          {/* Holdings Box (Emerald Glow) */}
-          <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105 duration-250">
-            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-            <span className="text-emerald-400 font-black">보유머니</span>
-            <span className="text-white font-extrabold tracking-wide text-sm font-mono drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-              {userBalance.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">원</span>
-            </span>
-          </div>
+              {/* Customer Center Button */}
+              <button 
+                type="button"
+                className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+                onClick={() => navigateTo('support')}
+              >
+                고객센터
+              </button>
 
-          {/* Points Box (Gold Glow) */}
-          <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-400/30 shadow-[0_0_15px_rgba(251,191,36,0.1)] transition-transform hover:scale-105 duration-250">
-            <span className="text-amber-400 font-black">포인트</span>
-            <span className="text-white font-extrabold tracking-wide font-mono text-sm">
-              {userPoints.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">P</span>
-            </span>
-          </div>
+              {/* Logout Button */}
+              <button 
+                type="button"
+                onClick={handleLogoutClick}
+                className="bg-gradient-to-b from-[#1e1f24] via-[#1c1212] to-[#120707] border border-zinc-800/80 hover:border-red-650 hover:text-red-400 text-gray-300 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+              >
+                로그아웃
+              </button>
 
-          {/* Messages Box (Crimson Flame Glow) */}
-          <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.1)] transition-transform hover:scale-105 duration-250">
-            <span className="text-rose-450 font-black">신규쪽지</span>
-            <span className="bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
-              0
-            </span>
-          </div>
-
-          {/* Sports Menu Button */}
-
-          {/* My Page Button */}
-          <button 
-            type="button"
-            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => navigateTo('mypage')}
-          >
-            My Page
-          </button>
-
-          {/* Attendance Calendar Button */}
-          <button 
-            type="button"
-            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => setShowAttendanceChecker(true)}
-          >
-            출석체크
-          </button>
-
-          {/* Customer Center Button */}
-          <button 
-            type="button"
-            className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-            onClick={() => navigateTo('support')}
-          >
-            고객센터
-          </button>
-
-          {/* Logout Button */}
-          <button 
-            type="button"
-            onClick={handleLogoutClick}
-            className="bg-gradient-to-b from-[#1e1f24] via-[#1c1212] to-[#120707] border border-zinc-800/80 hover:border-red-650 hover:text-red-400 text-gray-300 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-          >
-            로그아웃
-          </button>
-
-          {/* Secure KST Electronic Digital Clock */}
-          <div className="flex items-center gap-2 bg-neutral-950/90 px-3.5 py-2 rounded-lg border border-rose-950 shadow-md font-mono text-xs select-none shadow-[inset_0_0_8px_rgba(239,68,68,0.05)]">
-            <span className="text-red-500 font-extrabold animate-pulse text-[10px]">●</span>
-            <span className="text-red-400/80 font-bold text-[9px] uppercase tracking-wider">KST:</span>
-            <span className="text-rose-400 font-black tracking-wide drop-shadow-[0_0_6px_rgba(244,63,94,0.4)]">{kstClock || '동기화 중...'}</span>
-          </div>
-        </div>
+              {/* Secure KST Electronic Digital Clock */}
+              <div className="flex items-center gap-2 bg-neutral-950/90 px-3.5 py-2 rounded-lg border border-rose-950 shadow-md font-mono text-xs select-none shadow-[inset_0_0_8px_rgba(239,68,68,0.05)]">
+                <span className="text-red-500 font-extrabold animate-pulse text-[10px]">●</span>
+                <span className="text-red-400/80 font-bold text-[9px] uppercase tracking-wider">KST:</span>
+                <span className="text-rose-400 font-black tracking-wide drop-shadow-[0_0_6px_rgba(244,63,94,0.4)]">{kstClock || '동기화 중...'}</span>
+              </div>
+            </div>
+          </>
+        )}
       </header>
+
+      {/* Mobile Left Navigation Side-Drawer (Slide-out) */}
+      {isMobile && isMobileMenuOpen && (
+        <div className="fixed inset-0 z-[9999] flex select-none">
+          {/* Backdrop Overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm"
+          />
+
+          {/* Drawer Container */}
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            className="relative w-[300px] max-w-[85%] h-full bg-[#0b0c10] border-r border-[#15231e]/50 shadow-2xl flex flex-col justify-between overflow-y-auto z-50 text-sans"
+          >
+            {/* Drawer Header & Profile */}
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="bg-gradient-to-r from-amber-400 to-amber-600 text-black font-extrabold px-1.5 py-0.5 rounded text-[9px] tracking-tight uppercase shadow-inner">
+                    VIP 등급
+                  </span>
+                  <span className="text-gray-100 font-extrabold text-sm">{nickname} <span className="text-gray-400 font-normal">님</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { alert('쪽지함 기능은 준비 중입니다.'); setIsMobileMenuOpen(false); }}
+                    className="text-gray-400 hover:text-white p-1 rounded-lg"
+                    aria-label="쪽지"
+                  >
+                    <Mail className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-gray-400 hover:text-white p-1 rounded-lg"
+                    aria-label="닫기"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Wallet Holdings (Teal / Gold Premium Box) */}
+              <div className="bg-[#050608] rounded-xl p-3 border border-neutral-850 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    보유머니
+                  </span>
+                  <span className="text-white font-extrabold text-sm font-mono">
+                    {userBalance.toLocaleString()} 원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs border-t border-neutral-900 pt-2">
+                  <span className="text-amber-400 font-bold flex items-center gap-1">
+                    포인트 P
+                  </span>
+                  <span className="text-amber-300 font-extrabold font-mono">
+                    {userPoints.toLocaleString()} P
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons: 충전, 환전, 고객센터 (matching the colored boxes up top) */}
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { navigateTo('deposit'); setIsMobileMenuOpen(false); }}
+                  className="bg-[#0f4c3a] hover:bg-[#165a46] border border-emerald-500/30 text-white font-black text-xs py-3 rounded-lg flex items-center justify-center gap-1 shadow-md cursor-pointer active:scale-95 transition"
+                >
+                  <span>+ 충전</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { navigateTo('withdrawal'); setIsMobileMenuOpen(false); }}
+                  className="bg-[#1b3b55] hover:bg-[#234c6c] border border-sky-500/20 text-white font-black text-xs py-3 rounded-lg flex items-center justify-center gap-1 shadow-md cursor-pointer active:scale-95 transition"
+                >
+                  <span>- 환전</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { navigateTo('support'); setIsMobileMenuOpen(false); }}
+                  className="bg-neutral-850 hover:bg-neutral-800 border border-neutral-750 text-white font-black text-xs py-2.5 rounded-lg flex flex-col items-center justify-center gap-1 shadow-md cursor-pointer active:scale-95 transition"
+                >
+                  <span className="text-[10px] text-gray-400 font-normal">1:1문의</span>
+                  <span>고객센터</span>
+                </button>
+              </div>
+
+              {/* Grid Menu of Categories - styled exactly as the screenshot! */}
+              <div className="pt-2">
+                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 px-1">
+                  GAME TYPE & COMMUNITY
+                </div>
+                <div className="grid grid-cols-3 gap-1 bg-[#101216] p-1 rounded-xl border border-neutral-900">
+                  
+
+                  {/* 미니게임 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('minigame'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-neutral-850 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-amber-500/20"
+                  >
+                    <span className="text-xs font-bold text-amber-400">미니게임</span>
+                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Mini Game</span>
+                  </button>
+
+
+                  {/* 스포츠+크로스 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('sports'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-neutral-850 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-sm font-bold text-amber-500 font-extrabold flex flex-col items-center leading-tight">
+                      <span>스포츠+</span>
+                      <span>크로스</span>
+                    </span>
+                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Sports+Cross</span>
+                  </button>
+
+
+                  {/* 공지사항 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('gameresult'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">공지사항</span>
+                    <span className="text-[7.5px] text-gray-400">Notice</span>
+                  </button>
+
+                  {/* 이벤트 (Attendance) */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowAttendanceChecker(true); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-emerald-400 block animate-pulse">이벤트</span>
+                    <span className="text-[7.5px] text-emerald-500">Event</span>
+                  </button>
+
+                  {/* 페이백 */}
+                  <button
+                    type="button"
+                    onClick={() => { alert('페이백 이벤트가 진행 예정입니다!'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">페이백</span>
+                    <span className="text-[7.5px] text-gray-400">Payback</span>
+                  </button>
+
+                  {/* 지인리스트 */}
+                  <button
+                    type="button"
+                    onClick={() => { alert('지인 추천 내역이 존재하지 않습니다.'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">지인리스트</span>
+                    <span className="text-[7px] text-gray-500">Friends</span>
+                  </button>
+
+                  {/* 지인페이백 */}
+                  <button
+                    type="button"
+                    onClick={() => { alert('지인추천 페이백 정산 시스템이 로딩 중입니다.'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-[11px] font-bold text-gray-300 block">지인페이백</span>
+                    <span className="text-[7px] text-gray-500">Friend Pb</span>
+                  </button>
+
+                  {/* 지인롤링페이백 */}
+                  <button
+                    type="button"
+                    onClick={() => { alert('지인 롤링 적립금 정산 시스템이 로딩 중입니다.'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-[10px] font-bold text-gray-300 block leading-tight">지인롤링</span>
+                    <span className="text-[6.5px] text-gray-500 block leading-none">Rolling Pb</span>
+                  </button>
+
+                  {/* 마이페이지 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('mypage'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">마이페이지</span>
+                    <span className="text-[7.5px] text-gray-400">My Page</span>
+                  </button>
+
+                  {/* 머니내역 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('deposit'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">머니내역</span>
+                    <span className="text-[7.5px] text-gray-400">Trans Log</span>
+                  </button>
+
+                  {/* 베팅내역 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('bethistory'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-amber-400 block">베팅내역</span>
+                    <span className="text-[7.5px] text-amber-500">Bet Hist</span>
+                  </button>
+
+                  {/* 콤프내역 */}
+                  <button
+                    type="button"
+                    onClick={() => { alert('누적된 콤프 포인트를 보유머니로 즉시 환전하실 수 있습니다!'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">콤프내역</span>
+                    <span className="text-[7.5px] text-gray-400">Comp Rep</span>
+                  </button>
+
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Section of drawer / logout */}
+            <div className="p-4 border-t border-neutral-900 bg-[#050608] space-y-3">
+              {/* KST Clock */}
+              <div className="flex items-center justify-between text-xs font-mono text-rose-400 bg-neutral-950 px-3 py-2 rounded-lg border border-neutral-850">
+                <span className="text-[9px] text-gray-400 flex items-center gap-1 uppercase">
+                  <span className="w-1 h-1 bg-red-500 rounded-full animate-ping"></span>
+                  KST Clock
+                </span>
+                <span className="font-bold">{kstClock || '동기화 중...'}</span>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                type="button"
+                onClick={() => { handleLogoutClick(); setIsMobileMenuOpen(false); }}
+                className="w-full bg-[#1c1212] border border-red-950 hover:bg-red-950 hover:text-white text-rose-300 font-extrabold text-xs py-2.5 rounded-lg transition active:scale-95 text-center cursor-pointer"
+              >
+                안전 로그아웃 (Secure Logout)
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Conditional Rendering: My Page vs Betting History vs Mini Game vs Dashboard */}
       {showSports ? (
@@ -3904,19 +4216,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </button>
 
                     {/* Numeric page buttons */}
-                    {(() => {
-                      const pages = [];
-                      const startPage = Math.max(1, currentPage - 2);
-                      const endPage = Math.min(maxPage, startPage + 4);
-                      const adjustedStartPage = Math.max(1, endPage - 4);
-                      
-                      for (let i = adjustedStartPage; i <= endPage; i++) {
-                        if (i >= 1 && i <= maxPage) {
-                          pages.push(i);
-                        }
-                      }
-                      
-                      return pages.map(p => (
+                    {[...Array(maxPage)].map((_, i) => i + 1).map(p => (
                         <button
                           key={p}
                           onClick={() => setGameResultPage(p)}
@@ -3928,8 +4228,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         >
                           {p}
                         </button>
-                      ));
-                    })()}
+                    ))}
 
                     {/* Next Button */}
                     <button
@@ -3987,6 +4286,28 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </button>
               </div>
               
+
+                  {/* 모바일 전용 게임 선택기 */}
+                  {isMobile && (
+                      <div className="flex overflow-x-auto gap-2 pb-2 mb-2 bg-[#0c0e15]/80 p-2">
+                          {[
+                              { key: 'powerball5', name: 'N파워볼(5분)' },
+                              { key: 'powerball3', name: 'N파워볼(3분)' },
+                              { key: 'powerladder5', name: 'N파워사다리(5분)' },
+                              { key: 'powerladder3min', name: 'N파워사다리(3분)' },
+                              { key: 'redpowerladder5', name: '레드파워사다리(5분)' }
+                          ].map(game => (
+                              <button 
+                                  key={game.key}
+                                  onClick={() => setActiveMiniGameTab(game.key)}
+                                  className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition ${activeMiniGameTab === game.key ? 'bg-amber-600 text-white' : 'bg-neutral-800 text-gray-400'}`}
+                              >
+                                  {game.name}
+                              </button>
+                          ))}
+                      </div>
+                  )}
+
               <div className="p-0.5 md:p-4 bg-[#0a0e17] flex flex-col justify-center items-center overflow-hidden w-full max-w-full">
                 <div className="w-full max-w-full overflow-hidden flex justify-center items-center">
                   {activeMiniGameTab === 'powerball5' ? (
@@ -4069,6 +4390,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       * 현재 회차 + 5회차까지 실시간 배팅 보드가 활성화됩니다.
                     </span>
                   </div>
+                </div>
+
 
                   {/* 회차 빠른 필터 단축 탭 */}
                   <div className="flex overflow-x-auto gap-1.5 bg-[#0f1118]/80 p-2 rounded-lg border border-neutral-850 scrollbar-none whitespace-nowrap w-full">
@@ -4102,26 +4425,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                   {/* 스포츠 배팅식 컴팩트 보드 테이블 */}
                   <div className="w-full">
-                    {/* 모바일 전용 게임 선택기 */}
-                    {isMobile && (
-                        <div className="flex overflow-x-auto gap-2 pb-2 mb-2 bg-[#0c0e15]/80 p-2">
-                            {[
-                                { key: 'powerball5', name: 'N파워볼(5분)' },
-                                { key: 'powerball3', name: 'N파워볼(3분)' },
-                                { key: 'powerladder5', name: 'N파워사다리(5분)' },
-                                { key: 'powerladder3min', name: 'N파워사다리(3분)' },
-                                { key: 'redpowerladder5', name: '레드파워사다리(5분)' }
-                            ].map(game => (
-                                <button 
-                                    key={game.key}
-                                    onClick={() => setActiveMiniGameTab(game.key)}
-                                    className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition ${activeMiniGameTab === game.key ? 'bg-amber-600 text-white' : 'bg-neutral-800 text-gray-400'}`}
-                                >
-                                    {game.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
                     {/* 모바일 전용 카드 리스트 */}
                     <div className="md:hidden">
                       <MobileBettingList 
@@ -4320,7 +4623,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </span>
                   </div>
                 </div>
-
                 {/* 보유 머니 */}
                 <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-800/60 flex items-center justify-between">
                   <span className="text-xs text-gray-400">보유 머니</span>
@@ -4459,7 +4761,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             )}
 
           </div>
-        </div>
+        
       ) : (
         <>
           {/* Main Feature Banner - High-End Luxury Cohesive VIP Cockpit Board */}
@@ -4524,14 +4826,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </div>
                   </div>
                 </div>
-
                 {/* Laser separation Line for Desktop layout */}
                 <div className="hidden xl:block w-[1px] h-64 bg-gradient-to-b from-transparent via-red-950/60 to-transparent relative self-center">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse"></div>
                 </div>
 
                 {/* Right Side - Immersive Integrated Casino & Sports Premium Tri-Showcase */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full xl:max-w-[850px]">
+                <div className="hidden md:grid md:grid-cols-3 gap-5 w-full xl:max-w-[850px]">
                   
                   {/* 1. Golden Luxury Roulette Frame */}
                   <motion.div
@@ -4547,10 +4848,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
                     
-                    {/* Roulette Picture */}
+                    {/* BET365 Picture */}
                     <img
-                      src="https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=800"
-                      alt="Choice Premium Roulette"
+                      src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"
+                      alt="BET365"
                       className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
@@ -4558,12 +4859,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     {/* Stamp */}
                     <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/30 shadow-lg">
                       <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-                      <span className="text-amber-400 text-[9px] font-black tracking-widest uppercase">LUXURY ROULETTE</span>
+                      <span className="text-amber-400 text-[9px] font-black tracking-widest uppercase">BET365</span>
                     </div>
 
                     {/* Bottom glass panel */}
                     <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-amber-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-amber-300 tracking-wider uppercase">REALTIME ROYAL CASINO</span>
+                      <span className="text-[10px] font-black text-amber-300 tracking-wider uppercase">BET365 SPORTS</span>
                       <span className="text-[8.5px] font-bold font-mono text-gray-400">OPTIMAL PLATFORM 🌐</span>
                     </div>
                   </motion.div>
@@ -4582,10 +4883,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
 
-                    {/* Dice Picture */}
+                    {/* Tether Picture */}
                     <img
-                      src="https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=800"
-                      alt="Choice Premium Vegas Dice"
+                      src="https://images.unsplash.com/photo-1622630998477-20aa696ecb05?q=80&w=800"
+                      alt="Tether"
                       className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
@@ -4593,12 +4894,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     {/* Stamp */}
                     <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-red-500/30 shadow-lg">
                       <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-                      <span className="text-rose-450 text-[9px] font-black tracking-widest uppercase">HIGH-STAKES DICE</span>
+                      <span className="text-rose-450 text-[9px] font-black tracking-widest uppercase">TETHER (USDT)</span>
                     </div>
 
                     {/* Bottom glass panel */}
                     <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-red-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-red-450 tracking-wider uppercase">ULTIMATE WINNER CRAFT</span>
+                      <span className="text-[10px] font-black text-red-450 tracking-wider uppercase">TETHER TRADING</span>
                       <span className="text-[8.5px] font-bold font-mono text-gray-400 font-black text-rose-300">JACKPOT ENABLED ✨</span>
                     </div>
                   </motion.div>
@@ -4640,6 +4941,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   
                 </div>
 
+
+
               </div>
             </div>
           </div>
@@ -4660,34 +4963,40 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   { label: '미니게임', img: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=500' },
                   { label: '경기결과', img: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=500' },
                   { label: '공지사항', img: 'https://images.unsplash.com/photo-1557200134-90327ee9fafa?q=80&w=500' }
-                ].map((cat, idx) => (
-                  <motion.div 
-                    whileHover={{ y: -6, scale: 1.02 }}
-                    key={idx} 
-                    onClick={() => {
-                      if (cat.label === '스포츠') {
-                        navigateTo('sports');
-                      } else if (cat.label === '미니게임') {
-                        setActiveMiniGameTab('powerball5');
-                        navigateTo('minigame');
-                      } else if (cat.label === '경기결과') {
-                        navigateTo('gameresult');
-                      } else {
-                        alert(`${cat.label} 기능은 준비 중입니다.`);
-                      }
-                    }}
-                    className="relative h-40 bg-gray-900 border border-gray-800 rounded overflow-hidden shadow-lg group cursor-pointer"
-                  >
-                    <div 
-                      className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-cover bg-center"
-                      style={{ backgroundImage: `url(${cat.img})` }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                    <div className="absolute bottom-4 left-4 z-10">
-                      <p className="text-lg font-black tracking-wide text-white group-hover:text-amber-400 transition-colors">{cat.label}</p>
-                    </div>
-                  </motion.div>
-                ))}
+                ].map((cat, idx) => {
+                  const isDisabled = cat.label === '카지노' || cat.label === '슬롯게임';
+                  return (
+                    <motion.div 
+                      whileHover={!isDisabled ? { y: -6, scale: 1.02 } : {}}
+                      key={idx} 
+                      onClick={() => {
+                        if (isDisabled) return;
+                        if (cat.label === '스포츠') {
+                          navigateTo('sports');
+                        } else if (cat.label === '미니게임') {
+                          setActiveMiniGameTab('powerball5');
+                          navigateTo('minigame');
+                        } else if (cat.label === '경기결과') {
+                          navigateTo('gameresult');
+                        } else {
+                          alert(`${cat.label} 기능은 준비 중입니다.`);
+                        }
+                      }}
+                      className={`relative h-40 bg-gray-900 border border-gray-800 rounded overflow-hidden shadow-lg group ${
+                        isDisabled ? 'cursor-default opacity-50 grayscale' : 'cursor-pointer'
+                      }`}
+                    >
+                      <div 
+                        className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-cover bg-center"
+                        style={{ backgroundImage: `url(${cat.img})` }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                      <div className="absolute bottom-4 left-4 z-10">
+                        <p className={`text-lg font-black tracking-wide text-white transition-colors ${!isDisabled ? 'group-hover:text-amber-400' : ''}`}>{cat.label}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
 

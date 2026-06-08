@@ -814,14 +814,9 @@ export default function SportsContainer({
             <span className="p-1.5 bg-amber-500/10 text-amber-500 rounded-lg animate-pulse">
               <Trophy className="w-5 h-5" />
             </span>
-            <h2 className="text-xl font-black tracking-tight text-white">실시간 스포츠 승무패 정규 리그</h2>
+            <h2 className="text-base sm:text-lg md:text-xl font-black tracking-tight text-white whitespace-nowrap truncate">실시간 스포츠 승무패 정규 리그</h2>
           </div>
           <p className="text-xs text-neutral-400">등록된 매치 배당을 확인하고 원클릭 스포츠 배팅 카트를 통해 손쉽게 단폴 및 다폴더 파레이 조합 배팅을 완료하세요.</p>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs font-semibold bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-850">
-          <Info className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-neutral-400">정산 방식:</span>
-          <span className="text-emerald-400 font-extrabold font-sans">관리자 지정 승자 자동 정산</span>
         </div>
       </div>
 
@@ -967,13 +962,13 @@ export default function SportsContainer({
         <div className="space-y-3 lg:h-[calc(100vh-100px)] lg:overflow-y-auto lg:pr-3">
           
           {/* Bonus Folders (서비스 폴더, 다폴더 보너스 배당) Container */}
-          <div className="mb-4 bg-neutral-900/60 border border-neutral-800/80 p-4 rounded-xl">
-            <div className="flex items-center gap-1.5 mb-3 select-none">
-              <span className="text-amber-500 font-bold text-xs">★</span>
-              <span className="text-xs font-black tracking-wider text-neutral-300">다폴더 보너스 추가 배당</span>
-              <span className="text-[10px] text-neutral-400 font-medium">(정규 폴더수 충족 시 배당 추가 곱세율 자동 추가)</span>
+          <div className="mb-4 bg-neutral-900/60 border border-neutral-800/80 p-3 rounded-xl">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2.5 select-none">
+              <span className="text-amber-500 font-bold text-[10px]">★</span>
+              <span className="text-[11px] font-black tracking-wider text-neutral-300">다폴더 보너스</span>
+              <span className="text-[9px] text-neutral-500 font-medium truncate">(정규 폴더수 배당 자동 증가)</span>
             </div>
-            <div className="grid grid-cols-3 gap-3 md:gap-4 max-w-xl">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { id: 'bonus_3', name: '3폴 이상', odds: 1.03, label: '3폴 이상 1.03' },
                 { id: 'bonus_5', name: '5폴 이상', odds: 1.05, label: '5폴 이상 1.05' },
@@ -984,21 +979,19 @@ export default function SportsContainer({
                   <button
                     key={bonus.id}
                     onClick={() => handleSelectBonusFolder(bonus)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all cursor-pointer select-none group min-h-[44px] md:min-h-[48px] ${
+                    className={`flex items-center justify-between px-2 py-1.5 rounded-lg border transition-all cursor-pointer select-none group min-h-[36px] ${
                       isSelected
-                        ? 'bg-neutral-950 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                        ? 'bg-neutral-950 border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
                         : 'bg-neutral-900/40 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-750'
                     }`}
                   >
-                    {/* Name */}
-                    <span className={`text-[11px] md:text-xs font-black tracking-wide ${
+                    <span className={`text-[10px] font-black tracking-wide ${
                       isSelected ? 'text-amber-500' : 'text-neutral-300'
                     }`}>
-                      {bonus.name}
+                      {bonus.name.replace('이상', '')}
                     </span>
 
-                    {/* Odds Badge */}
-                    <span className={`flex items-center justify-center font-mono text-[10px] md:text-xs font-black w-10 h-6 rounded-full border transition-colors ${
+                    <span className={`flex items-center justify-center font-mono text-[9px] font-black w-8 h-5 rounded-full border transition-colors ${
                       isSelected
                         ? 'bg-amber-500 text-black border-amber-500 font-extrabold'
                         : 'bg-neutral-950 text-amber-500 border-neutral-800'
