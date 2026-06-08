@@ -452,8 +452,8 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                         })}
 
                         {/* Combined Information Sub-Row: Bet Amount, Dividend, Calculated Win Amount */}
-                        <tr className="bg-neutral-950/20 text-[11px] text-gray-500 border-b border-neutral-800/20">
-                          <td colSpan={7} className="px-6 py-2.5 text-right font-sans">
+                        <tr className="bg-neutral-950/30 text-[11px] text-gray-400">
+                          <td colSpan={7} className="px-6 py-3 text-right font-sans border-b border-neutral-900/60">
                             <div className="flex justify-end gap-6 items-center">
                               <div>
                                 <span className="text-neutral-500 font-medium">배팅금:</span>{' '}
@@ -473,6 +473,11 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                               </div>
                             </div>
                           </td>
+                        </tr>
+
+                        {/* Beautiful physical spacer row to clearly separate each independent bet */}
+                        <tr className="h-4 bg-[#030304] pointer-events-none" key={`${bet.id}_spacer`}>
+                          <td colSpan={7} className="p-0 h-4 bg-[#030304] border-t border-b border-[#030304]"></td>
                         </tr>
                       </React.Fragment>
                     );
