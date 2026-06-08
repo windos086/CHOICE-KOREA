@@ -69,7 +69,44 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
     let awayOdds = '';
     let selectedSide: 'home' | 'away' | null = null;
 
-    // Resolve chosen option string
+    // Determine option layout for Sports
+    if (bet.gameType === 'sports') {
+      const parts = bet.game ? bet.game.split(' vs ') : [];
+      const homeTeam = parts[0] || '홈';
+      const awayTeam = parts[1] || '원정';
+      const mkt = bet.marketType || 'matchWinner';
+
+      homeOdds = String(bet.dividend || '1.95');
+      awayOdds = String(bet.dividend || '1.95');
+
+      if (mkt === 'underOver') {
+        const threshold = bet.lineValue || '2.5';
+        homeName = `언더 [${threshold}]`;
+        awayName = `오버 [${threshold}]`;
+        selectedSide = bet.type === 'under' ? 'home' : 'away';
+        midStandard = threshold;
+      } else if (mkt === 'handicap') {
+        const hVal = bet.lineValue || '0';
+        homeName = `${homeTeam} [${hVal}]`;
+        awayName = awayTeam;
+        selectedSide = bet.type === 'home' ? 'home' : 'away';
+        midStandard = '핸디';
+      } else {
+        // matchWinner
+        homeName = homeTeam;
+        awayName = awayTeam;
+        if (bet.type === 'home') {
+          selectedSide = 'home';
+        } else if (bet.type === 'away') {
+          selectedSide = 'away';
+        } else if (bet.type === 'draw') {
+          midStandard = '무승부';
+        }
+      }
+      return { homeName, homeOdds, midStandard, awayName, awayOdds, selectedSide };
+    }
+
+    // Resolve chosen option string for Minigames
     const optionStr = (bet.folders && bet.folders.length === 1) ? bet.folders[0].option : (bet.option || '');
     const dividend = bet.dividend || '1.95';
 
@@ -176,6 +213,56 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
     );
   }
 
+  function renderSingleFolderScore(folder: any, parentPending: boolean) {
+    if (parentPending || folder.status === 'pending') {
+      return <span className="text-gray-500 font-bold text-xs">대기 중</span>;
+    }
+
+    const folderGameType = folder.gameType || 'sports';
+    const isSports = folderGameType === 'sports';
+
+    if (isSports) {
+      const raw = folder.rollResult || '';
+      const statusSuffix = folder.status === 'win' ? ' [승]' : folder.status === 'lose' ? ' [패]' : '';
+      return (
+        <span className="text-amber-500 font-mono font-black text-xs">
+          {raw}{statusSuffix}
+        </span>
+      );
+    }
+
+    let rawResult = folder.rollResult || '';
+    
+    const bracketMatch = rawResult.match(/\[(.*?)\]/);
+    if (bracketMatch) {
+      rawResult = bracketMatch[1];
+    }
+
+    if (rawResult.includes('➔')) {
+      const parts = rawResult.split('➔');
+      rawResult = parts[parts.length - 1].replace(/[\[\]]/g, '').trim();
+    }
+
+    if (!rawResult || rawResult === '대기 중') {
+      return <span className="text-gray-500 font-bold text-xs">대기 중</span>;
+    }
+
+    let suffix = ' [승]';
+    if (rawResult === '중') {
+      suffix = ' [무]';
+    }
+
+    if (rawResult.includes('[승]') || rawResult.includes('[무]')) {
+      suffix = '';
+    }
+
+    return (
+      <span className="text-amber-500 font-bold text-xs">
+        {rawResult}{suffix}
+      </span>
+    );
+  }
+
   return (
     <div className="flex-1 p-4 md:p-8 w-full mx-auto max-w-[1550px]" id="bet-history-view-id">
       {/* Breadcrumb Path */}
@@ -248,107 +335,124 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                     const amountColor = bet.status === 'win' ? 'text-emerald-400' : (bet.status === 'lose' ? 'text-red-500' : 'text-gray-300');
                     const displaySign = bet.status === 'win' ? '+' : (bet.status === 'lose' ? '-' : '');
                     
-                    const layout = getBetSelectionLayout(bet);
+                    const hasFolders = bet.folders && bet.folders.length > 0;
+                    const items = hasFolders ? bet.folders : [bet];
 
                     return (
                       <React.Fragment key={bet.id}>
-                        {/* Main Match Information Row */}
-                        <tr className="hover:bg-neutral-900/10 transition-colors">
-                          {/* 배팅일시 */}
-                          <td className="p-3 text-left pl-6 font-mono text-[11px] text-gray-500 whitespace-nowrap leading-relaxed py-4 align-middle">
-                            <span className="block">{betDate}</span>
-                            <span className="text-amber-500 font-bold mt-0.5 block">{betTime}</span>
-                          </td>
+                        {items.map((f: any, idx: number) => {
+                          const layout = getBetSelectionLayout(f);
+                          const isFirst = idx === 0;
 
-                          {/* 리그 (구분) */}
-                          <td className="p-3 text-left align-middle py-4">
-                            <div className="flex items-center gap-3">
-                              {/* Live Red Glow Indicator - Matches Game Result screen */}
-                              <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
-                                <span className="block w-2 h-2 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
-                                <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
-                              </div>
-                              <span className="text-white text-xs font-bold font-sans tracking-tight">
-                                {bet.game}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* 승 (홈) */}
-                          <td className="p-3 text-center align-middle py-4">
-                            <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
-                              layout.selectedSide === 'home' 
-                                ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)] font-bold' 
-                                : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90 text-gray-400'
-                            }`}>
-                              <span className={layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-300'}>
-                                {layout.homeName}
-                              </span>
-                              {layout.homeOdds && (
-                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
-                                  {layout.homeOdds}
-                                </span>
+                          return (
+                            <tr key={`${bet.id}_f_${idx}`} className="hover:bg-neutral-900/10 transition-colors">
+                              {/* 배팅일시 (Spans across all folder rows) */}
+                              {isFirst && (
+                                <td 
+                                  rowSpan={items.length} 
+                                  className="p-3 text-left pl-6 font-mono text-[11px] text-gray-500 whitespace-nowrap leading-relaxed py-4 align-middle border-r border-neutral-800/20"
+                                >
+                                  <span className="block">{betDate}</span>
+                                  <span className="text-amber-500 font-bold mt-0.5 block">{betTime}</span>
+                                </td>
                               )}
-                            </div>
-                          </td>
 
-                          {/* 무 / 기준값 */}
-                          <td className="p-3 text-center align-middle py-4">
-                            <div className="inline-flex items-center justify-center bg-[#07090d] border border-neutral-800/90 text-gray-400 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md min-w-[44px] h-7">
-                              {layout.midStandard}
-                            </div>
-                          </td>
-
-                          {/* 패 (원정) */}
-                          <td className="p-3 text-center align-middle py-4">
-                            {layout.awayName ? (
-                              <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
-                                layout.selectedSide === 'away' 
-                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)] font-bold' 
-                                  : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90 text-gray-400'
-                              }`}>
-                                <span className={layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-300'}>
-                                  {layout.awayName}
-                                </span>
-                                {layout.awayOdds && (
-                                  <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
-                                    {layout.awayOdds}
+                              {/* 리그 (구분) */}
+                              <td className="p-3 text-left align-middle py-4">
+                                <div className="flex items-center gap-3">
+                                  {/* Live Red Glow Indicator - Matches Game Result screen */}
+                                  <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
+                                    <span className="block w-2 h-2 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
+                                    <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
+                                  </div>
+                                  <span className="text-white text-xs font-bold font-sans tracking-tight">
+                                    {f.game}
                                   </span>
+                                </div>
+                              </td>
+
+                              {/* 승 (홈) */}
+                              <td className="p-3 text-center align-middle py-4">
+                                <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                                  layout.selectedSide === 'home' 
+                                    ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)] font-bold' 
+                                    : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90 text-gray-400'
+                                }`}>
+                                  <span className={layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-300'}>
+                                    {layout.homeName}
+                                  </span>
+                                  {layout.homeOdds && (
+                                    <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                      {layout.homeOdds}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 무 / 기준값 */}
+                              <td className="p-3 text-center align-middle py-4">
+                                <div className="inline-flex items-center justify-center bg-[#07090d] border border-neutral-800/90 text-gray-400 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md min-w-[44px] h-7">
+                                  {layout.midStandard}
+                                </div>
+                              </td>
+
+                              {/* 패 (원정) */}
+                              <td className="p-3 text-center align-middle py-4">
+                                {layout.awayName ? (
+                                  <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
+                                    layout.selectedSide === 'away' 
+                                      ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)] font-bold' 
+                                      : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90 text-gray-400'
+                                  }`}>
+                                    <span className={layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-300'}>
+                                      {layout.awayName}
+                                    </span>
+                                    {layout.awayOdds && (
+                                      <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                        {layout.awayOdds}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-neutral-700">-</span>
                                 )}
-                              </div>
-                            ) : (
-                              <span className="text-neutral-700">-</span>
-                            )}
-                          </td>
+                              </td>
 
-                          {/* 스코어 */}
-                          <td className="p-3 text-center align-middle py-4 font-bold text-xs">
-                            {renderFormattedScore(bet)}
-                          </td>
+                              {/* 스코어 */}
+                              <td className="p-3 text-center align-middle py-4 font-bold text-xs">
+                                {renderSingleFolderScore(f, bet.status === 'pending')}
+                              </td>
 
-                          {/* 결과 / 삭제 */}
-                          <td className="p-3 text-center align-middle pr-6 py-4">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className={`inline-block border px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-md select-none ${
-                                bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/30 text-emerald-400' :
-                                bet.status === 'lose' ? 'border-red-900 bg-red-950/30 text-red-500' :
-                                'border-neutral-800 bg-neutral-900 text-gray-500'
-                              }`}>
-                                {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
-                              </span>
-                              <button 
-                                onClick={() => handleDeleteBet(bet)} 
-                                className="text-neutral-500 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-neutral-900/60 cursor-pointer"
-                                title="삭제"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                              {/* 결과 / 삭제 (Spans across all folder rows) */}
+                              {isFirst && (
+                                <td 
+                                  rowSpan={items.length} 
+                                  className="p-3 text-center align-middle pr-6 py-4 border-l border-neutral-800/20"
+                                >
+                                  <div className="flex items-center justify-center gap-2">
+                                    <span className={`inline-block border px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-md select-none ${
+                                      bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/30 text-emerald-400' :
+                                      bet.status === 'lose' ? 'border-red-900 bg-red-950/30 text-red-500' :
+                                      'border-neutral-800 bg-neutral-900 text-gray-500'
+                                    }`}>
+                                      {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
+                                    </span>
+                                    <button 
+                                      onClick={() => handleDeleteBet(bet)} 
+                                      className="text-neutral-500 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-neutral-900/60 cursor-pointer"
+                                      title="삭제"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
 
                         {/* Combined Information Sub-Row: Bet Amount, Dividend, Calculated Win Amount */}
-                        <tr className="bg-neutral-950/20 text-[11px] text-gray-500 border-b border-neutral-900/30">
+                        <tr className="bg-neutral-950/20 text-[11px] text-gray-500 border-b border-neutral-800/20">
                           <td colSpan={7} className="px-6 py-2.5 text-right font-sans">
                             <div className="flex justify-end gap-6 items-center">
                               <div>
@@ -386,7 +490,8 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                 const amountColor = bet.status === 'win' ? 'text-emerald-400' : (bet.status === 'lose' ? 'text-red-500' : 'text-gray-300');
                 const displaySign = bet.status === 'win' ? '+' : (bet.status === 'lose' ? '-' : '');
                 
-                const layout = getBetSelectionLayout(bet);
+                const hasFolders = bet.folders && bet.folders.length > 0;
+                const items = hasFolders ? bet.folders : [bet];
 
                 return (
                   <div key={bet.id} className="bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 text-xs flex flex-col gap-3">
@@ -409,43 +514,52 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                       </div>
                     </div>
                     
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-white text-sm">{bet.game}</span>
-                      <span className="text-amber-500 font-black text-sm text-right">
-                        {renderFormattedScore(bet)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center bg-[#0b0c10] p-2 rounded border border-neutral-800/60">
-                      <div className={`flex flex-col p-1.5 rounded border transition w-[45%] ${
-                        layout.selectedSide === 'home' 
-                          ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
-                          : 'bg-transparent border-transparent'
-                      }`}>
-                        <span className={`font-bold ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
-                        <span className="text-amber-500 font-bold text-[10px]">{layout.homeOdds}</span>
-                      </div>
+                    <div className="flex flex-col gap-4 mt-1">
+                      {items.map((f: any, idx: number) => {
+                        const layout = getBetSelectionLayout(f);
+                        return (
+                          <div key={idx} className="border-b border-neutral-800/20 last:border-0 pb-3.5 last:pb-0 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-white text-[13px]">{f.game}</span>
+                              <span className="text-amber-500 font-black text-xs text-right">
+                                {renderSingleFolderScore(f, bet.status === 'pending')}
+                              </span>
+                            </div>
 
-                      <span className="text-gray-500 font-bold">VS</span>
+                            <div className="flex justify-between items-center bg-[#0b0c10] p-2 rounded border border-neutral-800/60">
+                              <div className={`flex flex-col p-1.5 rounded border transition w-[45%] ${
+                                layout.selectedSide === 'home' 
+                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  : 'bg-transparent border-transparent'
+                              }`}>
+                                <span className={`font-bold ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
+                                <span className="text-amber-500 font-bold text-[10px]">{layout.homeOdds}</span>
+                              </div>
 
-                      <div className={`flex flex-col p-1.5 rounded border transition w-[45%] items-end ${
-                        layout.selectedSide === 'away' 
-                          ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
-                          : 'bg-transparent border-transparent'
-                      }`}>
-                        <span className={`font-bold ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
-                        <span className="text-amber-500 font-bold text-[10px]">{layout.awayOdds}</span>
-                      </div>
+                              <span className="text-gray-500 font-bold">VS</span>
+
+                              <div className={`flex flex-col p-1.5 rounded border transition w-[45%] items-end ${
+                                layout.selectedSide === 'away' 
+                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  : 'bg-transparent border-transparent'
+                              }`}>
+                                <span className={`font-bold ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
+                                <span className="text-amber-500 font-bold text-[10px]">{layout.awayOdds}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Consolidated mobile row details */}
                     <div className="mt-1 pt-2 border-t border-neutral-800/40 text-neutral-400 grid grid-cols-3 text-center text-[10px]">
-                      <div>배팅금: <span className="text-gray-200 font-bold font-mono">{bet.amount.toLocaleString()}</span></div>
+                      <div>배팅금: <span className="text-gray-200 font-bold font-mono">{bet.amount.toLocaleString()}원</span></div>
                       <div>배당률: <span className="text-amber-500 font-bold font-mono">x{parseFloat(bet.dividend).toFixed(2)}</span></div>
                       <div className={amountColor}>
                         {bet.status === 'win' ? '적중금:' : bet.status === 'lose' ? '손실금:' : '예상적중금:'}{' '}
                         <span className="font-bold font-mono">
-                          {bet.status !== 'pending' ? `${displaySign}${winAmount.toLocaleString()}` : `${Math.floor(bet.amount * bet.dividend).toLocaleString()}`}
+                          {bet.status !== 'pending' ? `${displaySign}${winAmount.toLocaleString()}원` : `${Math.floor(bet.amount * bet.dividend).toLocaleString()}원`}
                         </span>
                       </div>
                     </div>
