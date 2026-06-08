@@ -25,7 +25,8 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
       <div className="text-white text-xl font-bold mb-6 tracking-tight">배팅내역</div>
       
       <div className="overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-950/40">
-        <table className="w-full text-center text-xs text-gray-300">
+        {/* Desktop View: Table */}
+        <table className="hidden md:table w-full text-center text-xs text-gray-300">
           <thead className="bg-[#0b0e14] border-b border-neutral-800/80 text-gray-400 text-[11px] font-bold tracking-wider">
             <tr>
               <th className="p-3 text-left pl-6">배팅일시</th>
@@ -92,7 +93,60 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
         )}
           </tbody>
         </table>
+
+        {/* Mobile View: Cards */}
+        <div className="md:hidden flex flex-col gap-3 p-4">
+          {currentBets.length > 0 ? (
+            currentBets.map((bet: any) => {
+              const betDate = bet.createdAt ? new Date(bet.createdAt).toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' }) : (bet.betTime?.includes(' ') ? bet.betTime.split(' ')[0] : bet.betTime);
+              const betTime = bet.createdAt ? new Date(bet.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : (bet.betTime?.includes(' ') ? bet.betTime.split(' ')[1] : bet.betTime);
+              const winAmount = bet.status === 'win' ? Math.floor(bet.amount * bet.dividend) : (bet.status === 'lose' ? bet.amount : 0);
+              const amountColor = bet.status === 'win' ? 'text-emerald-400' : (bet.status === 'lose' ? 'text-red-500' : 'text-gray-300');
+              const displaySign = bet.status === 'win' ? '+' : (bet.status === 'lose' ? '-' : '');
+
+              return (
+                <div key={bet.id} className="bg-[#0b0c10] border border-neutral-800 rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-center text-xs text-neutral-400">
+                        <span className="font-mono">{betDate} {betTime}</span>
+                        <span className={`px-2 py-0.5 rounded font-black border ${
+                            bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/40 text-emerald-400' :
+                            bet.status === 'lose' ? 'border-red-900 bg-red-950/40 text-red-500' :
+                            'border-neutral-800 bg-neutral-900 text-gray-500'
+                        }`}>
+                            {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
+                        </span>
+                    </div>
+
+                    <div className="text-white font-bold text-sm tracking-tight">{bet.game}</div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="text-neutral-500">배팅금</div>
+                        <div className="text-right text-gray-200">{bet.amount.toLocaleString()}원</div>
+                        
+                        <div className="text-neutral-500">예상배당</div>
+                        <div className="text-right text-amber-500 font-bold">{bet.dividend}</div>
+                        
+                        <div className="text-neutral-500">적중금</div>
+                        <div className={`text-right font-bold ${amountColor}`}>{bet.status !== 'pending' ? `${displaySign}${winAmount.toLocaleString()}원` : '-'}</div>
+
+                        <div className="text-neutral-500">선택</div>
+                        <div className="text-right text-white break-all">
+                            {bet.folders && bet.folders.length > 0 ? (
+                                bet.folders.map((f: any, fIdx: number) => <span key={fIdx}>{f.option} </span>)
+                            ) : (
+                                <span>{bet.option}</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-12 text-gray-500">배팅 내역이 없습니다.</div>
+          )}
+        </div>
       </div>
+
 
       {/* Pagination */}
       {totalPages > 1 && (

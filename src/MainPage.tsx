@@ -298,7 +298,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const secondsElapsed = adjustedSeconds % intervalInSeconds;
     const secondsRemaining = intervalInSeconds - secondsElapsed;
     
-    return { currentRound, secondsRemaining };
+    return { currentRound, secondsRemaining, secondsElapsed };
   };
 
   const getSecondsRemaining = (tab: string) => {
@@ -422,12 +422,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
           let isResolvable = false;
           if (bet.folders && bet.folders.length > 0) {
             isResolvable = bet.folders.every((f: any) => {
-              const { currentRound } = getRoundAndSecondsRemaining(f.gameType);
-              return f.round < currentRound;
+              const { currentRound, secondsElapsed } = getRoundAndSecondsRemaining(f.gameType);
+              if (f.round < currentRound - 1) return true;
+              if (f.round === currentRound - 1) return secondsElapsed > 10;
+              return false;
             });
           } else {
-            const { currentRound } = getRoundAndSecondsRemaining(bet.gameType);
-            isResolvable = bet.round && bet.round < currentRound;
+            const { currentRound, secondsElapsed } = getRoundAndSecondsRemaining(bet.gameType);
+            if (bet.round < currentRound - 1) isResolvable = true;
+            else if (bet.round === currentRound - 1) isResolvable = secondsElapsed > 10;
+            else isResolvable = false;
           }
 
           if (!isResolvable) continue;
