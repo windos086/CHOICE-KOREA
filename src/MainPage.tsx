@@ -6,7 +6,6 @@ import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
-import AdminMinigameManagement from './components/AdminMinigameManagement';
 import { MobileBettingList } from './components/MobileBettingList';
 import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home } from 'lucide-react';
 
