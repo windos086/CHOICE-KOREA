@@ -3846,7 +3846,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               <span className="block">{row.dateStr}</span>
                               <span className="text-amber-500 font-bold mt-0.5 block">{row.timeStr}</span>
                             </td>
-  
+
                             {/* 리그(구분) */}
                             <td className="p-3 text-left align-middle py-4">
                               <div className="flex items-center gap-3">
@@ -3860,7 +3860,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 </span>
                               </div>
                             </td>
-  
+
                             {/* 승(홈) */}
                             <td className="p-3 text-center align-middle py-4">
                               <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
@@ -3876,14 +3876,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 </span>
                               </div>
                             </td>
-  
+
                             {/* 무 / 기준값 */}
                             <td className="p-3 text-center align-middle py-4">
                               <div className="inline-flex items-center justify-center bg-[#07090d] border border-neutral-800/90 text-gray-400 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md min-w-[44px] h-7">
                                 {row.midStandard}
                               </div>
                             </td>
-  
+
                             {/* 패(원정) */}
                             <td className="p-3 text-center align-middle py-4">
                               <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
@@ -3899,7 +3899,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 </span>
                               </div>
                             </td>
-  
+
                             {/* 스코어 */}
                             <td className="p-3 text-center align-middle py-4 font-bold text-xs">
                               {row.winner === 'home' ? (
@@ -3912,7 +3912,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 <span className="text-gray-400">{row.score}</span>
                               )}
                             </td>
-  
+
                             {/* 결과 */}
                             <td className="p-3 text-center align-middle pr-6 py-4">
                               <div className="inline-block border border-emerald-900/60 text-emerald-400 bg-emerald-950/30 px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-[0_2px_4px_rgba(16,185,129,0.05)] select-none">
