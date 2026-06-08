@@ -40,9 +40,61 @@ function getTeamBadge(teamName: string) {
   );
 }
 
+export function deduplicateLeagueName(name: string): string {
+  if (!name) return '';
+  let cleaned = name.trim();
+  if (cleaned.includes('<')) {
+    cleaned = cleaned.split('<')[0].trim();
+  }
+  cleaned = cleaned.replace(/[<>]/g, '').trim();
+
+  // Try checking exact half match (no spaces)
+  const noSpaces = cleaned.replace(/\s+/g, '');
+  if (noSpaces.length > 0 && noSpaces.length % 2 === 0) {
+    const halfLen = noSpaces.length / 2;
+    const firstHalf = noSpaces.substring(0, halfLen);
+    const secondHalf = noSpaces.substring(halfLen);
+    if (firstHalf.toLowerCase() === secondHalf.toLowerCase()) {
+      if (cleaned.length % 2 === 0) {
+        const h = cleaned.length / 2;
+        if (cleaned.substring(0, h).replace(/\s+/g, '').toLowerCase() === cleaned.substring(h).replace(/\s+/g, '').toLowerCase()) {
+          return cleaned.substring(0, h).trim();
+        }
+      }
+      const origHalf = Math.floor(cleaned.length / 2);
+      for (let offset = -2; offset <= 2; offset++) {
+        const splitIdx = origHalf + offset;
+        if (splitIdx > 0 && splitIdx < cleaned.length) {
+          const part1 = cleaned.substring(0, splitIdx).trim();
+          const part2 = cleaned.substring(splitIdx).trim();
+          if (part1.replace(/\s+/g, '').toLowerCase() === part2.replace(/\s+/g, '').toLowerCase()) {
+            return part1;
+          }
+        }
+      }
+      const words = cleaned.split(/\s+/);
+      if (words.length > 0 && words.length % 2 === 0) {
+        const halfWords = words.length / 2;
+        const w1 = words.slice(0, halfWords).join(' ');
+        const w2 = words.slice(halfWords).join(' ');
+        if (w1.toLowerCase() === w2.toLowerCase()) {
+          return w1;
+        }
+      }
+      return firstHalf;
+    }
+  }
+  return cleaned;
+}
+
+export function cleanTeamName(name: string): string {
+  if (!name) return '';
+  return name.replace(/\[[^\]]*\]/g, '').trim();
+}
+
 function getLeagueHeaderLabel(leagueName: string) {
   let emoji = '⚽';
-  const name = leagueName || '';
+  const name = deduplicateLeagueName(leagueName || '');
   if (name.includes('독일')) emoji = '🇩🇪';
   else if (name.includes('스페인') || name.includes('라리가')) emoji = '🇪🇸';
   else if (name.includes('영국') || name.includes('프리미어') || name.includes('잉글랜드')) emoji = '🇬🇧';
@@ -64,8 +116,14 @@ function getLeagueHeaderLabel(leagueName: string) {
 }
 
 function getSportCategory(match: any): '축구' | '농구' | '야구' | '배구' | '아이스하키' {
+  if (match.sport === 'soccer' || match.sport === '축구') return '축구';
+  if (match.sport === 'basketball' || match.sport === '농구') return '농구';
+  if (match.sport === 'baseball' || match.sport === '야구') return '야구';
+  if (match.sport === 'volleyball' || match.sport === '배구') return '배구';
+  if (match.sport === 'hockey' || match.sport === '아이스하키') return '아이스하키';
+
   const name = ((match.league || '') + ' ' + (match.homeTeam || '') + ' ' + (match.awayTeam || '') + ' ' + (match.sport || '')).toLowerCase();
-  if (name.includes('농구') || name.includes('nba') || name.includes('kbl') || name.includes('wkbl')) {
+  if (name.includes('농구') || name.includes('nba') || name.includes('kbl') || name.includes('wkbl') || name.includes('basketball')) {
     return '농구';
   }
   if (name.includes('야구') || name.includes('mlb') || name.includes('kbo') || name.includes('npb') || name.includes('baseball')) {
@@ -84,7 +142,7 @@ function parseDateTimeToComparableNum(dateTimeStr: string): number {
   if (!dateTimeStr) return 9999999999;
   try {
     const cleaned = dateTimeStr.trim();
-    const match = cleaned.match(/^(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    const match = cleaned.match(/^(\d{2})[\.\-](\d{2})\s+(\d{2}):(\d{2})/);
     if (match) {
       const month = parseInt(match[1], 10);
       const day = parseInt(match[2], 10);
@@ -158,7 +216,16 @@ export default function SportsContainer({
     try {
       const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      const fetchedMatches = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      const fetchedMatches = querySnapshot.docs.map(doc => {
+        const data = doc.data() as any;
+        return {
+          id: doc.id,
+          ...data,
+          homeTeam: cleanTeamName(data.homeTeam || ''),
+          awayTeam: cleanTeamName(data.awayTeam || ''),
+          league: data.league ? deduplicateLeagueName(data.league) : ''
+        };
+      });
       
       // Sort matches chronologically (earliest start time first)
       fetchedMatches.sort((a, b) => {
@@ -362,7 +429,7 @@ export default function SportsContainer({
     : sortedMatches.filter(m => getSportCategory(m) === activeSportTab);
 
   // 2. Extract unique leagues under the current selected sport category
-  const leagues = ['전체', ...Array.from(new Set(sportFilteredMatches.map(m => m.league).filter(Boolean)))];
+  const leagues = ['전체', ...Array.from(new Set(sportFilteredMatches.map(m => deduplicateLeagueName(m.league)).filter(Boolean)))];
 
   const filteredLeaguesBySearch = leagues.filter(lg => {
     if (lg === '전체') return true;
@@ -371,14 +438,15 @@ export default function SportsContainer({
 
   // 3. Filter matches based on both sport, selected league tab AND search term (League Name or Team Name)
   const filteredMatches = sportFilteredMatches.filter(m => {
-    const leagueMatch = activeLeagueTab === '전체' || m.league === activeLeagueTab;
+    const leagueMatch = activeLeagueTab === '전체' || deduplicateLeagueName(m.league) === activeLeagueTab;
     if (!leagueMatch) return false;
     
     if (leagueSearch.trim() === '') return true;
     
     const search = leagueSearch.trim().toLowerCase();
+    const cleanLg = deduplicateLeagueName(m.league || '');
     return (
-      (m.league && m.league.toLowerCase().includes(search)) ||
+      (cleanLg && cleanLg.toLowerCase().includes(search)) ||
       (m.homeTeam && m.homeTeam.toLowerCase().includes(search)) ||
       (m.awayTeam && m.awayTeam.toLowerCase().includes(search))
     );
@@ -1019,7 +1087,7 @@ export default function SportsContainer({
               const displayedMatches = filteredMatches.slice(0, visibleCount);
               const groups: Record<string, any[]> = {};
               displayedMatches.forEach(m => {
-                const lg = m.league || '기타 리그';
+                const lg = deduplicateLeagueName(m.league || '기타 리그');
                 if (!groups[lg]) groups[lg] = [];
                 groups[lg].push(m);
               });
@@ -1585,7 +1653,7 @@ export default function SportsContainer({
                   </button>
                   <div className="flex items-center gap-1">
                     <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
-                      {item.marketType === 'bonus' ? '서비스' : item.match.league}
+                      {item.marketType === 'bonus' ? '서비스' : deduplicateLeagueName(item.match.league)}
                     </span>
                   </div>
                   <div className="text-[11px] font-black text-neutral-250 pr-5 truncate">

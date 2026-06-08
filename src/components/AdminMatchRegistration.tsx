@@ -20,6 +20,58 @@ const isZeroHandicap = (valStr: string): boolean => {
   return isNaN(num) || num === 0;
 };
 
+export function deduplicateLeagueName(name: string): string {
+  if (!name) return '';
+  let cleaned = name.trim();
+  if (cleaned.includes('<')) {
+    cleaned = cleaned.split('<')[0].trim();
+  }
+  cleaned = cleaned.replace(/[<>]/g, '').trim();
+
+  // Try checking exact half match (no spaces)
+  const noSpaces = cleaned.replace(/\s+/g, '');
+  if (noSpaces.length > 0 && noSpaces.length % 2 === 0) {
+    const halfLen = noSpaces.length / 2;
+    const firstHalf = noSpaces.substring(0, halfLen);
+    const secondHalf = noSpaces.substring(halfLen);
+    if (firstHalf.toLowerCase() === secondHalf.toLowerCase()) {
+      if (cleaned.length % 2 === 0) {
+        const h = cleaned.length / 2;
+        if (cleaned.substring(0, h).replace(/\s+/g, '').toLowerCase() === cleaned.substring(h).replace(/\s+/g, '').toLowerCase()) {
+          return cleaned.substring(0, h).trim();
+        }
+      }
+      const origHalf = Math.floor(cleaned.length / 2);
+      for (let offset = -2; offset <= 2; offset++) {
+        const splitIdx = origHalf + offset;
+        if (splitIdx > 0 && splitIdx < cleaned.length) {
+          const part1 = cleaned.substring(0, splitIdx).trim();
+          const part2 = cleaned.substring(splitIdx).trim();
+          if (part1.replace(/\s+/g, '').toLowerCase() === part2.replace(/\s+/g, '').toLowerCase()) {
+            return part1;
+          }
+        }
+      }
+      const words = cleaned.split(/\s+/);
+      if (words.length > 0 && words.length % 2 === 0) {
+        const halfWords = words.length / 2;
+        const w1 = words.slice(0, halfWords).join(' ');
+        const w2 = words.slice(halfWords).join(' ');
+        if (w1.toLowerCase() === w2.toLowerCase()) {
+          return w1;
+        }
+      }
+      return firstHalf;
+    }
+  }
+  return cleaned;
+}
+
+export function cleanTeamName(name: string): string {
+  if (!name) return '';
+  return name.replace(/\[[^\]]*\]/g, '').trim();
+}
+
 const areMarketsDifferent = (m1: any, m2: any): boolean => {
   if (!m1 || !m2) return true;
   
@@ -76,7 +128,16 @@ export default function AdminMatchRegistration() {
     setLoadingMatches(true);
     try {
       const snap = await getDocs(collection(db, 'matches'));
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      const list = snap.docs.map(d => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          ...data,
+          homeTeam: cleanTeamName(data.homeTeam || ''),
+          awayTeam: cleanTeamName(data.awayTeam || ''),
+          league: data.league ? deduplicateLeagueName(data.league) : ''
+        };
+      });
       // Sort matches by date/time or creation
       list.sort((a: any, b: any) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -116,98 +177,174 @@ export default function AdminMatchRegistration() {
       let updatedCount = 0;
 
       if (selectedSport === 'basketball') {
-          // Basketball logic: parse ML, Handi, OU
+          let currentLeague = '농구 리그';
+
           for (let i = 0; i < lines.length; i++) {
               const line = lines[i];
-              if (/\d{2}\.\d{2}\s\d{2}:\d{2}/.test(line)) { // Match date/time format
-                  const matchTime = line;
+
+              // 1. 날짜 패턴 검출을 가장 먼저 수행합니다. (날짜가 들어있는 줄에 다른 글자가 섞여있어도 날짜만 추출되도록 함)
+              const dateMatch = line.match(/(\d{2})[\.\-](\d{2})\s(\d{2}):(\d{2})/);
+              if (dateMatch) {
+                  const matchTime = dateMatch[0]; // "06.10 08:00" 형태의 깨끗한 날짜 시간만 추출합니다.
+                  
+                  // 그 다음 두 줄(홈팀 라인, 원정팀 라인)을 읽습니다.
                   const homeLine = lines[i + 1];
                   const awayLine = lines[i + 2];
                   if (!homeLine || !awayLine) continue;
 
-                  // Helper to parse line: "Team Name[id] Odds O/U_Line Odds Handi_Line Odds"
-                  // Actually, let's use a split by whitespace and regex to find numbers
-                  const parseLine = (l: string) => {
-                    // This is tricky because team name has spaces.
-                    // Instead of splitting by spaces, let's use regex to find numbers 
-                    // and everything before the first number is the team.
-                    const match = l.match(/^(.*?)\s+([\d\.]+)/);
-                    const teamName = match ? match[1].replace(/\[\d+\]/g, '').trim() : '';
-                    const tokens = l.trim().split(/\s+/);
-                    // This line splitting is still imprecise because of team name spaces.
-                    // Let's use the provided text format as a guide:
-                    // Looks like the team name is followed by numerical columns.
-                    // The numbers are distinct.
-                    
-                    const numbers = l.match(/\d+\.\d+|\d+/g) || [];
-                    const markers = l.match(/[OU]/g) || []; // Look for O or U markers
-                    
-                    return { teamName, numbers, markers };
+                  const parseBasketballLine = (l: string) => {
+                      const parts = l.split(/\s+/).filter(Boolean);
+                      
+                      // O / U 토큰의 인덱스를 찾습니다 (대소문자 무관)
+                      const ouIdx = parts.findIndex(p => {
+                          const cleanP = p.toUpperCase().replace(/[\[\]\(\)]/g, '').trim();
+                          return cleanP === 'O' || cleanP === 'U';
+                      });
+
+                      if (ouIdx === -1) {
+                          // 만약 오버/언더 토큰을 찾지 못했다면 기본값 fallback 활용
+                          const teamMatch = l.match(/^(.*?)\s+[\d\.]+/);
+                          const teamName = cleanTeamName(teamMatch ? teamMatch[1] : l);
+                          const numbers = l.replace(/\[[^\]]*\]/g, '').match(/\d+\.?\d*/g) || [];
+                          const mlOdds = numbers.length > 0 ? parseFloat(numbers[0]) : 1.0;
+                          return { teamName, mlOdds, ouThreshold: "0", overOdds: 1.0, underOdds: 1.0, handiValue: "0", handiOdds: 1.0 };
+                      }
+
+                      // ouIdx를 기준으로 데이터를 분해합니다.
+                      // 1. 단승식 배당 (ouIdx 바로 앞 토큰)
+                      const mlOddsStr = parts[ouIdx - 1];
+                      const mlOdds = parseFloat(mlOddsStr) || 1.0;
+
+                      // 2. 팀명 (단승식 배당 앞의 모든 토큰)
+                      const teamNameRaw = parts.slice(0, ouIdx - 1).join(' ');
+                      const teamName = cleanTeamName(teamNameRaw);
+
+                      // 3. 오버/언더 기준점 및 배당
+                      const isOver = parts[ouIdx].toUpperCase() === 'O';
+                      const ouThreshold = parts[ouIdx + 1] || "0";
+                      const ouOdds = parseFloat(parts[ouIdx + 2]) || 1.0;
+                      const overOdds = isOver ? ouOdds : 1.0;
+                      const underOdds = isOver ? 1.0 : ouOdds;
+
+                      // 4. 핸디캡 정보 (ouIdx + 3 이후의 잔여 토큰)
+                      const remaining = parts.slice(ouIdx + 3);
+                      let handiValue = "0";
+                      let handiOdds = 1.0;
+
+                      if (remaining.length === 1) {
+                          // 배당만 있는 경우
+                          handiOdds = parseFloat(remaining[0]) || 1.0;
+                      } else if (remaining.length >= 2) {
+                          // 기준점과 배당 모두 있는 경우
+                          handiValue = remaining[0];
+                          handiOdds = parseFloat(remaining[1]) || 1.0;
+                      }
+
+                      return { teamName, mlOdds, ouThreshold, overOdds, underOdds, handiValue, handiOdds };
                   };
 
-                  const h = parseLine(homeLine);
-                  const a = parseLine(awayLine);
+                  const h = parseBasketballLine(homeLine);
+                  const a = parseBasketballLine(awayLine);
 
-                  if (!h.teamName || !a.teamName || h.numbers.length < 2 || a.numbers.length < 2) continue;
+                  if (!h || !a || !h.teamName || !a.teamName) continue;
 
-                  // Extract odds
-                  const homeWinnerOdds = parseFloat(h.numbers[0]);
-                  const awayWinnerOdds = parseFloat(a.numbers[0]);
+                  // 홈/원정 데이터 병합
+                  const threshold = h.ouThreshold !== "0" ? h.ouThreshold : a.ouThreshold;
+                  const overOdds = h.overOdds !== 1.0 ? h.overOdds : a.overOdds;
+                  const underOdds = h.underOdds !== 1.0 ? h.underOdds : a.underOdds;
+
+                  // 원정팀에 핸디캡 기준점정보가 있다면 그것을 사용하고, 
+                  // 없다면 홈팀이나 양쪽 데이터를 크로스 체크합니다.
+                  let handiValue = a.handiValue !== "0" ? a.handiValue : h.handiValue;
                   
-                  // OU
-                  let threshold = "0";
-                  let overOdds = 1.0;
-                  let underOdds = 1.0;
-                  // Look for O/U threshold and odds in tokens
-                  const ouThresholdMatch = homeLine.match(/([OU])\s*(\d+\.\d+)\s*(\d+\.\d+)/);
-                  if (ouThresholdMatch) {
-                    threshold = ouThresholdMatch[2];
-                    const odds1 = parseFloat(ouThresholdMatch[3]);
-                    const odds2 = parseFloat(awayLine.match(/([OU])\s*(\d+\.\d+)\s*(\d+\.\d+)/)?.[3] || "1.00");
-                    overOdds = odds1;
-                    underOdds = odds2;
+                  // 만약 핸디캡 기준점 마크가 없더라도 홈/원정 배당을 활용해 알맞게 정리
+                  const handiHomeOdds = h.handiOdds;
+                  const handiAwayOdds = a.handiOdds;
+
+                  // 배당이 없거나 기준점이 없는 경기는 제외 처리
+                  const hasMoneylineOdds = h.mlOdds > 1.01 && a.mlOdds > 1.01;
+                  const hasHandicap = handiValue && handiValue !== "0" && handiHomeOdds > 1.01 && handiAwayOdds > 1.01;
+                  const hasOverUnder = threshold && threshold !== "0" && overOdds > 1.01 && underOdds > 1.01;
+
+                  if (!hasMoneylineOdds || (!hasHandicap && !hasOverUnder)) {
+                      console.log('Skipping basketball match because it lacks required odds or baseline thresholds:', h.teamName, a.teamName);
+                      i += 2;
+                      continue;
                   }
 
-                  // Handi
-                  let handiValue = "0";
-                  let handiHomeOdds = 1.0;
-                  let handiAwayOdds = 1.0;
-                  // The handi values are tricky, often in the second line.
-                  const handiMatch = awayLine.match(/\s+(\d+\.?\d*)\s+(\d+\.\d+)$/);
-                  if (handiMatch) {
-                    handiValue = handiMatch[1];
-                    handiHomeOdds = parseFloat(handiMatch[2]);
-                    handiAwayOdds = parseFloat(handiMatch[2]); // Assuming same odds?
+                  if (handiValue && handiValue !== "0") {
+                      const cleanV = handiValue.replace(/[+-]/g, '').trim();
+                      if (h.mlOdds < a.mlOdds) {
+                          handiValue = `-${cleanV}`;
+                      } else {
+                          handiValue = `+${cleanV}`;
+                      }
                   }
 
                   const markets = {
-                      matchWinner: { home: homeWinnerOdds, draw: 0, away: awayWinnerOdds },
+                      matchWinner: { home: h.mlOdds, draw: 0, away: a.mlOdds },
                       handicap: { value: handiValue, home: handiHomeOdds, away: handiAwayOdds },
                       overUnder: { value: threshold, over: overOdds, under: underOdds },
                       handicaps: [{ value: handiValue, home: handiHomeOdds, away: handiAwayOdds }],
                       overUnders: [{ value: threshold, over: overOdds, under: underOdds }]
                   };
 
-                  const newMatchDoc = {
-                      dateTime: matchTime,
-                      league: '농구 리그',
-                      homeTeam: h.teamName,
-                      awayTeam: a.teamName,
-                      sport: 'basketball',
-                      markets: markets,
-                      status: 'pending',
-                      createdAt: new Date().toISOString()
-                  };
+                  // 중복 체크 및 업데이트 로직 추가
+                  const key = `${h.teamName.trim()}_${a.teamName.trim()}_${matchTime.trim()}`;
+                  const existingMatch = existingMap.get(key);
+
+                  if (existingMatch) {
+                      const isMarketsDiff = areMarketsDifferent(markets, existingMatch.markets);
+                      const isLeagueDiff = existingMatch.league !== currentLeague;
+                      if (isMarketsDiff || isLeagueDiff) {
+                          await updateDoc(doc(db, 'matches', existingMatch.docId), {
+                              markets: markets,
+                              league: currentLeague,
+                              updatedAt: new Date().toISOString()
+                          });
+                          updatedCount++;
+                      }
+                  } else {
+                      const newMatchDoc = {
+                          dateTime: matchTime,
+                          league: currentLeague,
+                          homeTeam: h.teamName,
+                          awayTeam: a.teamName,
+                          homeScore: 0,
+                          awayScore: 0,
+                          sport: 'basketball',
+                          markets: markets,
+                          status: 'pending',
+                          createdAt: new Date().toISOString()
+                      };
+                      
+                      await addDoc(collection(db, 'matches'), newMatchDoc);
+                      addedCount++;
+                  }
                   
-                  await addDoc(collection(db, 'matches'), newMatchDoc);
-                  addedCount++;
-                  
-                  i += 2;
+                  i += 2; // Skip team lines
+                  continue;
+              }
+
+              // 2. 시간 데이터가 아닌 일반 텍스트 라인은 리그명으로 취급 (날짜가 전무하고, ] 대괄호가 없고, 너무 길지 않은 경우)
+              if (!line.includes(']') && line.length < 50 && !line.includes('전반') && !line.includes('승무패') && !line.includes('데이터')) {
+                  currentLeague = deduplicateLeagueName(line);
               }
           }
-          alert(`${addedCount}개의 농구 경기가 등록되었습니다.`);
-          return;
 
+          if (addedCount > 0 && updatedCount > 0) {
+              alert(`${addedCount}개의 신규 농구 경기가 등록되었고, ${updatedCount}개의 기존 등록 경기 배당/기준점이 최신 정보로 갱신되었습니다.`);
+          } else if (addedCount > 0) {
+              alert(`${addedCount}개의 신규 농구 경기가 성공적으로 등록되었습니다.`);
+          } else if (updatedCount > 0) {
+              alert(`${updatedCount}개의 기존 등록 농구 경기 배당/기준점이 갱신되었습니다.`);
+          } else {
+              alert(`저장되거나 변경된 배당/기준점 정보가 없습니다.`);
+          }
+          
+          setInputText('');
+          fetchRegisteredMatches();
+          return;
       }
 
       interface MatchBlock {
@@ -230,7 +367,7 @@ export default function AdminMatchRegistration() {
           const remaining = line.replace(dateStr, '').trim();
           const cleanLg = remaining.replace(/[\[\]\(\)]/g, '').trim();
           if (cleanLg) {
-            currentLeague = cleanLg;
+            currentLeague = deduplicateLeagueName(cleanLg);
           }
 
           // Backtrack previous block's trailing lines. If there are trailing lines representing a newly declared league or header for the upcoming matches.
@@ -254,7 +391,7 @@ export default function AdminMatchRegistration() {
                 const extraLines = currentBlock.allLines.slice(matchEndIdx + 1);
                 const leagueText = extraLines.map(l => l.trim()).filter(Boolean).join(' ');
                 if (leagueText && !/\d/.test(leagueText)) {
-                  currentLeague = leagueText.replace(/[\[\]\(\)]/g, '').trim();
+                  currentLeague = deduplicateLeagueName(leagueText.replace(/[\[\]\(\)]/g, '').trim());
                   console.log('Extracted league from previous block trailing lines:', currentLeague);
                 }
                 currentBlock.allLines = currentBlock.allLines.slice(0, matchEndIdx + 1);
@@ -270,7 +407,7 @@ export default function AdminMatchRegistration() {
           } else {
             // League detection for lines before the first block
             if (!/\d+\.\d+/.test(line)) {
-              currentLeague = line.replace(/[\[\]\(\)]/g, '').trim();
+              currentLeague = deduplicateLeagueName(line.replace(/[\[\]\(\)]/g, '').trim());
             }
           }
         }
@@ -303,7 +440,7 @@ export default function AdminMatchRegistration() {
 
         console.log('Found odds line in block', block.dateTime, 'at index', firstOddsLineIdx);
 
-        const homeTeam = blockLines[firstOddsLineIdx - 1].replace(/\[\d+\]/g, '').trim();
+        const homeTeam = cleanTeamName(blockLines[firstOddsLineIdx - 1]);
         if (!homeTeam) continue;
 
         let matchLeague = block.league || '일반 리그';
@@ -315,7 +452,7 @@ export default function AdminMatchRegistration() {
           }
         }
         if (matchLeague) {
-          matchLeague = matchLeague.replace(/[\[\]\(\)]/g, '').trim();
+          matchLeague = deduplicateLeagueName(matchLeague.replace(/[\[\]\(\)]/g, '').trim());
         }
         if (!matchLeague) {
           matchLeague = '일반 리그';
@@ -383,7 +520,7 @@ export default function AdminMatchRegistration() {
 
           if (firstOddsIndex === -1) continue;
 
-          const awayTeam = rawAwayTokens.slice(0, firstOddsIndex).join(' ').replace(/\[\d+\]/g, '').trim();
+          const awayTeam = cleanTeamName(rawAwayTokens.slice(0, firstOddsIndex).join(' '));
           const awayOddsTokensRaw = rawAwayTokens.slice(firstOddsIndex);
           const awayMarketTokens = awayOddsTokensRaw.filter(isMarketToken).map(cleanBrackets);
           const awayOdds = awayMarketTokens.length > 0 ? (parseFloat(awayMarketTokens[0]) || 1.00) : 1.00;
@@ -511,6 +648,16 @@ export default function AdminMatchRegistration() {
             handicaps: handicaps,
             overUnders: overUnders
           };
+
+          // 배당이 없거나 기준점(기존점)이 없는 경기는 제외 처리
+          const hasMoneylineOdds = homeOdds > 1.01 && awayOdds > 1.01;
+          const hasHandicap = handicaps.length > 0 && handicaps[0].value && handicaps[0].home > 1.01 && handicaps[0].away > 1.01;
+          const hasOverUnder = overUnders.length > 0 && overUnders[0].value && overUnders[0].over > 1.01 && overUnders[0].under > 1.01;
+
+          if (!hasMoneylineOdds && !hasHandicap && !hasOverUnder) {
+            console.log('Skipping soccer/baseball match because it lacks required odds or baseline thresholds:', homeTeam, awayTeam);
+            continue;
+          }
 
           const key = `${homeTeam.trim()}_${awayTeam.trim()}_${block.dateTime.trim()}`;
           const existingMatch = existingMap.get(key);
