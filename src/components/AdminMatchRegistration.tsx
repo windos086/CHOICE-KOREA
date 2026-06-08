@@ -67,6 +67,7 @@ const areMarketsDifferent = (m1: any, m2: any): boolean => {
 
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
+  const [selectedSport, setSelectedSport] = useState<'soccer' | 'baseball' | 'basketball'>('soccer');
   const [isParsing, setIsParsing] = useState(false);
   const [registeredMatches, setRegisteredMatches] = useState<any[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
@@ -113,6 +114,101 @@ export default function AdminMatchRegistration() {
       let currentLeague = '일반 리그';
       let addedCount = 0;
       let updatedCount = 0;
+
+      if (selectedSport === 'basketball') {
+          // Basketball logic: parse ML, Handi, OU
+          for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              if (/\d{2}\.\d{2}\s\d{2}:\d{2}/.test(line)) { // Match date/time format
+                  const matchTime = line;
+                  const homeLine = lines[i + 1];
+                  const awayLine = lines[i + 2];
+                  if (!homeLine || !awayLine) continue;
+
+                  // Helper to parse line: "Team Name[id] Odds O/U_Line Odds Handi_Line Odds"
+                  // Actually, let's use a split by whitespace and regex to find numbers
+                  const parseLine = (l: string) => {
+                    // This is tricky because team name has spaces.
+                    // Instead of splitting by spaces, let's use regex to find numbers 
+                    // and everything before the first number is the team.
+                    const match = l.match(/^(.*?)\s+([\d\.]+)/);
+                    const teamName = match ? match[1].replace(/\[\d+\]/g, '').trim() : '';
+                    const tokens = l.trim().split(/\s+/);
+                    // This line splitting is still imprecise because of team name spaces.
+                    // Let's use the provided text format as a guide:
+                    // Looks like the team name is followed by numerical columns.
+                    // The numbers are distinct.
+                    
+                    const numbers = l.match(/\d+\.\d+|\d+/g) || [];
+                    const markers = l.match(/[OU]/g) || []; // Look for O or U markers
+                    
+                    return { teamName, numbers, markers };
+                  };
+
+                  const h = parseLine(homeLine);
+                  const a = parseLine(awayLine);
+
+                  if (!h.teamName || !a.teamName || h.numbers.length < 2 || a.numbers.length < 2) continue;
+
+                  // Extract odds
+                  const homeWinnerOdds = parseFloat(h.numbers[0]);
+                  const awayWinnerOdds = parseFloat(a.numbers[0]);
+                  
+                  // OU
+                  let threshold = "0";
+                  let overOdds = 1.0;
+                  let underOdds = 1.0;
+                  // Look for O/U threshold and odds in tokens
+                  const ouThresholdMatch = homeLine.match(/([OU])\s*(\d+\.\d+)\s*(\d+\.\d+)/);
+                  if (ouThresholdMatch) {
+                    threshold = ouThresholdMatch[2];
+                    const odds1 = parseFloat(ouThresholdMatch[3]);
+                    const odds2 = parseFloat(awayLine.match(/([OU])\s*(\d+\.\d+)\s*(\d+\.\d+)/)?.[3] || "1.00");
+                    overOdds = odds1;
+                    underOdds = odds2;
+                  }
+
+                  // Handi
+                  let handiValue = "0";
+                  let handiHomeOdds = 1.0;
+                  let handiAwayOdds = 1.0;
+                  // The handi values are tricky, often in the second line.
+                  const handiMatch = awayLine.match(/\s+(\d+\.?\d*)\s+(\d+\.\d+)$/);
+                  if (handiMatch) {
+                    handiValue = handiMatch[1];
+                    handiHomeOdds = parseFloat(handiMatch[2]);
+                    handiAwayOdds = parseFloat(handiMatch[2]); // Assuming same odds?
+                  }
+
+                  const markets = {
+                      matchWinner: { home: homeWinnerOdds, draw: 0, away: awayWinnerOdds },
+                      handicap: { value: handiValue, home: handiHomeOdds, away: handiAwayOdds },
+                      overUnder: { value: threshold, over: overOdds, under: underOdds },
+                      handicaps: [{ value: handiValue, home: handiHomeOdds, away: handiAwayOdds }],
+                      overUnders: [{ value: threshold, over: overOdds, under: underOdds }]
+                  };
+
+                  const newMatchDoc = {
+                      dateTime: matchTime,
+                      league: '농구 리그',
+                      homeTeam: h.teamName,
+                      awayTeam: a.teamName,
+                      sport: 'basketball',
+                      markets: markets,
+                      status: 'pending',
+                      createdAt: new Date().toISOString()
+                  };
+                  
+                  await addDoc(collection(db, 'matches'), newMatchDoc);
+                  addedCount++;
+                  
+                  i += 2;
+              }
+          }
+          alert(`${addedCount}개의 농구 경기가 등록되었습니다.`);
+          return;
+
+      }
 
       interface MatchBlock {
         dateTime: string;
@@ -440,6 +536,7 @@ export default function AdminMatchRegistration() {
               awayScore: 0,
               markets: parsedMarkets,
               status: 'pending',
+              sport: selectedSport,
               createdAt: new Date().toISOString()
             };
             await addDoc(collection(db, 'matches'), newMatchDoc);
@@ -477,6 +574,21 @@ export default function AdminMatchRegistration() {
       const snap = await getDocs(collection(db, 'matches'));
       await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'matches', d.id))));
       alert('모든 경기 데이터가 삭제되었습니다.');
+      fetchRegisteredMatches();
+    } catch (e) {
+      console.error(e);
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDeleteMatchesBySport = async (sport: 'soccer' | 'baseball' | 'basketball') => {
+    const sportName = sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : '농구';
+    if (!window.confirm(`정말로 모든 ${sportName} 경기 데이터를 삭제하시겠습니까?`)) return;
+    try {
+      const snap = await getDocs(collection(db, 'matches'));
+      const toDelete = snap.docs.filter(d => d.data().sport === sport);
+      await Promise.all(toDelete.map(d => deleteDoc(doc(db, 'matches', d.id))));
+      alert(`${sportName} 경기 데이터가 삭제되었습니다.`);
       fetchRegisteredMatches();
     } catch (e) {
       console.error(e);
@@ -551,7 +663,20 @@ export default function AdminMatchRegistration() {
           <Activity className="w-4 h-4 text-amber-500 animate-pulse" />
           신규 스포츠 경기 데이터 파싱 등록
         </h3>
-        <p className="text-xs text-neutral-400 mb-4">그랩한 배팅 파트너 스포츠 문자열 데이터를 아래에 붙여넣어 자동 DB 구축을 시작하세요.</p>
+        
+        <div className="flex gap-2 mb-4">
+          {(['soccer', 'baseball', 'basketball'] as const).map((sport) => (
+            <button
+              key={sport}
+              onClick={() => setSelectedSport(sport)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition ${selectedSport === sport ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700'}`}
+            >
+              {sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : '농구'}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs text-neutral-400 mb-4">그랩한 배팅 파트너 {selectedSport === 'soccer' ? '축구' : selectedSport === 'baseball' ? '야구' : '농구'} 문자열 데이터를 아래에 붙여넣어 자동 DB 구축을 시작하세요.</p>
         
         <textarea
           className="w-full h-48 bg-black text-white p-4 rounded-xl border border-neutral-800 focus:border-amber-500/50 mb-4 font-mono text-[11px] outline-none"
@@ -576,6 +701,27 @@ export default function AdminMatchRegistration() {
           >
             <Trash2 className="w-4 h-4" />
             모든 등록 경기 초기화
+          </button>
+          <button
+            onClick={() => handleDeleteMatchesBySport('soccer')}
+            className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-750 text-red-500 border border-neutral-700/60 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            축구초기화
+          </button>
+          <button
+            onClick={() => handleDeleteMatchesBySport('basketball')}
+            className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-750 text-red-500 border border-neutral-700/60 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            농구초기화
+          </button>
+          <button
+            onClick={() => handleDeleteMatchesBySport('baseball')}
+            className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-750 text-red-500 border border-neutral-700/60 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            야구초기화
           </button>
         </div>
         
