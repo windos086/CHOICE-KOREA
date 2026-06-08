@@ -5020,13 +5020,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
               ) : adminActiveTab === 'matches' ? (
                 <AdminMatchRegistration />
-              ) : adminActiveTab === 'minigames' ? (
-                <AdminMinigameManagement
-                  gameResults={gameResults}
-                  onResultsUpdated={loadGameResults}
-                  currentUserData={currentUserData}
-                  setCurrentUserData={setCurrentUserData}
-                />
               ) : adminActiveTab === 'inquiries' ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center bg-black/60 p-4 rounded border border-neutral-800">

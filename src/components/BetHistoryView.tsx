@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { doc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface BetHistoryViewProps {
   currentUserData: any;
@@ -16,13 +18,49 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentBets = bets.slice(indexOfFirstItem, indexOfLastItem);
 
+  const handleDeleteBet = async (bet: any) => {
+    if (!confirm('정말로 이 배팅 내역을 삭제하시겠습니까?')) return;
+    try {
+        const userRef = doc(db, 'users', currentUserData.id);
+        await updateDoc(userRef, {
+            bets: arrayRemove(bet)
+        });
+        alert('삭제되었습니다.');
+    } catch (e: any) {
+        alert('삭제 실패: ' + e.message);
+    }
+  };
+
+  const handleDeleteAllBets = async () => {
+    if (!confirm('정말로 모든 배팅 내역을 삭제하시겠습니까?')) return;
+    try {
+        const userRef = doc(db, 'users', currentUserData.id);
+        await updateDoc(userRef, {
+            bets: []
+        });
+        alert('모든 배팅 내역이 삭제되었습니다.');
+    } catch (e: any) {
+        alert('삭제 실패: ' + e.message);
+    }
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
   return (
     <div className="flex-1 p-6 w-full mx-auto max-w-7xl">
-      <div className="text-white text-xl font-bold mb-6 tracking-tight">배팅내역</div>
+      <div className="flex justify-between items-center mb-6">
+        <div className="text-white text-xl font-bold tracking-tight">배팅내역</div>
+        {bets.length > 0 && (
+            <button 
+                onClick={handleDeleteAllBets}
+                className="flex items-center gap-1.5 bg-red-900/50 hover:bg-red-800 text-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition"
+            >
+                <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
+            </button>
+        )}
+      </div>
       
       <div className="overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-950/40">
         {/* Desktop View: Table */}
@@ -36,7 +74,8 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
               <th className="p-3 text-center">적중 머니</th>
               <th className="p-3 text-center">예상 배당</th>
               <th className="p-3 text-center">스코어</th>
-              <th className="p-3 text-right pr-6">결과</th>
+                <th className="p-3 text-right">결과</th>
+                <th className="p-3 text-right pr-6"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-800/40">
@@ -74,7 +113,7 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                         <span className="text-[10px] text-amber-500/90 tracking-tighter">대기 중</span>
                       )}
                 </td>
-                <td className="p-3 text-right pr-6">
+                <td className="p-3 text-right">
                     <span className={`px-3 py-1 rounded text-[10px] font-black border ${
                         bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/40 text-emerald-400' :
                         bet.status === 'lose' ? 'border-red-900 bg-red-950/40 text-red-500' :
@@ -83,12 +122,17 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                         {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
                     </span>
                 </td>
+                <td className="p-3 text-right pr-6">
+                    <button onClick={() => handleDeleteBet(bet)} className="text-neutral-600 hover:text-red-500 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </td>
               </tr>
             );
           })
         ) : (
           <tr>
-            <td colSpan={8} className="text-center py-12 text-gray-500">배팅 내역이 없습니다.</td>
+            <td colSpan={9} className="text-center py-12 text-gray-500">배팅 내역이 없습니다.</td>
           </tr>
         )}
           </tbody>
@@ -108,13 +152,18 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                 <div key={bet.id} className="bg-[#0b0c10] border border-neutral-800 rounded-lg p-4 space-y-3">
                     <div className="flex justify-between items-center text-xs text-neutral-400">
                         <span className="font-mono">{betDate} {betTime}</span>
-                        <span className={`px-2 py-0.5 rounded font-black border ${
-                            bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/40 text-emerald-400' :
-                            bet.status === 'lose' ? 'border-red-900 bg-red-950/40 text-red-500' :
-                            'border-neutral-800 bg-neutral-900 text-gray-500'
-                        }`}>
-                            {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
-                        </span>
+                        <div className='flex gap-2 items-center'>
+                            <span className={`px-2 py-0.5 rounded font-black border ${
+                                bet.status === 'win' ? 'border-emerald-900 bg-emerald-950/40 text-emerald-400' :
+                                bet.status === 'lose' ? 'border-red-900 bg-red-950/40 text-red-500' :
+                                'border-neutral-800 bg-neutral-900 text-gray-500'
+                            }`}>
+                                {bet.status === 'win' ? '적중' : bet.status === 'lose' ? '미적중' : '대기중'}
+                            </span>
+                            <button onClick={() => handleDeleteBet(bet)} className="text-neutral-600 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="text-white font-bold text-sm tracking-tight">{bet.game}</div>
