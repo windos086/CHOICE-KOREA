@@ -408,6 +408,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         for (let i = 0; i < updatedBets.length; i++) {
           const bet = { ...updatedBets[i] };
           
+          if (bet.status === 'win' || bet.status === 'lose') continue;
+          
           // Only check minigame bets to avoid touching sports bets accidentally
           const isMinigame = bet.gameType && [
             'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'ladder5'
@@ -598,10 +600,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
     // Run once immediately on mount or user bets update
     checkAndResolveAndSync();
 
-    // Check periodically on a relaxed 15-second interval
+    // Check periodically on a relaxed 60-second interval
     const interval = setInterval(() => {
       checkAndResolveAndSync();
-    }, 15000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [currentUserData]);
