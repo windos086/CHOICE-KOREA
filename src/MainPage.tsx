@@ -4333,10 +4333,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <div className="mb-3 text-xs md:text-sm text-gray-400 px-1">
             <button onClick={() => setShowMiniGame(false)} className="hover:text-white">홈</button> &gt; 미니게임
           </div>
-          <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 items-start relative w-full max-w-full overflow-hidden">
+          <div className="flex flex-col xl:flex-row gap-4 xl:gap-8 items-start justify-center relative w-full max-w-full overflow-hidden">
             
             {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
-            <div className="flex-[3] w-full max-w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden xl:mr-[350px]">
+            <div className="w-full xl:max-w-[985px] xl:flex-1 min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
               <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
                   <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
@@ -4681,14 +4681,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
             <div 
               style={!isMobile ? {
                 paddingBottom: '20px',
-                marginRight: '80px',
                 marginBottom: '0px',
-                marginTop: '290px'
+                marginTop: '0px'
               } : undefined}
               className={`
               ${isMobile 
                 ? `fixed bottom-[54px] left-0 right-0 max-h-[85vh] overflow-y-auto bg-neutral-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl px-4 py-3 pb-8 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] flex flex-col space-y-3 z-40 transition-all duration-300 transform ${mobileBetSlipOpen ? 'translate-y-0 opacity-100 animate-none' : 'translate-y-full opacity-0 pointer-events-none'}` 
-                : 'w-full xl:w-80 bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl xl:absolute xl:right-0 xl:top-0 z-30 py-4 mr-0 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto'
+                : 'w-full xl:w-[330px] xl:shrink-0 bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto'
               }
             `}>
               <div className="space-y-4 flex flex-col flex-1">
