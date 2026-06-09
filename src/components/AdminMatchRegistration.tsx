@@ -691,12 +691,6 @@ export default function AdminMatchRegistration() {
                   i = nextIdx - 1;
                   continue;
               }
-
-              if (overUnderValue === '0' || handicapValue === '0') {
-                  console.log(`Skipping volleyball match due to missing handicap or over/under values: ${homeTeam} vs ${awayTeam}`);
-                  i = nextIdx - 1;
-                  continue;
-              }
               
               if (isMatchAlreadyStarted(matchTime)) {
                   console.log(`Skipping started volleyball match: ${homeTeam} vs ${awayTeam} at ${matchTime}`);
@@ -704,20 +698,12 @@ export default function AdminMatchRegistration() {
                   continue;
               }
               
-              const handiValueClean = handicapValue !== '0' ? handicapValue : '0';
-              const handiHomeOdds = handiValueClean !== '0' ? 1.85 : 1.0;
-              const handiAwayOdds = handiValueClean !== '0' ? 1.85 : 1.0;
-              
-              const overUnderValueClean = overUnderValue !== '0' ? overUnderValue : '0';
-              const overUnderHomeOdds = overUnderValueClean !== '0' ? 1.85 : 1.0;
-              const overUnderAwayOdds = overUnderValueClean !== '0' ? 1.85 : 1.0;
-              
               const markets = {
                   matchWinner: { home: homeOdds, draw: 0, away: awayOdds },
-                  handicap: { value: handiValueClean, home: handiHomeOdds, away: handiAwayOdds },
-                  overUnder: { value: overUnderValueClean, over: overUnderHomeOdds, under: overUnderAwayOdds },
-                  handicaps: [{ value: handiValueClean, home: handiHomeOdds, away: handiAwayOdds }],
-                  overUnders: [{ value: overUnderValueClean, over: overUnderHomeOdds, under: overUnderAwayOdds }]
+                  handicap: { value: '0', home: 1.0, away: 1.0 },
+                  overUnder: { value: '0', over: 1.0, under: 1.0 },
+                  handicaps: [],
+                  overUnders: []
               };
               
               const key = `${homeTeam.trim()}_${awayTeam.trim()}_${matchTime.trim()}`;
