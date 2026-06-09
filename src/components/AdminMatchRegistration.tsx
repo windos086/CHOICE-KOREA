@@ -221,7 +221,7 @@ const areMarketsDifferent = (m1: any, m2: any): boolean => {
 
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
-  const [selectedSport, setSelectedSport] = useState<'soccer' | 'baseball' | 'basketball'>('soccer');
+  const [selectedSport, setSelectedSport] = useState<'soccer' | 'baseball' | 'basketball' | 'volleyball'>('soccer');
   const [isParsing, setIsParsing] = useState(false);
   const [registeredMatches, setRegisteredMatches] = useState<any[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
@@ -525,6 +525,234 @@ export default function AdminMatchRegistration() {
                     }
                   }
               }
+          }
+
+          if (addedCount > 0 && updatedCount > 0) {
+              alert(`${addedCount}개의 신규 ${sportLabel} 경기가 등록되었고, ${updatedCount}개의 기존 등록 경기 배당/기준점이 최신 정보로 갱신되었습니다.`);
+          } else if (addedCount > 0) {
+              alert(`${addedCount}개의 신규 ${sportLabel} 경기가 성공적으로 등록되었습니다.`);
+          } else if (updatedCount > 0) {
+              alert(`${updatedCount}개의 기존 등록 ${sportLabel} 경기 배당/기준점이 갱신되었습니다.`);
+          } else {
+              alert(`저장되거나 변경된 배당/기준점 정보가 없습니다.`);
+          }
+
+          setInputText('');
+          fetchRegisteredMatches();
+          return;
+      }
+
+      if (selectedSport === 'volleyball') {
+          const sportLabel = '배구';
+          
+          const parseVolleyballStartLine = (l: string) => {
+              const parts = l.split('\t').map(p => p.trim()).filter(Boolean);
+              if (parts.length < 2) return null;
+              
+              const timeRegex = /(?:(오전|오후)\s*)?(\d{1,2}):(\d{2})/;
+              let timeMatch = null;
+              let timeStr = '';
+              
+              for (let idx = 1; idx < parts.length; idx++) {
+                  const m = parts[idx].match(timeRegex);
+                  if (m) {
+                      timeMatch = m;
+                      timeStr = parts[idx];
+                      break;
+                  }
+              }
+              
+              if (!timeMatch) return null;
+              
+              const rawLeague = parts[0];
+              
+              let isPm = false;
+              let hasAmPm = false;
+              if (timeMatch[1]) {
+                  hasAmPm = true;
+                  isPm = timeMatch[1] === '오후';
+              } else {
+                  const timeIdx = parts.indexOf(timeStr);
+                  if (timeIdx > 0) {
+                      const tokenBefore = parts[timeIdx - 1];
+                      if (tokenBefore && (tokenBefore.includes('오전') || tokenBefore.includes('오후'))) {
+                          hasAmPm = true;
+                          isPm = tokenBefore.includes('오후');
+                      }
+                  }
+              }
+              
+              let hours = parseInt(timeMatch[2], 10);
+              const minutes = parseInt(timeMatch[3], 10);
+              
+              if (hasAmPm) {
+                  if (isPm && hours < 12) {
+                      hours += 12;
+                  } else if (!isPm && hours === 12) {
+                      hours = 0;
+                  }
+              }
+              
+              const now = new Date();
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const day = String(now.getDate()).padStart(2, '0');
+              const dateTime = `${month}-${day} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+              
+              return { league: rawLeague, dateTime };
+          };
+
+          for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              const startInfo = parseVolleyballStartLine(line);
+              if (!startInfo) continue;
+              
+              const { league: rawLeague, dateTime: matchTime } = startInfo;
+              const currentLeague = deduplicateLeagueName(rawLeague) || "배구 리그";
+              
+              let nextIdx = i + 1;
+              const subLines: string[] = [];
+              while (nextIdx < lines.length) {
+                  const nextLine = lines[nextIdx];
+                  if (parseVolleyballStartLine(nextLine)) {
+                      break;
+                  }
+                  subLines.push(nextLine);
+                  nextIdx++;
+              }
+              
+              let homeTeam = '';
+              let awayTeam = '';
+              let homeOdds = 1.0;
+              let awayOdds = 1.0;
+              let overUnderValue = '0';
+              let handicapValue = '0';
+              
+              let currentTeamRole: 'home' | 'away' | null = null;
+              
+              for (let sIdx = 0; sIdx < subLines.length; sIdx++) {
+                  const subLine = subLines[sIdx].trim();
+                  if (!subLine) continue;
+                  
+                  const isIgnoredKeyword = subLine.includes('쿼터') || 
+                                           subLine.includes('연장') || 
+                                           subLine.includes('선득점') || 
+                                           subLine.includes('선5') || 
+                                           subLine.includes('선7') || 
+                                           subLine.includes('선10') || 
+                                           subLine.includes('선15') || 
+                                           subLine.includes('선20') || 
+                                           subLine.includes('라인') || 
+                                           subLine.includes('데이터') || 
+                                           subLine.includes('문자중계');
+                                           
+                  if (isIgnoredKeyword) continue;
+                  if (subLine.startsWith('전체 ') || subLine.startsWith('(')) continue;
+                  
+                  const isOddsLine = subLine.includes('->') || /^\d+\.\d+$/.test(subLine);
+                  
+                  if (isOddsLine) {
+                      let finalOdds = 1.0;
+                      if (subLine.includes('->')) {
+                          const parts = subLine.split('->').map(x => x.trim());
+                          finalOdds = parseFloat(parts[parts.length - 1]) || 1.0;
+                      } else {
+                          finalOdds = parseFloat(subLine) || 1.0;
+                      }
+                      
+                      if (currentTeamRole === 'home') {
+                          homeOdds = finalOdds;
+                      } else if (currentTeamRole === 'away') {
+                          awayOdds = finalOdds;
+                      }
+                      continue;
+                  }
+                  
+                  const isThresholdOrHandi = /^[+-]?\d+(\.\d+)?$/.test(subLine);
+                  if (isThresholdOrHandi) {
+                      if (currentTeamRole === 'home') {
+                          overUnderValue = subLine;
+                      } else if (currentTeamRole === 'away') {
+                          handicapValue = subLine;
+                      }
+                      continue;
+                  }
+                  
+                  if (!homeTeam) {
+                      homeTeam = cleanTeamName(subLine);
+                      currentTeamRole = 'home';
+                  } else if (!awayTeam) {
+                      awayTeam = cleanTeamName(subLine);
+                      currentTeamRole = 'away';
+                  }
+              }
+              
+              if (!homeTeam || !awayTeam || homeOdds <= 1.01 || awayOdds <= 1.01) {
+                  console.log(`Skipping volleyball match due to missing teams or odds: ${homeTeam} vs ${awayTeam}, Odds: ${homeOdds}/${awayOdds}`);
+                  i = nextIdx - 1;
+                  continue;
+              }
+
+              if (overUnderValue === '0' || handicapValue === '0') {
+                  console.log(`Skipping volleyball match due to missing handicap or over/under values: ${homeTeam} vs ${awayTeam}`);
+                  i = nextIdx - 1;
+                  continue;
+              }
+              
+              if (isMatchAlreadyStarted(matchTime)) {
+                  console.log(`Skipping started volleyball match: ${homeTeam} vs ${awayTeam} at ${matchTime}`);
+                  i = nextIdx - 1;
+                  continue;
+              }
+              
+              const handiValueClean = handicapValue !== '0' ? handicapValue : '0';
+              const handiHomeOdds = handiValueClean !== '0' ? 1.85 : 1.0;
+              const handiAwayOdds = handiValueClean !== '0' ? 1.85 : 1.0;
+              
+              const overUnderValueClean = overUnderValue !== '0' ? overUnderValue : '0';
+              const overUnderHomeOdds = overUnderValueClean !== '0' ? 1.85 : 1.0;
+              const overUnderAwayOdds = overUnderValueClean !== '0' ? 1.85 : 1.0;
+              
+              const markets = {
+                  matchWinner: { home: homeOdds, draw: 0, away: awayOdds },
+                  handicap: { value: handiValueClean, home: handiHomeOdds, away: handiAwayOdds },
+                  overUnder: { value: overUnderValueClean, over: overUnderHomeOdds, under: overUnderAwayOdds },
+                  handicaps: [{ value: handiValueClean, home: handiHomeOdds, away: handiAwayOdds }],
+                  overUnders: [{ value: overUnderValueClean, over: overUnderHomeOdds, under: overUnderAwayOdds }]
+              };
+              
+              const key = `${homeTeam.trim()}_${awayTeam.trim()}_${matchTime.trim()}`;
+              const existingMatch = existingMap.get(key);
+              
+              if (existingMatch) {
+                  const isMarketsDiff = areMarketsDifferent(markets, existingMatch.markets);
+                  const isLeagueDiff = existingMatch.league !== currentLeague;
+                  if (isMarketsDiff || isLeagueDiff) {
+                      await updateDoc(doc(db, 'matches', existingMatch.docId), {
+                          markets: markets,
+                          league: currentLeague,
+                          updatedAt: new Date().toISOString()
+                      });
+                      updatedCount++;
+                  }
+              } else {
+                  const newMatchDoc = {
+                      dateTime: matchTime,
+                      league: currentLeague,
+                      homeTeam: homeTeam,
+                      awayTeam: awayTeam,
+                      homeScore: 0,
+                      awayScore: 0,
+                      sport: 'volleyball',
+                      markets: markets,
+                      status: 'pending',
+                      createdAt: new Date().toISOString()
+                  };
+                  
+                  await addDoc(collection(db, 'matches'), newMatchDoc);
+                  addedCount++;
+              }
+              
+              i = nextIdx - 1;
           }
 
           if (addedCount > 0 && updatedCount > 0) {
@@ -930,8 +1158,8 @@ export default function AdminMatchRegistration() {
     }
   };
 
-  const handleDeleteMatchesBySport = async (sport: 'soccer' | 'baseball' | 'basketball') => {
-    const sportName = sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : '농구';
+  const handleDeleteMatchesBySport = async (sport: 'soccer' | 'baseball' | 'basketball' | 'volleyball') => {
+    const sportName = sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : sport === 'basketball' ? '농구' : '배구';
     if (!window.confirm(`정말로 모든 ${sportName} 경기 데이터를 삭제하시겠습니까?`)) return;
     try {
       const snap = await getDocs(collection(db, 'matches'));
@@ -1014,18 +1242,18 @@ export default function AdminMatchRegistration() {
         </h3>
         
         <div className="flex gap-2 mb-4">
-          {(['soccer', 'baseball', 'basketball'] as const).map((sport) => (
+          {(['soccer', 'baseball', 'basketball', 'volleyball'] as const).map((sport) => (
             <button
               key={sport}
               onClick={() => setSelectedSport(sport)}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition ${selectedSport === sport ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700'}`}
             >
-              {sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : '농구'}
+              {sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : sport === 'basketball' ? '농구' : '배구'}
             </button>
           ))}
         </div>
 
-        <p className="text-xs text-neutral-400 mb-4">그랩한 배팅 파트너 {selectedSport === 'soccer' ? '축구' : selectedSport === 'baseball' ? '야구' : '농구'} 문자열 데이터를 아래에 붙여넣어 자동 DB 구축을 시작하세요.</p>
+        <p className="text-xs text-neutral-400 mb-4">그랩한 배팅 파트너 {selectedSport === 'soccer' ? '축구' : selectedSport === 'baseball' ? '야구' : selectedSport === 'basketball' ? '농구' : '배구'} 문자열 데이터를 아래에 붙여넣어 자동 DB 구축을 시작하세요.</p>
         
         <textarea
           className="w-full h-48 bg-black text-white p-4 rounded-xl border border-neutral-800 focus:border-amber-500/50 mb-4 font-mono text-[11px] outline-none"
@@ -1071,6 +1299,13 @@ export default function AdminMatchRegistration() {
           >
             <Trash2 className="w-3.5 h-3.5" />
             야구초기화
+          </button>
+          <button
+            onClick={() => handleDeleteMatchesBySport('volleyball')}
+            className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-750 text-red-500 border border-neutral-700/60 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            배구초기화
           </button>
         </div>
         
