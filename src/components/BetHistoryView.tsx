@@ -32,7 +32,11 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
     }
     if (!confirm('정말로 이 배팅 내역을 삭제하시겠습니까?')) return;
     try {
-        const userRef = doc(db, 'users', currentUserData.id);
+        const userDocId = currentUserData?.id || currentUserData?.username || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').username) || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').id);
+        if (!userDocId) {
+          throw new Error("User ID is missing or unregistered");
+        }
+        const userRef = doc(db, 'users', userDocId);
         await updateDoc(userRef, {
             bets: arrayRemove(bet)
         });
@@ -52,7 +56,11 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
 
     if (!confirm('결과가 나온 내역만 전체 삭제하시겠습니까? (대기 중인 내역은 삭제되지 않습니다.)')) return;
     try {
-        const userRef = doc(db, 'users', currentUserData.id);
+        const userDocId = currentUserData?.id || currentUserData?.username || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').username) || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').id);
+        if (!userDocId) {
+          throw new Error("User ID is missing or unregistered");
+        }
+        const userRef = doc(db, 'users', userDocId);
         await updateDoc(userRef, {
             bets: resultedBets
         });
@@ -63,7 +71,11 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
   };
 
   const categories = [
-    '전체', 
+    '전체',
+    '축구',
+    '농구',
+    '야구',
+    '배구',
     'N파워볼(5분)', 
     'N파워볼(3분)', 
     'N파워사다리(5분)', 

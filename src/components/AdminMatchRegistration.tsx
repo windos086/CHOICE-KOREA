@@ -620,72 +620,100 @@ export default function AdminMatchRegistration() {
                   nextIdx++;
               }
               
+              // subLines에서 필요없는 메타 정보를 전부 제거하여 순수한 필터링 라인 목록을 만듦
+              const filtered = subLines
+                  .map(sl => sl.trim())
+                  .filter(sl => {
+                      if (!sl) return false;
+                      const lower = sl.toLowerCase();
+                      const shouldIgnore = 
+                          lower.includes('쿼터') ||
+                          lower.includes('세트') ||
+                          lower.includes('연장') ||
+                          lower.includes('선득점') ||
+                          lower.includes('선5') ||
+                          lower.includes('선7') ||
+                          lower.includes('선10') ||
+                          lower.includes('선15') ||
+                          lower.includes('선20') ||
+                          lower.includes('라인') ||
+                          lower.includes('데이터') ||
+                          lower.includes('문자중계') ||
+                          /^\d+$/.test(sl); // 단독 숫자로만 구성된 경우 (예: '1', '2' 등)
+                          
+                      return !shouldIgnore;
+                  });
+
+              // '전체 ' 전적의 시작 인덱스들을 찾아 팀 블록을 나눔
+              const j_indices: number[] = [];
+              for (let j = 0; j < filtered.length; j++) {
+                  if (filtered[j].startsWith('전체 ')) {
+                      j_indices.push(j);
+                  }
+              }
+
               let homeTeam = '';
               let awayTeam = '';
               let homeOdds = 1.0;
               let awayOdds = 1.0;
-              let overUnderValue = '0';
-              let handicapValue = '0';
-              
-              let currentTeamRole: 'home' | 'away' | null = null;
-              
-              for (let sIdx = 0; sIdx < subLines.length; sIdx++) {
-                  const subLine = subLines[sIdx].trim();
-                  if (!subLine) continue;
-                  
-                  const isIgnoredKeyword = subLine.includes('쿼터') || 
-                                           subLine.includes('연장') || 
-                                           subLine.includes('선득점') || 
-                                           subLine.includes('선5') || 
-                                           subLine.includes('선7') || 
-                                           subLine.includes('선10') || 
-                                           subLine.includes('선15') || 
-                                           subLine.includes('선20') || 
-                                           subLine.includes('라인') || 
-                                           subLine.includes('데이터') || 
-                                           subLine.includes('문자중계');
-                                           
-                  if (isIgnoredKeyword) continue;
-                  if (subLine.startsWith('전체 ') || subLine.startsWith('(')) continue;
-                  
-                  const isOddsLine = subLine.includes('->') || /^\d+\.\d+$/.test(subLine);
-                  
-                  if (isOddsLine) {
-                      let finalOdds = 1.0;
-                      if (subLine.includes('->')) {
-                          const parts = subLine.split('->').map(x => x.trim());
-                          finalOdds = parseFloat(parts[parts.length - 1]) || 1.0;
-                      } else {
-                          finalOdds = parseFloat(subLine) || 1.0;
-                      }
+
+              if (j_indices.length === 2) {
+                  // --- 첫 번째 팀 (홈팀) 파싱 ---
+                  const homeTeamNameIdx = j_indices[0] - 1;
+                  if (homeTeamNameIdx >= 0) {
+                      const rawName = filtered[homeTeamNameIdx];
+                      // 괄호 제거 (예: '폴란드 (세계랭킹2위)' -> '폴란드') 및 cleanTeamName 적용
+                      homeTeam = cleanTeamName(rawName.replace(/\s*\([^)]*\)/g, '').trim());
+                  }
+
+                  // 첫 번째 팀 세부 정보 스캔 범위
+                  const homeEndScanIdx = j_indices[1] - 1;
+                  const homeOddsCandidates: number[] = [];
+                  for (let scanIdx = j_indices[0] + 1; scanIdx < homeEndScanIdx; scanIdx++) {
+                      const scanLine = filtered[scanIdx];
+                      if (scanLine.startsWith('(')) continue; // (원정 91-17-38) 같은 줄 무시
                       
-                      if (currentTeamRole === 'home') {
-                          homeOdds = finalOdds;
-                      } else if (currentTeamRole === 'away') {
-                          awayOdds = finalOdds;
+                      // 실시간 배당 '1.07 -> 1.08' 또는 일반 숫자 배당률 검출
+                      if (scanLine.includes('->')) {
+                          const parts = scanLine.split('->').map(x => x.trim());
+                          const val = parseFloat(parts[parts.length - 1]);
+                          if (!isNaN(val)) homeOddsCandidates.push(val);
+                      } else {
+                          const val = parseFloat(scanLine);
+                          if (!isNaN(val)) homeOddsCandidates.push(val);
                       }
-                      continue;
                   }
-                  
-                  const isThresholdOrHandi = /^[+-]?\d+(\.\d+)?$/.test(subLine);
-                  if (isThresholdOrHandi) {
-                      if (currentTeamRole === 'home') {
-                          overUnderValue = subLine;
-                      } else if (currentTeamRole === 'away') {
-                          handicapValue = subLine;
+                  // 첫 번째 만난 숫자가 승무패 배당률이 됨
+                  if (homeOddsCandidates.length > 0) {
+                      homeOdds = homeOddsCandidates[0];
+                  }
+
+                  // --- 두 번째 팀 (원정팀) 파싱 ---
+                  const awayTeamNameIdx = j_indices[1] - 1;
+                  if (awayTeamNameIdx >= 0) {
+                      const rawName = filtered[awayTeamNameIdx];
+                      awayTeam = cleanTeamName(rawName.replace(/\s*\([^)]*\)/g, '').trim());
+                  }
+
+                  const awayOddsCandidates: number[] = [];
+                  for (let scanIdx = j_indices[1] + 1; scanIdx < filtered.length; scanIdx++) {
+                      const scanLine = filtered[scanIdx];
+                      if (scanLine.startsWith('(')) continue; // (홈 78-14-41) 같은 줄 무시
+                      
+                      if (scanLine.includes('->')) {
+                          const parts = scanLine.split('->').map(x => x.trim());
+                          const val = parseFloat(parts[parts.length - 1]);
+                          if (!isNaN(val)) awayOddsCandidates.push(val);
+                      } else {
+                          const val = parseFloat(scanLine);
+                          if (!isNaN(val)) awayOddsCandidates.push(val);
                       }
-                      continue;
                   }
-                  
-                  if (!homeTeam) {
-                      homeTeam = cleanTeamName(subLine);
-                      currentTeamRole = 'home';
-                  } else if (!awayTeam) {
-                      awayTeam = cleanTeamName(subLine);
-                      currentTeamRole = 'away';
+                  if (awayOddsCandidates.length > 0) {
+                      awayOdds = awayOddsCandidates[0];
                   }
               }
-              
+
               if (!homeTeam || !awayTeam || homeOdds <= 1.01 || awayOdds <= 1.01) {
                   console.log(`Skipping volleyball match due to missing teams or odds: ${homeTeam} vs ${awayTeam}, Odds: ${homeOdds}/${awayOdds}`);
                   i = nextIdx - 1;

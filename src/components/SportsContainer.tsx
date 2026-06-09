@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Target, Zap, Clock, Trash2, ArrowRight, 
   Check, AlertTriangle, AlertCircle, ShoppingCart, Bell, Info,
-  Search, SlidersHorizontal
+  Search, SlidersHorizontal, Star
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -220,6 +220,21 @@ export default function SportsContainer({
   const toggleFavorite = (matchId: string) => {
     setFavorites(prev => 
       prev.includes(matchId) ? prev.filter(id => id !== matchId) : [...prev, matchId]
+    );
+  };
+
+  const [favoriteLeagues, setFavoriteLeagues] = useState<string[]>(() => {
+    const saved = localStorage.getItem('favoriteLeagues');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('favoriteLeagues', JSON.stringify(favoriteLeagues));
+  }, [favoriteLeagues]);
+
+  const toggleFavoriteLeague = (leagueName: string) => {
+    setFavoriteLeagues(prev =>
+      prev.includes(leagueName) ? prev.filter(name => name !== leagueName) : [...prev, leagueName]
     );
   };
 
@@ -838,9 +853,10 @@ export default function SportsContainer({
       }
 
       const isSingle = selectedFolders.length === 1;
+      const sportName = isSingle ? getSportCategory(selectedFolders[0].match) : '스포츠';
       const gameLabelString = isSingle
-        ? `[스포츠] ${selectedFolders[0].match.homeTeam} VS ${selectedFolders[0].match.awayTeam}`
-        : `스포츠 조합배팅 (${selectedFolders.length}폴더)`;
+        ? `[${sportName}] ${selectedFolders[0].match.homeTeam} VS ${selectedFolders[0].match.awayTeam}`
+        : `[${sportName}] 조합배팅 (${selectedFolders.length}폴더)`;
 
        const foldersForSave = selectedFolders.map(sf => {
         let optionStr = '';
@@ -895,7 +911,11 @@ export default function SportsContainer({
       }
 
       // Save user record inside Firestore
-      await updateDoc(doc(db, 'users', currentUserData.id), {
+      const userDocId = currentUserData?.id || currentUserData?.username || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').username) || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').id);
+      if (!userDocId) {
+        throw new Error("User ID is missing or unregistered in state and cache");
+      }
+      await updateDoc(doc(db, 'users', userDocId), {
         balance: nextBalance,
         points: newPoints,
         bets: updatedBets
@@ -1147,6 +1167,11 @@ export default function SportsContainer({
                 groups[lg].push(m);
               });
               const sortedGroups = Object.entries(groups).sort((a, b) => {
+                const aFav = favoriteLeagues.includes(a[0]);
+                const bFav = favoriteLeagues.includes(b[0]);
+                if (aFav && !bFav) return -1;
+                if (!aFav && bFav) return 1;
+
                 const earliestA = a[1][0]?.dateTime || '';
                 const earliestB = b[1][0]?.dateTime || '';
                 return parseDateTimeToComparableNum(earliestA) - parseDateTimeToComparableNum(earliestB);
@@ -1157,6 +1182,22 @@ export default function SportsContainer({
                     <div key={leagueName} className="space-y-3 mb-6">
                       <div className="bg-gradient-to-r from-red-600 to-rose-700 border border-red-500/30 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
                         <span className="font-extrabold tracking-tight text-white flex items-center gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteLeague(leagueName);
+                            }}
+                            className="mr-1 hover:scale-110 active:scale-95 transition-transform duration-150 p-0.5 rounded flex items-center justify-center focus:outline-none"
+                            title="리그 즐겨찾기"
+                          >
+                            <Star 
+                              className={`w-4 h-4 transition-all duration-200 ${
+                                favoriteLeagues.includes(leagueName) 
+                                  ? 'text-amber-300 fill-amber-300 drop-shadow-[0_1px_3px_rgba(251,191,36,0.5)]' 
+                                  : 'text-white/40 hover:text-white/80'
+                              }`} 
+                            />
+                          </button>
                           {getLeagueHeaderLabel(leagueName, leagueMatches[0])}
                         </span>
                         <span className="text-[10px] font-bold text-white font-mono tracking-wider bg-black/30 border border-white/5 px-2 py-0.5 rounded-md">

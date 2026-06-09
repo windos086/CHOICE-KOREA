@@ -754,7 +754,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
 
     try {
-      await updateDoc(doc(db, 'users', currentUserData.id), {
+      const userDocId = currentUserData?.id || currentUserData?.username || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').username) || (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('currentUser') || '{}').id);
+      if (!userDocId) {
+        throw new Error("User ID is missing or unregistered in state and cache");
+      }
+      await updateDoc(doc(db, 'users', userDocId), {
         balance: nextBalance,
         points: (currentUserData.points || 0) + pointsToAward,
         bets: updatedBets
@@ -978,19 +982,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
         setCurrentUser(userObj);
         
         // Instant sync from local storage cache for ultra-fast initial UI load!
-        if (userObj.balance !== undefined) {
-          setUserBalance(userObj.balance);
-        } else {
-          setUserBalance(5000000);
-        }
-        if (userObj.points !== undefined) {
-          setUserPoints(userObj.points);
-        } else {
-          setUserPoints(50000);
-        }
+        const b = userObj.balance !== undefined ? userObj.balance : 5000000;
+        const p = userObj.points !== undefined ? userObj.points : 50000;
+        setUserBalance(b);
+        setUserPoints(p);
+        
         if (userObj.nickname) {
           setNickname(userObj.nickname);
         }
+        
+        // Ensure currentUserData is initialized immediately with ID fallback to prevent any null or missing ID issues
+        const initialUserData = {
+          id: userObj.id || userObj.username,
+          ...userObj,
+          balance: b,
+          points: p
+        };
+        setCurrentUserData(initialUserData);
         
         // Designate windo086 and windos086 as admin/operator
         if (userObj.username === 'windo086' || userObj.username === 'windos086') {

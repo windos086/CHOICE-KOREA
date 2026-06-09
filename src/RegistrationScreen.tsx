@@ -90,6 +90,7 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
       }
 
       const newUser = {
+        id: formData.username,
         joinCode: formData.joinCode,
         username: formData.username,
         password: formData.password,
