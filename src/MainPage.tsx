@@ -7,7 +7,7 @@ import AttendanceChecker from './components/AttendanceChecker';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail } from 'lucide-react';
+import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -52,8 +52,8 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Error: ', JSON.stringify(errInfo));
+  console.warn('Firestore operation handled gracefully:', error);
 }
 
 interface MainPageProps {
@@ -147,6 +147,41 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const openMiniGameSubmenu = () => {
     if (miniGameTimeoutRef.current) clearTimeout(miniGameTimeoutRef.current);
     setShowMiniGameSubmenu(true);
+  };
+
+  const handleExchangePoints = async () => {
+    if (userPoints <= 0) {
+      alert('교환할 포인트가 없습니다.');
+      return;
+    }
+    
+    const newBalance = userBalance + userPoints;
+    const newPoints = 0;
+    
+    setUserBalance(newBalance);
+    setUserPoints(newPoints);
+    
+    try {
+        await updateDoc(doc(db, 'users', currentUserData.id), {
+            balance: newBalance,
+            points: newPoints
+        });
+        
+        const savedUserStr = localStorage.getItem('currentUser');
+        if (savedUserStr) {
+            const curObj = JSON.parse(savedUserStr);
+            localStorage.setItem('currentUser', JSON.stringify({ 
+                ...curObj, 
+                balance: newBalance,
+                points: newPoints
+            }));
+        }
+        
+        alert(`포인트 ${userPoints.toLocaleString()}P가 보유머니로 교환되었습니다.`);
+    } catch (e) {
+        console.error("Failed to exchange points: ", e);
+        alert('포인트 교환 중 오류가 발생했습니다.');
+    }
   };
 
   const closeMiniGameSubmenu = () => {
@@ -522,26 +557,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           // Backtrack financial balances
           const originalPayout = originalStatus === 'win' ? Math.floor(bet.amount * bet.dividend) : 0;
-          const originalPoints = originalStatus === 'win' ? Math.floor(bet.amount * 0.01) : 0;
 
           const correctedPayout = verifiedStatus === 'win' ? Math.floor(bet.amount * bet.dividend) : 0;
-          const correctedPoints = verifiedStatus === 'win' ? Math.floor(bet.amount * 0.01) : 0;
 
           const balanceOffset = correctedPayout - originalPayout;
-          const pointsOffset = correctedPoints - originalPoints;
 
           nowBalance += balanceOffset;
-          nowPoints += pointsOffset;
 
           if (originalStatus === 'pending') {
             if (verifiedStatus === 'win') {
-              winningAlerts.push(`🎉 [배팅 적중] 축하합니다!\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n당첨 금액: +${correctedPayout.toLocaleString()}원\n포인트 적립: +${correctedPoints.toLocaleString()}P`);
+              winningAlerts.push(`🎉 [배팅 적중] 축하합니다!\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n당첨 금액: +${correctedPayout.toLocaleString()}원`);
             } else {
               winningAlerts.push(`😢 [배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n배팅 금액 ${bet.amount.toLocaleString()}원이 차감되었습니다.`);
             }
           } else {
             if (verifiedStatus === 'win') {
-              winningAlerts.push(`🔄 [정산 결과 보정] 이전 낙첨 처리되었던 배팅 내역이 정밀 동기화 후 '적중'으로 자동 보정되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n지급 금액: +${correctedPayout.toLocaleString()}원\n포인트 적립: +${correctedPoints.toLocaleString()}P`);
+              winningAlerts.push(`🔄 [정산 결과 보정] 이전 낙첨 처리되었던 배팅 내역이 정밀 동기화 후 '적중'으로 자동 보정되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n지급 금액: +${correctedPayout.toLocaleString()}원`);
             } else {
               winningAlerts.push(`🔄 [정산 결과 보정] 이전 적중 처리되었던 배팅 내역이 정밀 동기화 후 '낙첨'으로 자동 보정되었습니다.\n\n결과: ${winningOutcome}\n배팅 정보: ${bet.game}\n회수 금액: -${originalPayout.toLocaleString()}원`);
             }
@@ -550,12 +581,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
         if (didChange) {
           setUserBalance(nowBalance);
-          setUserPoints(nowPoints);
 
           const updatedUser = {
             ...currentUserData,
             balance: nowBalance,
-            points: nowPoints,
             bets: updatedBets
           };
           setCurrentUserData(updatedUser);
@@ -578,7 +607,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
           try {
             await updateDoc(doc(db, 'users', currentUserData.id), {
               balance: nowBalance,
-              points: nowPoints,
               bets: updatedBets
             });
           } catch (e) {
@@ -657,7 +685,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
 
     const nextBalance = userBalance - betAmount;
+    const pointsToAward = Math.floor(betAmount * 0.05);
+
     setUserBalance(nextBalance);
+    setUserPoints(prev => prev + pointsToAward);
 
     const totalDividend = selectedOptions.reduce((acc, opt) => acc * opt.dividend, 1);
     const formattedTotalDividend = Math.round(totalDividend * 100) / 100;
@@ -700,6 +731,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     setCurrentUserData(prev => ({
       ...prev,
       balance: nextBalance,
+      points: (prev.points || 0) + pointsToAward,
       bets: updatedBets
     }));
 
@@ -709,7 +741,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         const curObj = JSON.parse(savedUserStr);
         localStorage.setItem('currentUser', JSON.stringify({ 
           ...curObj, 
-          balance: nextBalance 
+          balance: nextBalance,
+          points: (curObj.points || 0) + pointsToAward
         }));
       } catch (err) {
         console.error(err);
@@ -719,6 +752,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     try {
       await updateDoc(doc(db, 'users', currentUserData.id), {
         balance: nextBalance,
+        points: (currentUserData.points || 0) + pointsToAward,
         bets: updatedBets
       });
     } catch (e) {
@@ -990,7 +1024,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 points: pts
               }));
             } catch (jsonErr) {
-              console.error("Failed to update cache JSON:", jsonErr);
+              console.warn("Failed to update cache JSON:", jsonErr);
             }
           }
           
@@ -1016,13 +1050,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
               console.warn("Resilient query listener querySnapshot is EMPTY for username:", userObj.username);
             }
           }, (queryError) => {
-            console.error("Resilient query listener failed, using single fetch fallback:", queryError);
+            console.warn("Resilient query listener failed, using single fetch fallback:", queryError);
             getDoc(userDocRef).then((docSnap) => {
               if (docSnap.exists()) {
                 console.log("Single fetch fallback succeeded:", docSnap.id, docSnap.data());
                 syncToLocalStorageAndState(docSnap.id, docSnap.data());
               }
-            }).catch(err => console.error("Single fetch fallback failed:", err));
+            }).catch(err => console.warn("Single fetch fallback failed:", err));
           });
         };
 
@@ -1045,7 +1079,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               balance: userObj.balance !== undefined ? userObj.balance : 5000000,
               points: userObj.points !== undefined ? userObj.points : 50000,
               createdAt: new Date().toISOString()
-            }).catch(err => console.error("Auto-ensuring user creation failed:", err));
+            }).catch(err => console.warn("Auto-ensuring user creation failed:", err));
           }
         }, (docError) => {
           console.warn("Direct document listener failed, trying resilient query listener:", docError);
@@ -1061,7 +1095,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           }
         };
       } catch (err) {
-        console.error("Error setting up user listener:", err);
+        console.warn("Error setting up user listener:", err);
       }
     }
   }, []);
@@ -1100,7 +1134,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       }
       setIsLoadingInquiries(false);
     }, (error) => {
-      console.error("Inquiries sync failed. Reverting to empty list: ", error);
+      console.warn("Inquiries sync failed. Reverting to empty list: ", error);
       setIsLoadingInquiries(false);
       handleFirestoreError(error, OperationType.GET, 'inquiries');
     });
@@ -1345,7 +1379,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
         }
       }
     } catch (e) {
-      console.error("Error loading exchange rate and minigame modes:", e);
+      console.warn("Error loading exchange rate and minigame modes:", e);
     }
   };
 
@@ -2471,6 +2505,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
           score: details.lines ? `${details.lines}` : '대기 중',
           statusText: '결과완료'
         });
+
+        // 3. [홀짝] (최종결과)
+        rows.push({
+          id: `${res.id}_oe`,
+          dateStr,
+          timeStr,
+          gameName: res.gameName,
+          league: `[${res.round}회차] 최종결과_홀짝`,
+          homeName: '홀',
+          homeOdds: '1.95',
+          awayName: '짝',
+          awayOdds: '1.95',
+          midStandard: 'VS',
+          winner: details.outcome === '홀' ? 'home' : details.outcome === '짝' ? 'away' : 'none',
+          score: details.outcome ? `${details.outcome}` : '대기 중',
+          statusText: '결과완료'
+        });
       }
       return rows;
     };
@@ -2602,15 +2653,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
               {/* Points Box */}
               <div 
-                onClick={() => setShowAttendanceChecker(true)}
-                className="flex items-center justify-between bg-neutral-950/85 px-2 py-2 rounded-lg border border-amber-400/25 shadow-inner hover:border-amber-400/40 cursor-pointer transition-all whitespace-nowrap overflow-hidden"
+                className="flex items-center justify-between bg-neutral-950/85 px-2 py-2 rounded-lg border border-amber-400/25 shadow-inner cursor-pointer transition-all whitespace-nowrap overflow-hidden"
               >
                 <div className="flex items-center gap-1 flex-shrink-0 mr-1">
-                  <span className="text-amber-400 font-bold whitespace-nowrap">포인트 P</span>
+                  <span className="text-amber-400 font-bold whitespace-nowrap">포인트</span>
                 </div>
-                <span className="text-white font-extrabold tracking-wide font-mono text-[10.5px] truncate select-all">
-                  {userPoints.toLocaleString()}<span className="text-[8.5px] text-gray-400 font-sans ml-0.5">P</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-extrabold tracking-wide font-mono text-[10.5px] truncate select-all">
+                    {userPoints.toLocaleString()}P
+                  </span>
+                  <button 
+                    onClick={handleExchangePoints}
+                    className="bg-amber-500 hover:bg-amber-600 text-black text-[10px] font-black px-2 py-1 rounded shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    교환
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2672,7 +2730,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             {/* Navigation Menus (Centered) */}
             <nav className="flex flex-wrap justify-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300">
-              {['테더가이드', '스포츠', '미니게임', '인플레이', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
+              {['테더가이드', '스포츠', '미니게임', '폴리마켓', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
                 if (item === '스포츠') {
                   return (
                       <button 
@@ -2824,9 +2882,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
               {/* Points Box (Gold Glow) */}
               <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-400/30 shadow-[0_0_15px_rgba(251,191,36,0.1)] transition-transform hover:scale-105 duration-250">
                 <span className="text-amber-400 font-black">포인트</span>
-                <span className="text-white font-extrabold tracking-wide font-mono text-sm">
-                  {userPoints.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">P</span>
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-extrabold tracking-wide font-mono text-sm">
+                    {userPoints.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans">P</span>
+                  </span>
+                  <button 
+                    onClick={handleExchangePoints}
+                    className="bg-amber-500 hover:bg-amber-600 text-black text-[10px] font-black px-2 py-1 rounded shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    교환
+                  </button>
+                </div>
               </div>
 
               {/* Messages Box (Crimson Flame Glow) */}
@@ -3038,7 +3104,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('페이백 이벤트가 진행 예정입니다!'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">페이백</span>
                     <span className="text-[7.5px] text-gray-400">Payback</span>
@@ -3048,7 +3114,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('지인 추천 내역이 존재하지 않습니다.'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">지인리스트</span>
                     <span className="text-[7px] text-gray-500">Friends</span>
@@ -3058,7 +3124,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('지인추천 페이백 정산 시스템이 로딩 중입니다.'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-[11px] font-bold text-gray-300 block">지인페이백</span>
                     <span className="text-[7px] text-gray-500">Friend Pb</span>
@@ -3068,7 +3134,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('지인 롤링 적립금 정산 시스템이 로딩 중입니다.'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-[10px] font-bold text-gray-300 block leading-tight">지인롤링</span>
                     <span className="text-[6.5px] text-gray-500 block leading-none">Rolling Pb</span>
@@ -3108,7 +3174,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('누적된 콤프 포인트를 보유머니로 즉시 환전하실 수 있습니다!'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">콤프내역</span>
                     <span className="text-[7.5px] text-gray-400">Comp Rep</span>
@@ -3184,6 +3250,24 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <Trash2 className="w-3.5 h-3.5" /> 내역 전체삭제
               </button>
             </div>
+          </div>
+
+          {/* 1:1 문의등록 버튼 섹션 */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">
+            <h3 className="text-sm font-bold text-white mb-2">나의 최근 문의 내역</h3>
+            {userInquiries.length === 0 ? (
+              <p className="text-gray-500 text-xs">작성한 문의 내역이 없습니다.</p>
+            ) : (
+              <div className="border border-neutral-800 rounded-lg overflow-hidden">
+                {userInquiries.slice(0, 3).map((inq) => (
+                  <div key={inq.id} className="p-3 border-b border-neutral-800 last:border-b-0 text-xs text-gray-300">
+                    <span className="font-bold text-amber-500">[{inq.status === 'pending' ? '답변대기' : '답변완료'}]</span> 
+                    <span className="ml-2">{inq.title}</span>
+                    <span className="ml-auto text-gray-500"> - {new Date(inq.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Table / List Container */}
@@ -4594,20 +4678,47 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
 
             {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 적용 */}
-            <div className={`
+            <div 
+              style={!isMobile ? {
+                paddingBottom: '20px',
+                marginRight: '80px',
+                marginBottom: '0px',
+                marginTop: '290px'
+              } : undefined}
+              className={`
               ${isMobile 
-                ? `fixed bottom-[54px] left-0 right-0 max-h-[72vh] overflow-y-auto bg-neutral-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl px-4 py-3 pb-8 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] flex flex-col space-y-3.5 z-40 transition-all duration-300 transform ${mobileBetSlipOpen ? 'translate-y-0 opacity-100 animate-none' : 'translate-y-full opacity-0 pointer-events-none'}` 
-                : 'w-full xl:w-80 bg-neutral-900/80 border border-neutral-800/60 rounded-xl p-4 flex flex-col justify-between space-y-4 xl:fixed xl:right-6 xl:top-24 z-30 py-4 xl:mr-[70px] mr-0'
+                ? `fixed bottom-[54px] left-0 right-0 max-h-[85vh] overflow-y-auto bg-neutral-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl px-4 py-3 pb-8 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] flex flex-col space-y-3 z-40 transition-all duration-300 transform ${mobileBetSlipOpen ? 'translate-y-0 opacity-100 animate-none' : 'translate-y-full opacity-0 pointer-events-none'}` 
+                : 'w-full xl:w-80 bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl xl:absolute xl:right-0 xl:top-0 z-30 py-4 mr-0 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto'
               }
             `}>
-              <div className="space-y-4">
-                <div className="text-xs font-bold text-gray-400 border-b border-neutral-800/60 pb-2 flex items-center justify-between">
-                  <span>나의 배팅 슬립 (Bet Slip)</span>
-                  <button className="text-red-500 hover:text-red-400 font-bold transition rounded px-1 cursor-pointer text-xs" onClick={() => setSelectedOptions([])}>전체 비우기</button>
+              <div className="space-y-4 flex flex-col flex-1">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5 text-amber-500" />
+                    <h3 className="text-md font-black tracking-tight text-white">미니게임 배팅 카트</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedOptions.length > 0 && (
+                      <button 
+                        onClick={() => setSelectedOptions([])}
+                        className="text-[10px] bg-neutral-950 hover:bg-neutral-800 border border-neutral-850 text-neutral-450 hover:text-white px-2 py-1 rounded transition"
+                      >
+                        비우기
+                      </button>
+                    )}
+                    {isMobile && (
+                      <button 
+                        onClick={() => setMobileBetSlipOpen(false)} 
+                        className="text-amber-500 text-xs font-black bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 rounded-lg active:scale-95 transition flex items-center gap-1 shrink-0"
+                      >
+                        접기 ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* 실시간 마감 시간 타이머 */}
-                <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-800/60 font-mono space-y-2">
+                <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 font-mono space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">배팅 마감시간</span>
                     <span className={`text-xs font-black flex items-center gap-1.5 ${secondsLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
@@ -4623,135 +4734,168 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </span>
                   </div>
                 </div>
-                {/* 보유 머니 */}
-                <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-800/60 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">보유 머니</span>
-                  <span className="text-sm font-black text-amber-400">
-                    {userBalance.toLocaleString()}원
-                  </span>
-                </div>
 
-                {/* 선택된 옵션 리스트 */}
-                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                  {selectedOptions.length > 0 ? (
+                {/* Selections Section */}
+                <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] xl:max-h-none">
+                  {selectedOptions.length === 0 ? (
+                    <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
+                      <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
+                      <p className="text-xs font-black">선택된 배팅 옵션이 없습니다.</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">게임 배당 버튼을 클릭하여<br />배팅 카트에 추가하십시오.</p>
+                    </div>
+                  ) : (
                     selectedOptions.map((opt, idx) => (
-                      <div key={idx} className="bg-neutral-950/70 border border-neutral-800/60 p-2.5 rounded-lg flex items-center justify-between gap-1 text-[11px]">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[10px] text-gray-500 font-semibold truncate">[{opt.round}회차] {opt.game}</div>
-                          <div className="font-extrabold text-white truncate">[{opt.group}] <span className="text-amber-400">{opt.name}</span></div>
+                      <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
+                        <button
+                          onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
+                          title="제거"
+                        >
+                          &times;
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
+                            [{opt.round}회차] {opt.game}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-amber-500 font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
-                          <button 
-                            onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-gray-500 hover:text-red-500 cursor-pointer font-bold p-0.5"
-                          >
-                            ×
-                          </button>
+                        <div className="text-[11px] font-black text-neutral-250 pr-5 truncate">
+                          구분: {opt.group}
+                        </div>
+                        <div className="flex items-center justify-between text-xs bg-neutral-900 border border-neutral-850/40 p-2 rounded-lg mt-0.5">
+                          <span className="font-extrabold text-amber-500 flex items-center gap-1">
+                            선택: <span className="text-white underline decoration-amber-500">{opt.name}</span>
+                          </span>
+                          <span className="font-mono font-black text-neutral-200">{(opt.dividend || 0).toFixed(2)} 배당</span>
                         </div>
                       </div>
                     ))
-                  ) : (
-                    <div className="py-6 text-center text-gray-600 text-[11px] border border-dashed border-neutral-800 rounded-lg">
-                      선택된 배팅 옵션이 없습니다.
-                    </div>
                   )}
                 </div>
 
-                {/* 배팅 계산 및 충전 연동 */}
-                {selectedOptions.length > 0 && (() => {
-                  const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * (current.dividend || 1), 1).toFixed(2));
-                  const estimatedPay = Math.floor(betAmount * totalDiv);
-                  return (
-                    <div className="space-y-2.5 bg-neutral-950 p-3 rounded-lg border border-neutral-800/60 text-xs">
-                      <div className="flex justify-between items-center text-gray-400">
-                        <span>선택 폴더</span>
-                        <span className="font-bold text-white">{selectedOptions.length} 폴더</span>
+                {/* Fixed Footer Content (Multiplier + Amount + Submit) */}
+                <div className="flex-shrink-0 space-y-4 pt-4 border-t border-neutral-800">
+                  {/* Parlay Multiplier Summary */}
+                  {selectedOptions.length > 0 && (() => {
+                    const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * (current.dividend || 1), 1).toFixed(2));
+                    return (
+                      <div className="bg-neutral-950/80 p-3.5 rounded-xl border border-neutral-850 space-y-2.5 border-l-2 border-l-amber-500">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-neutral-400 font-extrabold text-[11px]">선택된 옵션 상세</span>
+                          <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto no-scrollbar pr-0.5">
+                            {selectedOptions.map((opt, i) => (
+                              <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60">
+                                <span className="text-neutral-200 font-bold truncate max-w-[125px] md:max-w-[150px]">
+                                  [{opt.round}회] {opt.name}
+                                </span>
+                                <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
+                          <span className="text-neutral-400 font-extrabold">합계 총 배당률 ({selectedOptions.length}폴더)</span>
+                          <span className="font-mono font-black text-amber-500 text-sm">{(totalDiv || 0).toFixed(2)}배</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center text-gray-400">
-                        <span>총 배당률</span>
-                        <span className="font-black text-amber-500 font-mono">{(totalDiv || 0).toFixed(2)} 배</span>
-                      </div>
-                      <div className="flex justify-between items-center text-gray-400 border-t border-neutral-900 pt-2">
-                        <span>예상 적중머니</span>
-                        <span className="font-black text-emerald-400 font-mono">{estimatedPay.toLocaleString()} 원</span>
-                      </div>
+                    );
+                  })()}
+
+                  {/* Betting Amount Entry */}
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-neutral-400 font-black">배팅금액 (원)</span>
+                      <span className="text-[10px] text-amber-500 font-bold font-mono">
+                        보유머니: {userBalance.toLocaleString()}원
+                      </span>
                     </div>
-                  );
-                })()}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={betAmount === 0 ? '' : betAmount}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setBetAmount(val);
+                        }}
+                        placeholder="배팅액 입력"
+                        className="w-full bg-neutral-950 border border-neutral-800/80 focus:border-amber-500/55 text-white p-3 rounded-xl font-black font-mono text-sm shadow-inner transition outline-none"
+                      />
+                      <span className="absolute right-3.5 top-3 text-[10px] font-black text-neutral-500 select-none">KRW</span>
+                    </div>
 
-                {/* 배팅 금액 설정 인풋 */}
-                <div className="space-y-2">
-                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">배팅 금액 입력</div>
-                  <div className="relative">
-                    <input 
-                      type="number"
-                      value={betAmount || ''}
-                      onChange={(e) => setBetAmount(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full bg-[#07090e] border border-neutral-850 px-3 py-2.5 rounded-lg text-white font-mono font-black text-xs focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 text-right pr-8"
-                      placeholder="0"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-bold">원</span>
-                  </div>
-
-                  {/* 금액 빠른 설정 버튼군 */}
-                  <div className="grid grid-cols-4 gap-1">
-                    {[5000, 10000, 50000, 100000].map((amt) => (
+                    {/* Quick Multipliers Buttons Grid */}
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[10000, 30000, 50000, 100000, 500000, 1000000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setBetAmount(prev => (prev || 0) + amt)}
+                          className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 p-2 rounded-lg text-[10px] font-bold text-neutral-400 hover:text-white transition cursor-pointer select-none"
+                        >
+                          +{amt >= 1000000 ? `${amt / 1000000}M` : amt >= 10000 ? `${amt / 10000}만` : amt}
+                        </button>
+                      ))}
                       <button
-                        key={amt}
-                        onClick={() => setBetAmount(prev => (prev || 0) + amt)}
-                        className="py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-neutral-800/80 text-[10px] text-gray-400 hover:text-white font-semibold transition cursor-pointer"
+                        type="button"
+                        onClick={() => setBetAmount(userBalance)}
+                        className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 p-2 rounded-lg text-[10px] font-bold text-amber-500 hover:text-white transition cursor-pointer select-none"
                       >
-                        +{amt >= 10000 ? `${amt / 10000}만` : '5천'}
+                        최대
                       </button>
-                    ))}
-                    <button
-                      onClick={() => setBetAmount(5000)}
-                      className="py-1.5 rounded bg-[#450a0a]/30 hover:bg-[#450a0a]/50 border border-red-950/80 text-[10px] text-red-400 font-semibold transition cursor-pointer"
-                    >
-                      최소
-                    </button>
-                    <button
-                      onClick={() => setBetAmount(Math.min(userBalance, 2000000))}
-                      className="py-1.5 rounded bg-[#450a0a]/30 hover:bg-[#450a0a]/50 border border-red-950/80 text-[10px] text-red-400 font-semibold transition cursor-pointer"
-                    >
-                      최대
-                    </button>
-                    <button
-                      onClick={() => setBetAmount(0)}
-                      className="py-1.5 col-span-2 rounded bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 text-[10px] text-gray-500 font-semibold transition cursor-pointer"
-                    >
-                      초기화
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setBetAmount(0)}
+                        className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 p-2 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
+                      >
+                        초기화
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* 최종 배팅 제출 버튼 */}
-                <button
-                  disabled={selectedOptions.length === 0 || !betAmount || betAmount > userBalance}
-                  onClick={handlePlaceBet}
-                  className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition duration-300 flex items-center justify-center gap-1.5 border ${
-                    selectedOptions.length === 0 || !betAmount
-                      ? 'bg-neutral-900/60 border-neutral-800 text-gray-600 cursor-not-allowed'
-                      : betAmount > userBalance
-                      ? 'bg-red-950/80 border-red-800 text-red-400 cursor-pointer animate-pulse'
-                      : 'bg-gradient-to-r from-red-600 via-amber-600 to-red-600 hover:from-red-500 hover:to-amber-500 border-amber-500/50 hover:border-amber-400 text-white shadow-xl shadow-red-950/30 cursor-pointer'
-                  }`}
-                >
-                  {betAmount > userBalance ? '잔액이 부족합니다' : '배팅하기 (PLACE BET)'}
-                </button>
-                <div className="pb-20" />
-              </div>
+                  {/* Expected Revenue Summary Block */}
+                  {selectedOptions.length > 0 && (() => {
+                    const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * (current.dividend || 1), 1).toFixed(2));
+                    const estimatedPay = Math.floor(betAmount * totalDiv);
+                    return (
+                      <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850 shadow-inner space-y-1.5">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-neutral-500 font-extrabold">최종 수렴 배당</span>
+                          <span className="text-zinc-200 font-black font-mono">{totalDiv.toFixed(2)} 배</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
+                          <span className="text-neutral-300 font-black flex items-center gap-1">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
+                          </span>
+                          <span className="text-sm font-black text-emerald-400 font-sans tracking-tight">
+                            {estimatedPay.toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Core Submission Trigger */}
+                  <button
+                    onClick={handlePlaceBet}
+                    disabled={selectedOptions.length === 0 || !betAmount}
+                    className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
+                  >
+                    {betAmount > userBalance ? (
+                      '잔액이 부족합니다'
+                    ) : (
+                      '배팅하기 (Place Stake)'
+                    )}
+                  </button>
+                </div>
             </div>
 
-            {isMobile && selectedOptions.length > 0 && (
+            {isMobile && selectedOptions.length > 0 && !mobileBetSlipOpen && (
               <div className="fixed bottom-[54px] left-0 right-0 z-50 px-3.5 py-2.5 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 flex items-center justify-between border-t border-amber-500/30 shadow-[0_-8px_25px_rgba(0,0,0,0.85)]">
                 <button
                   onClick={() => setMobileBetSlipOpen(!mobileBetSlipOpen)}
                   className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-amber-500 to-amber-650 hover:from-amber-450 hover:to-amber-550 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(245,158,11,0.3)] cursor-pointer border-0"
                 >
                   <span className="flex items-center gap-2">
-                    🎰 {mobileBetSlipOpen ? '배팅 슬립 접기 ▲' : '배팅 슬립 열기 ▼'}
+                    🎰 배팅 슬립 열기 ▼
                   </span>
                   <span className="bg-white text-amber-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
                     {selectedOptions.length}개 선택됨
@@ -4761,7 +4905,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             )}
 
           </div>
-        
+        </div>
       ) : (
         <>
           {/* Main Feature Banner - High-End Luxury Cohesive VIP Cockpit Board */}

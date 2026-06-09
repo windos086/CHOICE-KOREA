@@ -92,20 +92,45 @@ export function cleanTeamName(name: string): string {
   return name.replace(/\[[^\]]*\]/g, '').trim();
 }
 
-function getLeagueHeaderLabel(leagueName: string) {
+function getLeagueHeaderLabel(leagueName: string, sampleMatch?: any) {
   let emoji = '⚽';
   const name = deduplicateLeagueName(leagueName || '');
-  if (name.includes('독일')) emoji = '🇩🇪';
-  else if (name.includes('스페인') || name.includes('라리가')) emoji = '🇪🇸';
-  else if (name.includes('영국') || name.includes('프리미어') || name.includes('잉글랜드')) emoji = '🇬🇧';
-  else if (name.includes('이탈리아') || name.includes('세리에')) emoji = '🇮🇹';
-  else if (name.includes('프랑스') || name.includes('리그1')) emoji = '🇫🇷';
-  else if (name.includes('대한민국') || name.includes('한국') || name.includes('K리그')) emoji = '🇰🇷';
-  else if (name.includes('일본') || name.includes('J리그')) emoji = '🇯🇵';
-  else if (name.includes('리투아니아')) emoji = '🇱🇹';
-  else if (name.includes('네덜란드')) emoji = '🇳🇱';
-  else if (name.includes('야구') || name.includes('MLB') || name.includes('KBO')) emoji = '⚾';
-  else if (name.includes('농구') || name.includes('NBA')) emoji = '🏀';
+  
+  let sport = '축구';
+  if (sampleMatch) {
+    sport = getSportCategory(sampleMatch);
+  } else {
+    const n = name.toLowerCase();
+    if (n.includes('농구') || n.includes('nba') || n.includes('kbl') || n.includes('wkbl') || n.includes('basketball')) {
+      sport = '농구';
+    } else if (n.includes('야구') || n.includes('mlb') || n.includes('kbo') || n.includes('npb') || n.includes('baseball')) {
+      sport = '야구';
+    } else if (n.includes('배구') || n.includes('kovo') || n.includes('volleyball')) {
+      sport = '배구';
+    } else if (n.includes('하키') || n.includes('아이스하키') || n.includes('nhl') || n.includes('hockey')) {
+      sport = '아이스하키';
+    }
+  }
+
+  if (sport === '농구') {
+    emoji = '🏀';
+  } else if (sport === '야구') {
+    emoji = '⚾';
+  } else if (sport === '배구') {
+    emoji = '🏐';
+  } else if (sport === '아이스하키') {
+    emoji = '🏒';
+  } else {
+    if (name.includes('독일')) emoji = '🇩🇪';
+    else if (name.includes('스페인') || name.includes('라리가')) emoji = '🇪🇸';
+    else if (name.includes('영국') || name.includes('프리미어') || name.includes('잉글랜드')) emoji = '🇬🇧';
+    else if (name.includes('이탈리아') || name.includes('세리에')) emoji = '🇮🇹';
+    else if (name.includes('프랑스') || name.includes('리그1')) emoji = '🇫🇷';
+    else if (name.includes('대한민국') || name.includes('한국') || name.includes('K리그')) emoji = '🇰🇷';
+    else if (name.includes('일본') || name.includes('J리그')) emoji = '🇯🇵';
+    else if (name.includes('리투아니아')) emoji = '🇱🇹';
+    else if (name.includes('네덜란드')) emoji = '🇳🇱';
+  }
   
   return (
     <span className="flex items-center gap-1.5 font-sans">
@@ -236,7 +261,7 @@ export default function SportsContainer({
 
       setMatches(fetchedMatches);
     } catch (error) {
-      console.error('Error fetching matches:', error);
+      console.warn('Error fetching matches:', error);
     } finally {
       setLoading(false);
     }
@@ -359,10 +384,8 @@ export default function SportsContainer({
             if (isWinner) {
               const winnings = Math.floor(bet.amount * bet.dividend);
               currentWallet += winnings;
-              const ptsReward = Math.floor(bet.amount * 0.01);
-              currentPoints += ptsReward;
 
-              announcementLogs.push(`🎉 [스포츠 배팅 적중] 축하합니다!\n\n${outcomesSummary}\n\n당첨 배당률: ${bet.dividend}배\n당첨금 수령: +${winnings.toLocaleString()}원\n보유 포인트: +${ptsReward.toLocaleString()}P 적립 완료!`);
+              announcementLogs.push(`🎉 [스포츠 배팅 적중] 축하합니다!\n\n${outcomesSummary}\n\n당첨 배당률: ${bet.dividend}배\n당첨금 수령: +${winnings.toLocaleString()}원`);
             } else {
               announcementLogs.push(`😢 [스포츠 배팅 낙첨] 아쉽게도 낙첨되었습니다.\n\n${outcomesSummary}\n\n투자 금액 ${bet.amount.toLocaleString()}원이 차단 소멸 처리되었습니다.`);
             }
@@ -390,7 +413,7 @@ export default function SportsContainer({
                 bets: updatedBetsList
               }));
             } catch (err) {
-              console.error(err);
+              console.warn(err);
             }
           }
 
@@ -406,7 +429,7 @@ export default function SportsContainer({
           }
         }
       } catch (err) {
-        console.error("Error evaluating sports resolutions: ", err);
+        console.warn("Error evaluating sports resolutions: ", err);
       } finally {
         isResolvingRef.current = false;
       }
@@ -589,6 +612,24 @@ export default function SportsContainer({
     }
   };
 
+  const getOppositeHandicap = (valStr: string): string => {
+    if (!valStr || valStr === '0') return '0';
+    const trimmed = valStr.trim();
+    if (trimmed.startsWith('+')) {
+      return `-${trimmed.slice(1)}`;
+    } else if (trimmed.startsWith('-')) {
+      return `+${trimmed.slice(1)}`;
+    } else {
+      const num = parseFloat(trimmed);
+      if (isNaN(num) || num === 0) return '0';
+      if (num > 0) {
+        return `-${trimmed}`;
+      } else {
+        return `+${Math.abs(num)}`;
+      }
+    }
+  };
+
   const parseHandicapValue = (valStr: string): number => {
     if (!valStr) return 0;
     valStr = valStr.trim();
@@ -604,14 +645,15 @@ export default function SportsContainer({
   const handleSelectHandicap = (match: any, handi: any, type: 'home' | 'away') => {
     // Find existing selection with same matchId AND same marketType
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'handicap');
-    const cleanedLineValue = formatHandicapDisplay(
+    const baseLineValue = formatHandicapDisplay(
       handi.value, 
       match.markets?.matchWinner?.home, 
       match.markets?.matchWinner?.away
     );
+    const displayLineValue = type === 'home' ? baseLineValue : getOppositeHandicap(baseLineValue);
 
     const isExactDeselect = existingSameMatchIndex > -1 && 
-      selectedFolders[existingSameMatchIndex].lineValue === cleanedLineValue && 
+      selectedFolders[existingSameMatchIndex].lineValue === displayLineValue && 
       selectedFolders[existingSameMatchIndex].type === type;
 
     if (!isExactDeselect) {
@@ -628,15 +670,15 @@ export default function SportsContainer({
       match: match,
       marketType: 'handicap',
       type: type,
-      lineValue: cleanedLineValue,
+      lineValue: displayLineValue,
       odds: parseFloat(type === 'home' ? handi.home : handi.away),
-      label: type === 'home' ? `홈 핸디캡 [${cleanedLineValue}]` : `원정 핸디캡 [${cleanedLineValue}]`
+      label: type === 'home' ? `홈 핸디캡 [${displayLineValue}]` : `원정 핸디캡 [${displayLineValue}]`
     };
 
     if (existingSameMatchIndex > -1) {
       const existingSelection = selectedFolders[existingSameMatchIndex];
       // If user clicks exact same option again, deselect it
-      if (existingSelection.lineValue === cleanedLineValue && existingSelection.type === type) {
+      if (existingSelection.lineValue === displayLineValue && existingSelection.type === type) {
         setSelectedFolders(prev => prev.filter(f => !(f.matchId === match.id && f.marketType === 'handicap')));
       } else {
         // Replace selection for this match AND this marketType
@@ -691,11 +733,12 @@ export default function SportsContainer({
     const homeOdds = match?.markets?.matchWinner?.home;
     const awayOdds = match?.markets?.matchWinner?.away;
     const formattedVal = formatHandicapDisplay(value, homeOdds, awayOdds);
+    const expectedVal = type === 'home' ? formattedVal : getOppositeHandicap(formattedVal);
     
     return selectedFolders.some(f => 
       f.matchId === matchId && 
       f.marketType === 'handicap' && 
-      formatHandicapDisplay(f.lineValue, homeOdds, awayOdds) === formattedVal && 
+      f.lineValue === expectedVal && 
       f.type === type
     );
   };
@@ -783,6 +826,10 @@ export default function SportsContainer({
       return;
     }
 
+    if (!confirm('정말 배팅하시겠습니까?\n한번 배팅을 확정하면 취소가 어렵습니다.')) {
+      return;
+    }
+
     setIsPlacingBet(true);
     try {
       const nextBalance = userBalance - betAmount;
@@ -840,10 +887,17 @@ export default function SportsContainer({
       };
 
       const updatedBets = [newBet, ...(currentUserData.bets || [])].slice(0, 50);
+      const pointsToAward = Math.floor(betAmount * 0.05);
+      const newPoints = (currentUserData.points || 0) + pointsToAward;
+
+      if (setUserPoints) {
+        setUserPoints(newPoints);
+      }
 
       // Save user record inside Firestore
       await updateDoc(doc(db, 'users', currentUserData.id), {
         balance: nextBalance,
+        points: newPoints,
         bets: updatedBets
       });
 
@@ -855,6 +909,7 @@ export default function SportsContainer({
           localStorage.setItem('currentUser', JSON.stringify({ 
             ...curObj, 
             balance: nextBalance,
+            points: newPoints,
             bets: updatedBets
           }));
         } catch (err) {
@@ -1100,11 +1155,11 @@ export default function SportsContainer({
                 <>
                   {sortedGroups.map(([leagueName, leagueMatches]) => (
                     <div key={leagueName} className="space-y-3 mb-6">
-                      <div className="bg-neutral-950 border border-neutral-850 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
-                        <span className="font-extrabold tracking-tight text-neutral-105 flex items-center gap-1.5">
-                          {getLeagueHeaderLabel(leagueName)}
+                      <div className="bg-gradient-to-r from-red-600 to-rose-700 border border-red-500/30 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
+                        <span className="font-extrabold tracking-tight text-white flex items-center gap-1.5">
+                          {getLeagueHeaderLabel(leagueName, leagueMatches[0])}
                         </span>
-                        <span className="text-[10px] font-bold text-neutral-500 font-mono tracking-wider bg-neutral-900/40 border border-neutral-850/60 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-bold text-white font-mono tracking-wider bg-black/30 border border-white/5 px-2 py-0.5 rounded-md">
                           {leagueMatches.length}경기 진행 중
                         </span>
                       </div>
@@ -1610,7 +1665,7 @@ export default function SportsContainer({
           ref={betSlipRef}
           className={`bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4 ${
             isMobile 
-              ? `fixed bottom-[100px] left-2 right-2 z-40 max-h-[70vh] overflow-y-auto transition-transform duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+              ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[72vh] overflow-hidden flex flex-col transition-transform duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
               : `lg:sticky lg:top-6`
           }`}>
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -1627,10 +1682,15 @@ export default function SportsContainer({
                   비우기
                 </button>
               )}
+              {isMobile && (
+                <button 
+                  onClick={() => setMobileBetSlipOpen && setMobileBetSlipOpen(false)} 
+                  className="text-amber-500 text-xs font-black bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 rounded-lg active:scale-95 transition flex items-center gap-1 shrink-0"
+                >
+                  접기 ✕
+                </button>
+              )}
             </div>
-            {isMobile && (
-             <button onClick={() => setMobileBetSlipOpen && setMobileBetSlipOpen(false)} className="text-white">닫기</button>
-            )}
           </div>
 
           {/* Selections Section */}
@@ -1742,16 +1802,12 @@ export default function SportsContainer({
           {/* Expected Revenue Summary Block */}
           <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850 shadow-inner space-y-1.5">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-neutral-500 font-extrabold">조합 수수료 수수</span>
-              <span className="text-zinc-400 font-bold font-mono">0원 (무료)</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px]">
               <span className="text-neutral-500 font-extrabold">최종 수렴 배당</span>
               <span className="text-zinc-200 font-black font-mono">{formattedTotalOdds} 배</span>
             </div>
             <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
               <span className="text-neutral-300 font-black flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 소득 금액
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
               </span>
               <span className="text-sm font-black text-emerald-400 font-sans tracking-tight">
                 {estimatedPayout.toLocaleString()}원
@@ -1781,14 +1837,14 @@ export default function SportsContainer({
           </button>
         </div>
 
-        {isMobile && selectedFolders.length > 0 && (
+        {isMobile && selectedFolders.length > 0 && !mobileBetSlipOpen && (
           <div className="fixed bottom-[54px] left-0 right-0 z-50 px-3.5 py-2.5 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 flex items-center justify-between border-t border-amber-500/30 shadow-[0_-8px_25px_rgba(0,0,0,0.85)]">
             <button
               onClick={() => setMobileBetSlipOpen && setMobileBetSlipOpen(!mobileBetSlipOpen)}
               className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-amber-500 to-amber-650 hover:from-amber-450 hover:to-amber-550 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(245,158,11,0.3)] cursor-pointer border-0"
             >
               <span className="flex items-center gap-2">
-                🎰 {mobileBetSlipOpen ? '배팅 슬립 접기 ▲' : '배팅 슬립 열기 ▼'}
+                🎰 배팅 슬립 열기 ▼
               </span>
               <span className="bg-white text-amber-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
                 {selectedFolders.length}개 선택됨

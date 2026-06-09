@@ -26,6 +26,10 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
   const currentBets = filteredBets.slice(indexOfFirstItem, indexOfLastItem);
 
   const handleDeleteBet = async (bet: any) => {
+    if (bet.status === 'pending') {
+      alert('대기 중인 배팅 내역은 삭제할 수 없습니다.');
+      return;
+    }
     if (!confirm('정말로 이 배팅 내역을 삭제하시겠습니까?')) return;
     try {
         const userRef = doc(db, 'users', currentUserData.id);
@@ -39,13 +43,20 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
   };
 
   const handleDeleteAllBets = async () => {
-    if (!confirm('정말로 모든 배팅 내역을 삭제하시겠습니까?')) return;
+    const resultedBets = allBets.filter((b: any) => b.status !== 'pending');
+    
+    if (resultedBets.length === 0) {
+        alert('삭제할 수 있는 결과가 나온 배팅 내역이 없습니다.');
+        return;
+    }
+
+    if (!confirm('결과가 나온 내역만 전체 삭제하시겠습니까? (대기 중인 내역은 삭제되지 않습니다.)')) return;
     try {
         const userRef = doc(db, 'users', currentUserData.id);
         await updateDoc(userRef, {
-            bets: []
+            bets: resultedBets
         });
-        alert('모든 배팅 내역이 삭제되었습니다.');
+        alert('결과가 나온 배팅 내역이 삭제되었습니다.');
     } catch (e: any) {
         alert('삭제 실패: ' + e.message);
     }
