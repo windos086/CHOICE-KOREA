@@ -421,11 +421,12 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
 
       const isLose = folder.status === 'lose';
       const isWin = folder.status === 'win';
-      const textColorClass = isLose ? 'text-red-500 font-extrabold' : isWin ? 'text-emerald-400 font-extrabold' : 'text-amber-500';
+      const isVoid = folder.status === 'void';
+      const textColorClass = isLose ? 'text-red-500 font-extrabold' : isWin ? 'text-emerald-400 font-extrabold' : isVoid ? 'text-rose-500 font-extrabold' : 'text-amber-500';
 
       return (
         <span className={`${textColorClass} font-mono text-xs`}>
-          {displayScore ? `[${displayScore}]` : '[-:-]'}
+          {isVoid ? '[적중특례]' : (displayScore ? `[${displayScore}]` : '[-:-]')}
         </span>
       );
     }

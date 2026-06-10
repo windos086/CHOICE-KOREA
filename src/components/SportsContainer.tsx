@@ -392,6 +392,14 @@ export default function SportsContainer({
                 allFoldersCompleted = false;
                 foldersUpdated.push(f);
               } else {
+                if (dbMatch.status === 'void') {
+                   foldersUpdated.push({
+                     ...f,
+                     status: 'void',
+                     rollResult: '적중특례'
+                   });
+                   continue;
+                }
                 const homeScore = dbMatch.homeScore !== undefined ? Number(dbMatch.homeScore) : (dbMatch.status === 'home' ? 1 : 0);
                 const awayScore = dbMatch.awayScore !== undefined ? Number(dbMatch.awayScore) : (dbMatch.status === 'away' ? 1 : 0);
                 
@@ -408,6 +416,17 @@ export default function SportsContainer({
                   const hVal = parseHandicapValue(f.lineValue);
                   // Perspective of home team
                   const homeFinal = homeScore + hVal;
+
+                  if (Math.abs(homeFinal - awayScore) < 0.001) {
+                    // VOID when handicap tie
+                    foldersUpdated.push({
+                      ...f,
+                      status: 'void',
+                      rollResult: '적중특례'
+                    });
+                    continue;
+                  }
+                  
                   if (f.type === 'home') {
                     isWinFolder = homeFinal > awayScore;
                   } else {
@@ -417,6 +436,17 @@ export default function SportsContainer({
                 } else if (mkt === 'overUnder') {
                   const ouVal = parseFloat(f.lineValue) || 0;
                   const totalScore = homeScore + awayScore;
+                  
+                  if (Math.abs(totalScore - ouVal) < 0.001) {
+                    // VOID when over/under tie
+                    foldersUpdated.push({
+                      ...f,
+                      status: 'void',
+                      rollResult: '적중특례'
+                    });
+                    continue;
+                  }
+
                   if (f.type === 'over') {
                     isWinFolder = totalScore > ouVal;
                   } else {
@@ -447,8 +477,15 @@ export default function SportsContainer({
             const isWinner = !hasAnyFailed;
             bet.status = isWinner ? 'win' : 'lose';
             
+            // Recalculate dividend, excluding voided matches (odds 1.0)
+            const newDividend = foldersUpdated.reduce((acc, f) => {
+              if (f.status === 'void') return acc;
+              return acc * (Number(f.odds) || 1.0);
+            }, 1.0);
+            bet.dividend = newDividend;
+            
             const outcomesSummary = foldersUpdated.map((f: any) => 
-               `[${f.game}] 예견: ${f.option} ➔ 결과: ${f.status === 'win' ? '적중' : '낙첨'}`
+               `[${f.game}] 예견: ${f.option} ➔ 결과: ${f.status === 'win' ? '적중' : f.status === 'void' ? '적중특례' : '낙첨'}`
             ).join('\n');
 
             if (isWinner) {

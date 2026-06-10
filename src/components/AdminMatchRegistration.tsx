@@ -229,6 +229,7 @@ const areMarketsDifferent = (m1: any, m2: any): boolean => {
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
   const [resultInputText, setResultInputText] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedSport, setSelectedSport] = useState<'soccer' | 'baseball' | 'basketball' | 'volleyball'>('soccer');
   const [isParsing, setIsParsing] = useState(false);
   const [isResultParsing, setIsResultParsing] = useState(false);
@@ -1404,7 +1405,29 @@ export default function AdminMatchRegistration() {
     }
   };
 
+// ... existing imports ...
+  const handleResolveMatchVoid = async (matchId: string) => {
+    if (!window.confirm(`이 경기를 [적중특례 (연기/취소)] 결과로 처리하시겠습니까?\n모든 관련 배팅은 무효 처리(적중특례)됩니다.`)) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'matches', matchId), {
+        status: 'void',
+        homeScore: 0,
+        awayScore: 0,
+        resolvedAt: new Date().toISOString()
+      });
+      alert(`정산완료: [적중특례] 처리되었습니다.`);
+      fetchRegisteredMatches();
+    } catch (err) {
+      console.error(err);
+      alert('정산 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleResolveMatchWithScore = async (matchId: string, homeScore: number, awayScore: number) => {
+// ...
     let outcome: 'home' | 'draw' | 'away' = 'draw';
     if (homeScore > awayScore) outcome = 'home';
     else if (homeScore < awayScore) outcome = 'away';
@@ -1581,12 +1604,21 @@ export default function AdminMatchRegistration() {
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             실시간 등록 경기 관리 & 승무패 결과 정산기
           </h3>
-          <button
-            onClick={fetchRegisteredMatches}
-            className="text-[10px] bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg transition"
-          >
-            새로고침
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-black border border-neutral-800 text-xs px-2 py-1.5 rounded-lg text-white outline-none focus:border-amber-500/50"
+            />
+            <button
+              onClick={fetchRegisteredMatches}
+              className="text-[10px] bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg transition"
+            >
+              새로고침
+            </button>
+          </div>
         </div>
 
         {loadingMatches ? (
@@ -1613,7 +1645,10 @@ export default function AdminMatchRegistration() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-850/30 text-xs">
-                {registeredMatches.map((m) => (
+                {registeredMatches
+                  .filter((m) => m.status === 'pending')
+                  .filter((m) => !searchTerm || m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()) || m.league?.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map((m) => (
                   <tr key={m.id} className="hover:bg-neutral-900/40 transition-colors">
                     <td className="p-3 space-y-1">
                       <div className="font-mono text-neutral-400 font-bold">{m.dateTime}</div>
@@ -1640,7 +1675,7 @@ export default function AdminMatchRegistration() {
                         </span>
                       ) : (
                         <span className="px-2 py-1 bg-neutral-900 border border-neutral-800 text-neutral-400 rounded-md font-black text-[10px] inline-block">
-                          결과: {m.homeScore ?? 0} : {m.awayScore ?? 0} ({m.status === 'home' ? '홈 승' : m.status === 'draw' ? '무승부' : '원정 승'})
+                          {m.status === 'void' ? '결과: 적중특례' : `결과: ${m.homeScore ?? 0} : ${m.awayScore ?? 0} (${m.status === 'home' ? '홈 승' : m.status === 'draw' ? '무승부' : '원정 승'})`}
                         </span>
                       )}
                     </td>
@@ -1683,7 +1718,7 @@ export default function AdminMatchRegistration() {
                           </div>
                           
                           {/* 원클릭 빠른 정산 단축 */}
-                          <div className="flex justify-center gap-1 border-t border-neutral-850/40 pt-1.5">
+                          <div className="flex justify-center gap-1 border-t border-neutral-850/40 pt-1.5 flex-wrap">
                             <button
                               onClick={() => handleResolveMatch(m.id, 'home')}
                               className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-amber-900/60 text-amber-500 hover:bg-amber-500 hover:text-black transition cursor-pointer"
@@ -1704,6 +1739,13 @@ export default function AdminMatchRegistration() {
                               title="원정 승리 정산 (스코어 0:1 자동 인입)"
                             >
                               원정승(0:1)
+                            </button>
+                            <button
+                              onClick={() => handleResolveMatchVoid(m.id)}
+                              className="px-1.5 py-0.5 text-[9px] font-bold rounded border border-rose-900/60 text-rose-500 hover:bg-rose-500 hover:text-black transition cursor-pointer"
+                              title="연기/취소로 인한 적중특례 처리"
+                            >
+                              적중특례
                             </button>
                           </div>
                         </div>

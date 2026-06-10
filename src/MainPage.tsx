@@ -309,7 +309,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   };
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -3666,13 +3666,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </button>
 
               {/* Referrer Button */}
-              <button 
-                type="button"
-                className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
-                onClick={() => setIsReferrerModalOpen(true)}
-              >
-                👥 추천인
-              </button>
+              {!currentUserData?.isPartner && (
+                <button 
+                  type="button"
+                  className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+                  onClick={() => setIsReferrerModalOpen(true)}
+                >
+                  👥 추천인
+                </button>
+              )}
 
               {/* Attendance Calendar Button */}
               <button 
@@ -3927,14 +3929,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </button>
 
                   {/* 추천인 */}
-                  <button
-                    type="button"
-                    onClick={() => { setIsReferrerModalOpen(true); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center"
-                  >
-                    <span className="text-xs font-bold text-gray-200 block">추천인</span>
-                    <span className="text-[7.5px] text-gray-400">Referrer</span>
-                  </button>
+                  {!currentUserData?.isPartner && (
+                    <button
+                      type="button"
+                      onClick={() => { setIsReferrerModalOpen(true); setIsMobileMenuOpen(false); }}
+                      className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center"
+                    >
+                      <span className="text-xs font-bold text-gray-200 block">추천인</span>
+                      <span className="text-[7.5px] text-gray-400">Referrer</span>
+                    </button>
+                  )}
 
                   {/* 테더 가이드 */}
                   <button
@@ -5948,10 +5952,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <div className="mb-3 text-xs md:text-sm text-gray-400 px-1">
             <button onClick={() => setShowMiniGame(false)} className="hover:text-white">홈</button> &gt; 미니게임
           </div>
-          <div className={`flex ${isMobile ? 'flex-col' : 'flex-row'} gap-4 md:gap-6 items-start justify-center relative w-full max-w-full overflow-hidden`}>
+          <div className="flex flex-row flex-nowrap gap-4 md:gap-6 items-start justify-center relative w-full max-w-full overflow-hidden">
             
             {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
-            <div className="flex-1 max-w-[1120px] w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="order-1 flex-1 max-w-[1120px] w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
               <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
                   <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
@@ -6296,16 +6300,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 적용 */}
             <div 
-              style={!isMobile ? {
+              style={{
                 paddingBottom: '20px',
                 marginBottom: '0px'
-              } : undefined}
-              className={`
-              ${isMobile 
-                ? `fixed bottom-[54px] left-0 right-0 max-h-[85vh] overflow-y-auto bg-neutral-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl px-4 py-3 pb-8 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] flex flex-col space-y-3 z-40 transition-all duration-300 transform ${mobileBetSlipOpen ? 'translate-y-0 opacity-100 animate-none' : 'translate-y-full opacity-0 pointer-events-none'}` 
-                : 'w-80 shrink-0 bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto'
-              }
-            `}>
+              }}
+              className={`${isMobile ? 'w-full' : 'order-2 w-80 shrink-0'} bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto`}>
               <div className="space-y-4 flex flex-col flex-1">
                 <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
                   <div className="flex items-center gap-2">
