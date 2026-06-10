@@ -5,6 +5,7 @@ import { db, auth } from './lib/firebase';
 import PointHistoryView from './components/PointHistoryView';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
+import PartnerMenuView from './components/PartnerMenuView';
 import { TelegramBanner, VerticalTelegramBanner } from './components/TelegramBanner';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
@@ -66,6 +67,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [nickname, setNickname] = useState('회원');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showPartnerPanel, setShowPartnerPanel] = useState(false);
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   
@@ -75,6 +77,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [editingWallet, setEditingWallet] = useState('');
   const [editingPassword, setEditingPassword] = useState('');
   const [editingWithdrawalPassword, setEditingWithdrawalPassword] = useState('');
+  const [editingIsPartner, setEditingIsPartner] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   // State for My Page
@@ -766,7 +769,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
 
     const nextBalance = userBalance - betAmount;
-    const pointsToAward = Math.floor(betAmount * 0.05);
+    const pointsToAward = currentUserData?.isPartner ? 0 : Math.floor(betAmount * 0.05);
 
     setUserBalance(nextBalance);
     setUserPoints(prev => prev + pointsToAward);
@@ -809,14 +812,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
     const updatedBets = [newBet, ...(currentUserData.bets || [])].slice(0, 50);
 
-    const minigamePointRewardItem = {
-      createdAt: Date.now(),
-      type: 'bet_reward_minigame',
-      description: `미니게임 배팅 적립 (${gameLabelString})`,
-      amount: pointsToAward,
-      balanceAfter: (currentUserData.points || 0) + pointsToAward
-    };
-    const updatedPointsHistory = [minigamePointRewardItem, ...(currentUserData.pointsHistory || [])].slice(0, 200);
+    let updatedPointsHistory = [...(currentUserData.pointsHistory || [])];
+    if (pointsToAward > 0) {
+      const minigamePointRewardItem = {
+        createdAt: Date.now(),
+        type: 'bet_reward_minigame',
+        description: `미니게임 배팅 적립 (${gameLabelString})`,
+        amount: pointsToAward,
+        balanceAfter: (currentUserData.points || 0) + pointsToAward
+      };
+      updatedPointsHistory = [minigamePointRewardItem, ...updatedPointsHistory].slice(0, 200);
+    }
 
     setCurrentUserData(prev => ({
       ...prev,
@@ -2370,6 +2376,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     setEditingWithdrawalPassword(user.withdrawalPassword || '');
     setEditingBalance(user.balance !== undefined ? user.balance : 5000000);
     setEditingPoints(user.points !== undefined ? user.points : 50000);
+    setEditingIsPartner(user.isPartner || false);
   };
 
   const handleSaveEdit = async (userId: string) => {
@@ -2402,7 +2409,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         withdrawalPassword: finalWithdrawalPassword,
         balance: nextBal,
         points: nextPts,
-        pointsHistory: newPointsHistory
+        pointsHistory: newPointsHistory,
+        isPartner: editingIsPartner
       });
       
       setAdminUsers(prev => prev.map(u => u.id === userId ? { 
@@ -2413,7 +2421,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         withdrawalPassword: finalWithdrawalPassword,
         balance: nextBal,
         points: nextPts,
-        pointsHistory: newPointsHistory
+        pointsHistory: newPointsHistory,
+        isPartner: editingIsPartner
       } : u));
 
       // Sync local profile state if editing self
@@ -2428,7 +2437,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
               ...curObj, 
               balance: nextBal, 
               points: nextPts,
-              pointsHistory: newPointsHistory
+              pointsHistory: newPointsHistory,
+              isPartner: editingIsPartner
             }));
           } catch (err) {
             console.error(err);
@@ -2469,7 +2479,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const nextBal = currentBal + (amountKrw || 0);
 
       // Calculate 10% charge bonus points
-      const depositBonusPoints = Math.floor((amountKrw || 0) * 0.1);
+      const depositBonusPoints = userData?.isPartner ? 0 : Math.floor((amountKrw || 0) * 0.1);
       let runningPoints = userData?.points !== undefined ? Number(userData.points) : 50000;
       let updatedPointsHistory = [...(userData?.pointsHistory || [])];
 
@@ -2489,7 +2499,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       // Check for Qualified Bettor referral reward
       // Trigger: Single deposit transaction >= 200,000 KRW + registered referrer + not yet rewarded
       let referralUpdateObj: any = {};
-      const hadReferralBonus = (amountKrw >= 200000 && userData?.appliedReferrerCode && !userData?.isQualifiedBettor);
+      const hadReferralBonus = (!userData?.isPartner && amountKrw >= 200000 && userData?.appliedReferrerCode && !userData?.isQualifiedBettor);
       
       if (hadReferralBonus) {
         runningPoints += 50000;
@@ -2510,14 +2520,40 @@ export default function MainPage({ onLogout }: MainPageProps) {
         
         try {
           // Award points to the referrer
-          const referrerQuery = query(collection(db, 'users'), where('referrerCode', '==', userData.appliedReferrerCode));
-          const referrerSnapshot = await getDocs(referrerQuery);
+          let rDocRef: any = null;
+          let rData: any = null;
+          let rDocId = '';
+
+          const cleanAppRef = (userData.appliedReferrerCode || '').trim().toUpperCase();
+          if (cleanAppRef) {
+            const customCodeDoc = await getDoc(doc(db, 'referralCodes', cleanAppRef));
+            if (customCodeDoc.exists()) {
+              const codeData = customCodeDoc.data();
+              if (codeData.status === 'active' && codeData.partnerId) {
+                const partnerDocRef = doc(db, 'users', codeData.partnerId);
+                const partnerSnap = await getDoc(partnerDocRef);
+                if (partnerSnap.exists()) {
+                  rDocRef = partnerDocRef;
+                  rData = partnerSnap.data();
+                  rDocId = partnerSnap.id;
+                }
+              }
+            }
+          }
+
+          if (!rDocRef) {
+            const referrerQuery = query(collection(db, 'users'), where('referrerCode', '==', userData.appliedReferrerCode));
+            const referrerSnapshot = await getDocs(referrerQuery);
+            if (!referrerSnapshot.empty) {
+              const referrerDocDoc = referrerSnapshot.docs[0];
+              rDocRef = doc(db, 'users', referrerDocDoc.id);
+              rData = referrerDocDoc.data();
+              rDocId = referrerDocDoc.id;
+            }
+          }
           
-          if (!referrerSnapshot.empty) {
-            const referrerDocDoc = referrerSnapshot.docs[0];
-            const referrerDocRef = doc(db, 'users', referrerDocDoc.id);
-            const referrerData = referrerDocDoc.data();
-            const referrerCurrentPoints = referrerData.points !== undefined ? Number(referrerData.points) : 50000;
+          if (rDocRef && rData) {
+            const referrerCurrentPoints = rData.points !== undefined ? Number(rData.points) : 50000;
             const referrerNewPoints = referrerCurrentPoints + 50000;
 
             const referrerHistoryItem = {
@@ -2527,13 +2563,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
               amount: 50000,
               balanceAfter: referrerNewPoints
             };
-            const updatedReferrerHistory = [referrerHistoryItem, ...(referrerData.pointsHistory || [])].slice(0, 200);
+            const updatedReferrerHistory = [referrerHistoryItem, ...(rData.pointsHistory || [])].slice(0, 200);
 
-            await updateDoc(referrerDocRef, {
+            await updateDoc(rDocRef, {
               points: referrerNewPoints,
               pointsHistory: updatedReferrerHistory
             });
-            console.log(`Successfully awarded 50,000P to referrer: ${referrerDocDoc.id}`);
+            console.log(`Successfully awarded 50,000P to referrer: ${rDocId}`);
           }
         } catch (referrerErr) {
           console.error("Failed to update referrer points, but proceeding with depositor's balance/upgrade:", referrerErr);
@@ -3246,8 +3282,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </button>
               </div>
 
-              {/* Right Side: Admin or Telegram */}
+              {/* Right Side: Admin, Partner or Telegram */}
               <div className="flex items-center gap-1.5 z-20">
+                {(currentUserData?.isPartner || isAdmin) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPartnerPanel(true)}
+                    className="flex items-center justify-center bg-gradient-to-r from-amber-500 to-amber-600 border border-amber-400/30 text-black p-2 rounded-lg shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                    title="파트너 메뉴"
+                  >
+                    <Users className="w-4 h-4" />
+                  </button>
+                )}
                 {isAdmin && (
                   <button
                     type="button"
@@ -3310,9 +3356,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
              DESKTOP ORIGINAL HEADER (Untouched!)
              ======================================================== */
           <>
-            {/* Admin Menu Switch for Operators (Top Right on desktop) */}
-            {isAdmin && (
-              <div className="sm:absolute sm:top-6 sm:right-6 mt-1 sm:mt-0 z-30">
+            {/* Admin & Partner Menu Switches (Top Right on desktop) */}
+            <div className="sm:absolute sm:top-6 sm:right-6 mt-1 sm:mt-0 z-30 flex items-center gap-2">
+              {(currentUserData?.isPartner || isAdmin) && (
+                <button
+                  onClick={() => setShowPartnerPanel(true)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-black font-black px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(245,158,11,0.4)] border border-amber-400/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95 animate-fade-in"
+                >
+                  <Users className="w-4 h-4 text-amber-950" />
+                  파트너 메뉴
+                </button>
+              )}
+              {isAdmin && (
                 <button
                   onClick={() => setShowAdminPanel(true)}
                   className="flex items-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-900 hover:from-red-500 hover:to-red-700 text-white font-extrabold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.6)] border border-red-500/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95"
@@ -3320,8 +3375,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <Shield className="w-4 h-4 animate-pulse text-red-100" />
                   어드민 관리자 메뉴
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Logo */}
             <button 
@@ -3765,26 +3820,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <div className="grid grid-cols-3 gap-1 bg-[#101216] p-1 rounded-xl border border-red-900">
                   
 
+
                   {/* 미니게임 */}
                   <button
                     type="button"
                     onClick={() => { navigateTo('minigame'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-amber-500/20"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-amber-500/25"
                   >
                     <span className="text-xs font-bold text-amber-400">미니게임</span>
                     <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Mini Game</span>
                   </button>
-
-                  {/* 테더 가이드 */}
-                  <button
-                    type="button"
-                    onClick={() => { navigateTo('tetherguide'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-emerald-500/25"
-                  >
-                    <span className="text-xs font-bold text-emerald-400">테더가이드</span>
-                    <span className="text-[7.5px] text-emerald-500 uppercase font-bold tracking-tight">USDT Guide</span>
-                  </button>
-
 
                   {/* 스포츠+ */}
                   <button
@@ -3891,14 +3936,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <span className="text-[7.5px] text-gray-400">Referrer</span>
                   </button>
 
-                  {/* 머니내역 */}
+                  {/* 테더 가이드 */}
                   <button
                     type="button"
-                    onClick={() => { navigateTo('deposit'); setIsMobileMenuOpen(false); }}
+                    onClick={() => { navigateTo('tetherguide'); setIsMobileMenuOpen(false); }}
                     className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
                   >
-                    <span className="text-xs font-bold text-gray-200 block">머니내역</span>
-                    <span className="text-[7.5px] text-gray-400">Trans Log</span>
+                    <span className="text-xs font-bold text-emerald-400 block">테더가이드</span>
+                    <span className="text-[7.5px] text-emerald-500">USDT Guide</span>
                   </button>
 
                   {/* 베팅내역 */}
@@ -3921,14 +3966,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <span className="text-[7.5px] text-teal-500">Notice</span>
                   </button>
 
-                  {/* 콤프내역 */}
+                  {/* 스포츠 */}
                   <button
                     type="button"
-                    onClick={() => { alert('누적된 콤프 포인트를 보유머니로 즉시 환전하실 수 있습니다!'); setIsMobileMenuOpen(false); }}
+                    onClick={() => { navigateTo('sports'); setIsMobileMenuOpen(false); }}
                     className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
-                    <span className="text-xs font-bold text-gray-200 block">콤프내역</span>
-                    <span className="text-[7.5px] text-gray-400">Comp Rep</span>
+                    <span className="text-xs font-bold text-gray-200 block">스포츠</span>
+                    <span className="text-[7.5px] text-gray-400">Sports</span>
                   </button>
 
                 </div>
@@ -4380,7 +4425,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2 whitespace-nowrap">
                   CHOICE 공지사항 <span className="text-amber-400 text-xs font-black tracking-wider uppercase bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">OFFICIAL NOTICES & RULES</span>
                 </h2>
                 <p className="text-xs text-gray-400 mt-1">회원님들의 소중한 자산 보호와 투명하고 안전한 시뮬레이션 베팅을 위한 필독 이용 안내입니다.</p>
@@ -4814,7 +4859,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <li>충전 신청 승인이 완료되면 별도의 신청 접수 없이 <strong className="text-gray-350">10% 충전 보너스 포인트가 완전 자동 계산</strong>되어 즉시 합산 처리됩니다.</li>
                   <li>모든 베팅 참여 시 <strong className="text-gray-350">무한 +5% 페이백 포인트(지정 보상)</strong> 조항에 따라 당첨/낙첨 결과에 무관하게 베팅 마감 후 즉시 페이백이 정산됩니다.</li>
                   <li>지급된 모든 보너스 및 페이백 포인트는 CHOICE에서 제공하는 모든 시뮬레이터 미니게임 및 스포츠 베팅에 100% 동일하게 사용될 수 있습니다.</li>
-              <li>동일인 다중 IP 접속 및 의도적인 중복 가입을 통해 보너스 포인트를 편취하려는 시도나 매칭 어뷰징 행위 발생 시, 시스템 적발 프로그램을 통해 불이익(계정 영구 제한 및 자산 몰수 처리)이 부여되므로 정직한 모의 베팅 스포츠 매칭을 즐겨주시길 당부 드립니다.</li>
+              <li>동일인 다중 IP 접속 및 의도적인 중복 가입을 통해 보너스 포인트를 편취하려는 시도나 매칭 어뷰징 행위 발생 시, 시스템 적발 프로그램을 통해 불이익(계정 영구 제한 및 자산 몰수 처리)이 부여되므로 정직한 베팅 스포츠 매칭을 즐겨주시길 당부 드립니다.</li>
             </ul>
           </div>
         </div>
@@ -4828,9 +4873,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
           {/* Title Banner */}
           <div className="mb-6 border-b border-neutral-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <Shield className="w-6 h-6 text-amber-500" />
-                1:1 문의사항 <span className="text-amber-500 text-xs font-black tracking-wider uppercase">1:1 Customer Support</span>
+              <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2 overflow-hidden">
+                <Shield className="w-6 h-6 text-amber-500 shrink-0" />
+                <span className="whitespace-nowrap">1:1 문의사항</span>
+                <span className="text-amber-500 text-[10px] sm:text-xs font-black tracking-wider uppercase shrink-0 truncate">1:1 Customer Support</span>
               </h2>
               <p className="text-xs text-gray-400 mt-1">문의하신 질문은 성심성의껏 세심하고 빠르게 답변 드리겠습니다.</p>
             </div>
@@ -4852,8 +4898,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
 
 
-          {/* Table / List Container */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
+          {/* List Container */}
+          <div className="space-y-3">
             {isLoadingInquiries ? (
               <div className="p-12 text-center text-gray-400 font-bold flex flex-col items-center justify-center gap-2">
                 <RefreshCw className="w-6 h-6 animate-spin text-amber-500" />
@@ -4870,85 +4916,63 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-neutral-950 text-gray-300 font-black border-b border-neutral-800 uppercase tracking-wider">
-                      <th className="p-4 w-12 text-center">번호</th>
-                      <th className="p-4">제목</th>
-                      <th className="p-4 w-28 text-center">작성자</th>
-                      <th className="p-4 w-32 text-center">작성일시</th>
-                      <th className="p-4 w-24 text-center">처리상태</th>
-                      <th className="p-4 w-16 text-center">삭제</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-800/60">
-                    {userInquiries.map((inq, index) => {
-                      const isExpanded = selectedInquiryDetail?.id === inq.id;
-                      return (
-                        <tr key={inq.id} className="hover:bg-neutral-850/40 transition">
-                          <td className="p-4 text-center text-gray-500 font-mono">{userInquiries.length - index}</td>
-                          <td className="p-4">
-                            <button
-                              onClick={() => setSelectedInquiryDetail(isExpanded ? null : inq)}
-                              className="text-left font-bold text-gray-200 hover:text-amber-400 block w-full focus:outline-none focus:text-amber-400 transition cursor-pointer"
-                            >
-                              {inq.title}
-                            </button>
-                            
-                            {/* Expandable Box inside title row */}
-                            {isExpanded && (
-                              <div className="mt-4 bg-neutral-950 border border-neutral-850 rounded-lg p-5 space-y-4 my-2 text-gray-300">
-                                <div className="border-b border-neutral-800 pb-3">
-                                  <div className="flex items-center justify-between text-[11px] text-gray-400 mb-2 font-mono">
-                                    <span>작성자: <strong className="text-amber-500">{inq.nickname}</strong> ({inq.username})</span>
-                                    <span>접수일: {new Date(inq.createdAt).toLocaleString('ko-KR')}</span>
-                                  </div>
-                                  <p className="whitespace-pre-wrap leading-relaxed text-xs text-gray-200 font-sans mt-2">{inq.content}</p>
-                                </div>
-                                
-                                {/* Reply Section */}
-                                <div>
-                                  <h4 className="text-[11px] font-black text-amber-500 flex items-center gap-1 mb-2">
-                                    <Shield className="w-3.5 h-3.5" /> 고객센터 답변 (Answer)
-                                  </h4>
-                                  {inq.status === 'answered' ? (
-                                    <div className="bg-emerald-950/25 border border-emerald-900/30 rounded p-4 text-emerald-200 space-y-2">
-                                      <p className="whitespace-pre-wrap leading-relaxed font-sans text-xs">{inq.reply}</p>
-                                      <p className="text-[10px] text-emerald-500 font-mono text-right font-black">답변일시: {new Date(inq.repliedAt).toLocaleString('ko-KR')}</p>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-neutral-900/50 border border-neutral-800 p-4 rounded text-gray-500 font-bold text-center italic">
-                                      고객센터 담당자의 확인을 대기 중입니다. 최대한 신속하게 성심껏 안내해 드리겠습니다.
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-4 text-center text-gray-300 font-bold">{inq.nickname}</td>
-                          <td className="p-4 text-center text-gray-500 font-mono text-[10px]">{new Date(inq.createdAt).toLocaleString('ko-KR')}</td>
-                          <td className="p-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-tight flex items-center justify-center gap-1 w-20 mx-auto ${inq.status === 'answered' ? 'bg-emerald-950 border border-emerald-900 text-emerald-400' : 'bg-amber-955 border border-amber-905 text-amber-400 animate-pulse'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${inq.status === 'answered' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                              {inq.status === 'answered' ? '답변완료' : '답변대기'}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center">
-                            <button
-                              onClick={() => handleDeleteInquiry(inq.id)}
-                              className="text-gray-500 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-950/20 cursor-pointer"
-                              title="삭제"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              userInquiries.map((inq, index) => {
+                const isExpanded = selectedInquiryDetail?.id === inq.id;
+                return (
+                  <div key={inq.id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 text-[10px] text-gray-500 mb-1">
+                          <span className="font-mono">#{userInquiries.length - index}</span>
+                          <span>|</span>
+                          <span>{new Date(inq.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <button
+                          onClick={() => setSelectedInquiryDetail(isExpanded ? null : inq)}
+                          className="text-left font-bold text-gray-200 hover:text-amber-400 block w-full focus:outline-none transition cursor-pointer text-sm"
+                        >
+                          {inq.title}
+                        </button>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-tight ${inq.status === 'answered' ? 'bg-emerald-950 border border-emerald-900 text-emerald-400' : 'bg-amber-955 border border-amber-905 text-amber-400'}`}>
+                          {inq.status === 'answered' ? '답변완료' : '답변대기'}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteInquiry(inq.id)}
+                          className="text-gray-500 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-950/20 cursor-pointer"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Expandable Box */}
+                    {isExpanded && (
+                      <div className="mt-4 bg-neutral-950 border border-neutral-850 rounded-lg p-4 space-y-4 text-gray-300">
+                        <p className="whitespace-pre-wrap leading-relaxed text-xs text-gray-200 font-sans">{inq.content}</p>
+                        
+                        {/* Reply Section */}
+                        <div className="border-t border-neutral-800 pt-3">
+                          <h4 className="text-[10px] font-black text-amber-500 flex items-center gap-1 mb-2">
+                            <Shield className="w-3 h-3" /> 고객센터 답변
+                          </h4>
+                          {inq.status === 'answered' ? (
+                            <div className="bg-emerald-950/25 border border-emerald-900/30 rounded p-3 text-emerald-200 text-xs">
+                              <p className="whitespace-pre-wrap leading-relaxed font-sans">{inq.reply}</p>
+                            </div>
+                          ) : (
+                            <div className="bg-neutral-900/50 border border-neutral-800 p-3 rounded text-gray-500 font-bold text-[10px] text-center italic">
+                              확인 대기 중입니다. 신속하게 안내해 드리겠습니다.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -5026,33 +5050,33 @@ export default function MainPage({ onLogout }: MainPageProps) {
               {currentUser?.username}님의 회원정보 수정입니다. 아이디와 비밀번호 보안에 신경써주십시오.
             </div>
             
-            <div className="space-y-6">
-              <div className="flex items-center gap-8">
-                <label className="w-24 text-gray-400">아이디</label>
-                <span className="text-amber-400 font-bold">{currentUser?.username}</span>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8">
+                <label className="w-full sm:w-24 text-gray-400 text-sm">아이디</label>
+                <span className="text-amber-400 font-bold text-sm">{currentUser?.username}</span>
               </div>
               <div className="border-b border-gray-700" />
               
-              <div className="flex items-center gap-8">
-                <label className="w-24 text-gray-400">새 로그인 비밀번호</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm">새 로그인 비밀번호</label>
                 <div className="flex-1">
                   <input 
                     type="password" 
                     value={loginPassword} 
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="새로운 로그인 비밀번호 입력 (4~16자)"
-                    className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-white" 
+                    placeholder="새 비밀번호 (4~16자)"
+                    className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-white text-sm" 
                   />
-                  <p className="text-xs text-gray-500 mt-1">변경을 원하시는 경우에만 새 로그인 비밀번호를 입력해주세요.</p>
+                  <p className="text-[10px] text-gray-500 mt-1">변경을 원하시는 경우에만 입력해주세요.</p>
                 </div>
               </div>
               <div className="border-b border-gray-700" />
               
-              <div className="flex items-center gap-8">
-                <label className="w-24 text-gray-400">출금 비밀번호</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm">출금 비밀번호</label>
                 <div className="flex-1">
                   {currentUserData?.withdrawalPassword ? (
-                    <div className="text-gray-400 p-2">이미 설정되었습니다.</div>
+                    <div className="text-gray-400 p-2 text-sm bg-neutral-800 rounded">이미 설정되었습니다.</div>
                   ) : (
                     <>
                       <input 
@@ -5062,26 +5086,26 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           if (val.length <= 6) setWithdrawalPassword(val);
                         }}
-                        placeholder="출금 비밀번호 설정"
-                        className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-white" 
+                        placeholder="숫자 4~6자리 입력"
+                        className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-white text-sm" 
                       />
-                      <p className="text-xs text-gray-500 mt-1">최초 1회 설정: 숫자 4~6자리로 입력해주세요.</p>
+                      <p className="text-[10px] text-gray-500 mt-1">최초 1회 설정: 숫자 4~6자리로 입력해주세요.</p>
                     </>
                   )}
                 </div>
               </div>
               <div className="border-b border-gray-700" />
               
-              <div className="flex items-center gap-8">
-                <label className="w-24 text-gray-400">닉네임</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm">닉네임</label>
                 <div className="flex-1">
-                  <input type="text" disabled value={nickname} className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-gray-400" />
-                  <p className="text-xs text-gray-500 mt-1">닉네임은 변경이 불가능합니다.</p>
+                  <input type="text" disabled value={nickname} className="w-full bg-neutral-800 border border-gray-600 rounded p-2 text-gray-500 text-sm" />
+                  <p className="text-[10px] text-gray-500 mt-1">닉네임은 변경이 불가능합니다.</p>
                 </div>
               </div>
             </div>
 
-              <div className="mt-12 text-center flex justify-center gap-4">
+              <div className="mt-8 text-center flex justify-center gap-4">
                 {currentUserData && (
                   <button 
                     onClick={async () => {
@@ -5149,16 +5173,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         alert('정보 저장 실패: ' + (e instanceof Error ? e.message : String(e)));
                       }
                     }}
-                    className="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-12 rounded cursor-pointer transition-all"
+                    className="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded cursor-pointer transition-all text-sm sm:px-12 whitespace-nowrap"
                   >
                     회원정보 저장
                   </button>
                 )}
                 <button 
                   onClick={() => navigateTo('support')}
-                  className="bg-lime-700 hover:bg-lime-600 text-white font-bold py-2 px-12 rounded cursor-pointer transition-all active:scale-95 duration-200"
+                  className="bg-lime-700 hover:bg-lime-600 text-white font-bold py-2 px-6 rounded cursor-pointer transition-all active:scale-95 duration-200 text-sm sm:px-12 whitespace-nowrap"
                 >
-                  문의하기 (고객센터)
+                  문의하기
                 </button>
               </div>
           </div>
@@ -6268,6 +6292,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
 
               </div>
+            </div>
 
             {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 적용 */}
             <div 
@@ -6503,7 +6528,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           </div>
         </div>
-      </div>
       ) : (
         <>
           {/* Main Feature Banner - High-End Luxury Cohesive VIP Cockpit Board */}
@@ -6727,6 +6751,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
             <p className="mt-2 text-[10px] text-gray-700">Copyright 2017 © CHOICE Corp. All Rights Reserved.</p>
           </footer>
         </>
+      )}
+
+      {/* Partner System Modal Overlay */}
+      {showPartnerPanel && (
+        <PartnerMenuView 
+          currentUserData={currentUserData}
+          isAdmin={isAdmin}
+          onClose={() => setShowPartnerPanel(false)}
+          refreshUser={() => {
+            loadAllUsers();
+          }}
+        />
       )}
 
       {/* Admin Panel Modal Overlay */}
@@ -7273,6 +7309,29 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                       <div className="text-[10px] text-gray-400 font-medium">내 추천코드: <span className="font-bold text-amber-500 font-sans">{user.referrerCode || '-'}</span></div>
                                       <div className="text-[10px] text-gray-450 font-medium">상위 추천인: <span className="font-bold text-cyan-455 font-sans">{user.appliedReferrerCode || '없음'}</span></div>
                                       <div className="text-[10px] text-gray-450 font-medium">추천 회원수: <span className="font-black text-emerald-450 font-sans">{adminUsers.filter(u => u.appliedReferrerCode === user.referrerCode).length}명</span></div>
+                                      <div className="mt-1">
+                                        {isEditing ? (
+                                          <label className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[9px] text-amber-400 font-extrabold cursor-pointer select-none">
+                                            <input 
+                                              type="checkbox" 
+                                              checked={editingIsPartner}
+                                              onChange={(e) => setEditingIsPartner(e.target.checked)}
+                                              className="accent-amber-550 cursor-pointer h-3 w-3"
+                                            />
+                                            <span>총판 지정</span>
+                                          </label>
+                                        ) : (
+                                          user.isPartner ? (
+                                            <span className="inline-block bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[9px] font-black tracking-wider px-2 py-0.5 rounded mt-0.5 animate-pulse">
+                                              ★ 총판 파트너
+                                            </span>
+                                          ) : (
+                                            <span className="inline-block bg-neutral-800 text-gray-500 text-[9px] font-bold px-1.5 py-0.5 rounded mt-0.5">
+                                              일반 회원
+                                            </span>
+                                          )
+                                        )}
+                                      </div>
                                     </div>
                                   </td>
                                   <td className="p-3 text-center">
@@ -7389,10 +7448,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
       {/* Mobile Sticky Bottom Navigation Bar */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0c0e11]/95 backdrop-blur-md border-t border-neutral-800/80 px-2 py-1.5 flex items-center justify-around pb-safe-bottom shadow-[0_-5px_22px_rgba(0,0,0,0.9)] md:hidden">
-          {/* 1. 콤프내역 */}
+          {/* 1. 스포츠 */}
           <button
             onClick={() => {
-              setShowAttendanceChecker(true);
+              navigateTo('sports');
             }}
             className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-450 transition-colors cursor-pointer group"
           >
@@ -7400,14 +7459,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <Vote className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
-              콤프내역
+              스포츠
             </span>
           </button>
 
-          {/* 2. 머니내역 */}
+          {/* 2. 미니게임 */}
           <button
             onClick={() => {
-              navigateTo('deposit');
+              navigateTo('minigame');
             }}
             className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
           >
@@ -7415,7 +7474,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <Coins className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
-              머니내역
+              미니게임
             </span>
           </button>
 
@@ -7752,7 +7811,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <Mail className="w-5 h-5 animate-pulse text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="text-sm md:text-base font-black text-white flex items-center gap-2">
+                  <h3 className="text-sm md:text-base font-black text-white flex items-center gap-2 whitespace-nowrap">
                     📥 CHOICE 개인 쪽지함 <span className="text-amber-500 font-mono text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">{unreadCount} 미확인</span>
                   </h3>
                   <p className="text-[11px] text-gray-400">초이스 운영진이 발송한 중요 공지 및 개별 혜택 소식을 실시간 확인하세요.</p>

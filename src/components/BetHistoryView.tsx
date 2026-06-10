@@ -758,25 +758,25 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
                               </span>
                             </div>
 
-                            <div className="flex justify-between items-center bg-[#0b0c10] p-1 rounded border border-neutral-800/60 gap-0.5">
-                              <div className={`flex flex-col p-1 rounded border transition w-[40%] text-[10px] items-center truncate ${
+                    <div className="flex justify-between items-center bg-[#0b0c10] p-1 rounded border border-neutral-800/60 gap-1.5">
+                              <div className={`flex items-center justify-between p-1 rounded border transition w-full text-[11px] truncate flex-1 px-2 ${
                                 layout.selectedSide === 'home' 
                                   ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
                                   : 'bg-transparent border-transparent'
                               }`}>
-                                <span className={`font-bold truncate w-full text-center ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
-                                <span className="text-amber-500 font-bold text-[9px]">{layout.homeOdds}</span>
+                                <span className={`font-bold truncate ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
+                                <span className="text-amber-500 font-bold ml-1">{layout.homeOdds}</span>
                               </div>
 
-                              <span className="text-gray-500 font-bold text-[9px] uppercase tracking-tighter whitespace-nowrap px-0.5">{layout.midStandard}</span>
+                              <span className="text-gray-500 font-bold text-[10px] uppercase shrink-0 px-1">{layout.midStandard}</span>
 
-                              <div className={`flex flex-col p-1 rounded border transition w-[40%] items-center text-[10px] truncate ${
+                              <div className={`flex items-center justify-between p-1 rounded border transition w-full text-[11px] truncate flex-1 px-2 ${
                                 layout.selectedSide === 'away' 
                                   ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
                                   : 'bg-transparent border-transparent'
                               }`}>
-                                <span className={`font-bold truncate w-full text-center ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
-                                <span className="text-amber-500 font-bold text-[9px]">{layout.awayOdds}</span>
+                                <span className={`font-bold truncate ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
+                                <span className="text-amber-500 font-bold ml-1">{layout.awayOdds}</span>
                               </div>
                             </div>
                           </div>

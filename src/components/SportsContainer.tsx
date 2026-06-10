@@ -975,17 +975,20 @@ function isMatchActive(dateTimeStr: string): boolean {
       };
 
       const updatedBets = [newBet, ...(currentUserData.bets || [])].slice(0, 50);
-      const pointsToAward = Math.floor(betAmount * 0.05);
+      const pointsToAward = currentUserData?.isPartner ? 0 : Math.floor(betAmount * 0.05);
       const newPoints = (currentUserData.points || 0) + pointsToAward;
 
-      const sportsPointRewardItem = {
-        createdAt: Date.now(),
-        type: 'bet_reward_sports',
-        description: `스포츠 배팅 적립 (${gameLabelString})`,
-        amount: pointsToAward,
-        balanceAfter: newPoints
-      };
-      const updatedPointsHistory = [sportsPointRewardItem, ...(currentUserData?.pointsHistory || [])].slice(0, 200);
+      let updatedPointsHistory = [...(currentUserData?.pointsHistory || [])];
+      if (pointsToAward > 0) {
+        const sportsPointRewardItem = {
+          createdAt: Date.now(),
+          type: 'bet_reward_sports',
+          description: `스포츠 배팅 적립 (${gameLabelString})`,
+          amount: pointsToAward,
+          balanceAfter: newPoints
+        };
+        updatedPointsHistory = [sportsPointRewardItem, ...updatedPointsHistory].slice(0, 200);
+      }
 
       if (setUserPoints) {
         setUserPoints(newPoints);

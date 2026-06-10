@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User, Lock, Hash, Wallet } from 'lucide-react';
-import { collection, setDoc, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, setDoc, doc, serverTimestamp, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { db, auth } from './lib/firebase';
 
 interface RegistrationScreenProps {
@@ -57,9 +57,9 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleRegister = async () => {
-    // Check if joinCode is 4-digit number
-    if (!/^\d{4}$/.test(formData.joinCode)) {
-      alert('가입 코드는 4자리 숫자로 입력해주세요.');
+    const enteredCode = formData.joinCode.trim().toUpperCase();
+    if (!enteredCode) {
+      alert('가입 마스터 코드를 입력해 주세요.');
       return;
     }
     if (formData.username.length < 3 || formData.username.length > 30 || !/^[a-zA-Z0-9]+$/.test(formData.username)) {
@@ -81,6 +81,49 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
     }
 
     try {
+      // 1. 가입 추천코드 유효성 검증
+      let resolvedReferrerCode = enteredCode;
+      let isCodeValid = false;
+
+      try {
+        const codeRef = doc(db, 'referralCodes', enteredCode);
+        const codeDoc = await getDoc(codeRef);
+        if (codeDoc.exists()) {
+          const codeData = codeDoc.data();
+          if (codeData.status === 'active') {
+            isCodeValid = true;
+            // Save the active custom code itself as the applied referral code
+            resolvedReferrerCode = enteredCode;
+          } else {
+            alert('비활성화되었거나 정지된 추천가입코드입니다. 올바른 코드를 사용해 주세요.');
+            return;
+          }
+        } else {
+          // 백업 폴백: 4자리 대소 구분 없는 숫자인 경우 (기존 일반 5882 등 가입 허용)
+          if (/^\d{4}$/.test(enteredCode)) {
+            isCodeValid = true;
+            resolvedReferrerCode = enteredCode;
+          } else {
+            alert('존재하지 않거나 발급되지 않은 추천가입코드입니다. 올바른 코드를 확인 후 다시 가입해 주세요.');
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Code verification failed, falling back to basic checks', checkErr);
+        if (/^\d{4}$/.test(enteredCode)) {
+          isCodeValid = true;
+          resolvedReferrerCode = enteredCode;
+        } else {
+          alert('가입 추천코드 검증 중 알 수 없는 시스템 오류가 발생했습니다.');
+          return;
+        }
+      }
+
+      if (!isCodeValid) {
+        alert('유효하지 않은 가입코드입니다.');
+        return;
+      }
+
       // 아이디 중복 체크
       const q = query(collection(db, 'users'), where('username', '==', formData.username));
       const querySnapshot = await getDocs(q);
@@ -92,27 +135,27 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
 
       const newUser = {
         id: formData.username,
-        joinCode: formData.joinCode,
+        joinCode: enteredCode,
         username: formData.username,
         password: formData.password,
         nickname: formData.nickname,
         tetherWalletAddress: formData.tetherWalletAddress,
         balance: 0,
         points: 0,
-        appliedReferrerCode: formData.joinCode,
+        appliedReferrerCode: resolvedReferrerCode,
         createdAt: new Date().toISOString()
       };
 
       // Real Firestore write
       await setDoc(doc(db, 'users', formData.username), {
-        joinCode: formData.joinCode,
+        joinCode: enteredCode,
         username: formData.username,
         password: formData.password,
         nickname: formData.nickname,
         tetherWalletAddress: formData.tetherWalletAddress,
         balance: 0,
         points: 0,
-        appliedReferrerCode: formData.joinCode,
+        appliedReferrerCode: resolvedReferrerCode,
         createdAt: serverTimestamp()
       });
 
@@ -134,7 +177,7 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
 
       // Safe auto log in
       localStorage.setItem('currentUser', JSON.stringify(newUser));
-      localStorage.setItem('myAppliedReferrer', formData.joinCode);
+      localStorage.setItem('myAppliedReferrer', enteredCode);
 
       setShowSuccess(true);
       setTimeout(() => {
