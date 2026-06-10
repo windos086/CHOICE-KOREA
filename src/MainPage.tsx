@@ -2,12 +2,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, addDoc, getDoc, setDoc, onSnapshot, Timestamp, limit, orderBy } from 'firebase/firestore';
 import { db, auth } from './lib/firebase';
+import PointHistoryView from './components/PointHistoryView';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
+import { TelegramBanner, VerticalTelegramBanner } from './components/TelegramBanner';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap } from 'lucide-react';
+import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -79,6 +81,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showMyPage, setShowMyPage] = useState(false);
   const [showAttendanceChecker, setShowAttendanceChecker] = useState(false);
   const [showBetHistory, setShowBetHistory] = useState(false);
+  const [showPointsHistory, setShowPointsHistory] = useState(false);
   const [showSports, setShowSports] = useState(false);
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
@@ -110,6 +113,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // States for Game Result Screen
   const [showGameResultScreen, setShowGameResultScreen] = useState(false);
   const [gameResults, setGameResults] = useState<any[]>([]);
+  const [sportsResults, setSportsResults] = useState<any[]>([]);
   const [isLoadingGameResults, setIsLoadingGameResults] = useState(false);
   const [gameResultFilter, setGameResultFilter] = useState('전체');
   const [gameResultPage, setGameResultPage] = useState(1);
@@ -125,15 +129,56 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   // States for 1:1 Support System
   const [showSupportScreen, setShowSupportScreen] = useState(false);
+  const [showEventScreen, setShowEventScreen] = useState(false);
+  const [showNoticeScreen, setShowNoticeScreen] = useState(false);
+  const [showTetherGuide, setShowTetherGuide] = useState(false);
   const [userInquiries, setUserInquiries] = useState<any[]>([]);
   const [adminInquiries, setAdminInquiries] = useState<any[]>([]);
   const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
+
+  // States for Notes / Mailbox System
+  const [showMailboxModal, setShowMailboxModal] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<any | null>(null);
+  const [userNotes, setUserNotes] = useState<any[]>([]);
+  const notifiedNotesRef = useRef<Record<string, boolean>>({});
+  const [isAdminNoteModalOpen, setIsAdminNoteModalOpen] = useState(false);
+  const [adminNoteTargetUsername, setAdminNoteTargetUsername] = useState('');
+  const [adminNoteTargetNickname, setAdminNoteTargetNickname] = useState('');
+  const [adminSelectedUserForBets, setAdminSelectedUserForBets] = useState<any | null>(null);
+  const [isAdminBetsModalOpen, setIsAdminBetsModalOpen] = useState(false);
+  const [adminNoteTitle, setAdminNoteTitle] = useState('');
+  const [adminNoteContent, setAdminNoteContent] = useState('');
   const [inquiryTitle, setInquiryTitle] = useState('');
   const [inquiryContent, setInquiryContent] = useState('');
   const [inquiryType, setInquiryType] = useState<'normal' | 'account'>('normal');
   const [showCreateInquiryModal, setShowCreateInquiryModal] = useState(false);
   const [selectedInquiryDetail, setSelectedInquiryDetail] = useState<any | null>(null);
   const [adminReplyText, setAdminReplyText] = useState('');
+
+  // States for Referrer System
+  const [isReferrerModalOpen, setIsReferrerModalOpen] = useState(false);
+  const [userReferrerCode, setUserReferrerCode] = useState<string>(() => {
+    let code = localStorage.getItem('userReferrerCode') || '13788';
+    if (code.startsWith('REF-')) {
+      code = code.replace('REF-', '');
+      localStorage.setItem('userReferrerCode', code);
+    }
+    return code;
+  });
+  const [myAppliedReferrer, setMyAppliedReferrer] = useState<string>(() => localStorage.getItem('myAppliedReferrer') || '');
+  const [referrerInputTemp, setReferrerInputTemp] = useState('13788');
+  const [rollingPoints, setRollingPoints] = useState<number>(() => {
+    const saved = localStorage.getItem('rollingPoints');
+    return saved !== null ? Number(saved) : 0;
+  });
+  const [referredUsersCount, setReferredUsersCount] = useState<number>(() => {
+    const saved = localStorage.getItem('referredUsersCount');
+    return saved !== null ? Number(saved) : 0;
+  });
+  const [referredTotalBet, setReferredTotalBet] = useState<number>(() => {
+    const saved = localStorage.getItem('referredTotalBet');
+    return saved !== null ? Number(saved) : 0;
+  });
 
   // Populate sending wallet address input from registered user data
   useEffect(() => {
@@ -158,13 +203,24 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const newBalance = userBalance + userPoints;
     const newPoints = 0;
     
+    // 로그 기록
+    const pointHistoryItem = {
+        createdAt: Date.now(),
+        type: 'exchange',
+        description: '포인트 보유머니 교환',
+        amount: -userPoints,
+        balanceAfter: newBalance
+    };
+    const updatedHistory = [pointHistoryItem, ...(currentUserData.pointsHistory || [])];
+
     setUserBalance(newBalance);
     setUserPoints(newPoints);
     
     try {
         await updateDoc(doc(db, 'users', currentUserData.id), {
             balance: newBalance,
-            points: newPoints
+            points: newPoints,
+            pointsHistory: updatedHistory
         });
         
         const savedUserStr = localStorage.getItem('currentUser');
@@ -173,14 +229,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
             localStorage.setItem('currentUser', JSON.stringify({ 
                 ...curObj, 
                 balance: newBalance,
-                points: newPoints
+                points: newPoints,
+                pointsHistory: updatedHistory
             }));
         }
         
+        // 로컬 상태 강제 업데이트
+        setCurrentUserData(prev => ({
+            ...prev,
+            balance: newBalance,
+            points: newPoints,
+            pointsHistory: updatedHistory
+        }));
+        
         alert(`포인트 ${userPoints.toLocaleString()}P가 보유머니로 교환되었습니다.`);
     } catch (e) {
-        console.error("Failed to exchange points: ", e);
-        alert('포인트 교환 중 오류가 발생했습니다.');
+        // ... (error handling)
     }
   };
 
@@ -193,14 +257,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // Dynamic user wallet balances connected to Firestore DB
   const [userBalance, setUserBalance] = useState<number>(0);
   const [userPoints, setUserPoints] = useState<number>(0);
+  const unreadCount = userNotes.filter(n => !n.read).length;
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'support' | 'mypage') => {
+  const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'pointshistory' | 'support' | 'mypage' | 'event' | 'notice' | 'tetherguide') => {
     setShowSports(false);
     setShowBetHistory(false);
+    setShowPointsHistory(false);
     setShowSupportScreen(false);
+    setShowEventScreen(false);
+    setShowNoticeScreen(false);
+    setShowTetherGuide(false);
     setShowMyPage(false);
     setShowDepositScreen(false);
     setShowWithdrawalScreen(false);
@@ -221,10 +290,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
       setShowGameResultScreen(true);
     } else if (target === 'bethistory') {
       setShowBetHistory(true);
+    } else if (target === 'pointshistory') {
+      setShowPointsHistory(true);
     } else if (target === 'support') {
       setShowSupportScreen(true);
     } else if (target === 'mypage') {
       setShowMyPage(true);
+    } else if (target === 'event') {
+      setShowEventScreen(true);
+    } else if (target === 'notice') {
+      setShowNoticeScreen(true);
+    } else if (target === 'tetherguide') {
+      setShowTetherGuide(true);
     }
   };
 
@@ -732,10 +809,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
     const updatedBets = [newBet, ...(currentUserData.bets || [])].slice(0, 50);
 
+    const minigamePointRewardItem = {
+      createdAt: Date.now(),
+      type: 'bet_reward_minigame',
+      description: `미니게임 배팅 적립 (${gameLabelString})`,
+      amount: pointsToAward,
+      balanceAfter: (currentUserData.points || 0) + pointsToAward
+    };
+    const updatedPointsHistory = [minigamePointRewardItem, ...(currentUserData.pointsHistory || [])].slice(0, 200);
+
     setCurrentUserData(prev => ({
       ...prev,
       balance: nextBalance,
       points: (prev.points || 0) + pointsToAward,
+      pointsHistory: updatedPointsHistory,
       bets: updatedBets
     }));
 
@@ -746,7 +833,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
         localStorage.setItem('currentUser', JSON.stringify({ 
           ...curObj, 
           balance: nextBalance,
-          points: (curObj.points || 0) + pointsToAward
+          points: (curObj.points || 0) + pointsToAward,
+          pointsHistory: updatedPointsHistory,
+          bets: updatedBets
         }));
       } catch (err) {
         console.error(err);
@@ -761,6 +850,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       await updateDoc(doc(db, 'users', userDocId), {
         balance: nextBalance,
         points: (currentUserData.points || 0) + pointsToAward,
+        pointsHistory: updatedPointsHistory,
         bets: updatedBets
       });
     } catch (e) {
@@ -883,9 +973,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
           label: rObj.label,
           league: gameLabel,
           marketName: '일반볼 [언더오버]',
-          left: { label: '언더', dividend: 1.95, value: '언더', group: '일반볼언오버' },
-          right: { label: '오버', dividend: 1.95, value: '오버', group: '일반볼언오버' },
-          middle: 'VS'
+          left: { label: '언더', dividend: 1.95, value: '언더', group: '일반볼언오버', suffix: ' [72.5]' },
+          right: { label: '오버', dividend: 1.95, value: '오버', group: '일반볼언오버', suffix: ' [72.5]' },
+          middle: '72.5'
         });
         rows.push({
           time: rObj.time,
@@ -903,9 +993,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
           label: rObj.label,
           league: gameLabel,
           marketName: '파워볼 [언더오버]',
-          left: { label: '언더', dividend: 1.95, value: '언더', group: '파워볼언오버' },
-          right: { label: '오버', dividend: 1.95, value: '오버', group: '파워볼언오버' },
-          middle: 'VS'
+          left: { label: '언더', dividend: 1.95, value: '언더', group: '파워볼언오버', suffix: ' [4.5]' },
+          right: { label: '오버', dividend: 1.95, value: '오버', group: '파워볼언오버', suffix: ' [4.5]' },
+          middle: '4.5'
         });
       }
     });
@@ -1020,6 +1110,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
           
           setUserBalance(bal);
           setUserPoints(pts);
+
+          if (data.appliedReferrerCode) {
+            let cleanApplied = data.appliedReferrerCode;
+            if (cleanApplied.startsWith('REF-')) {
+              cleanApplied = cleanApplied.replace('REF-', '');
+            }
+            setMyAppliedReferrer(cleanApplied);
+            localStorage.setItem('myAppliedReferrer', cleanApplied);
+          }
+          if (data.referrerCode) {
+            let cleanRef = data.referrerCode;
+            if (cleanRef.startsWith('REF-')) {
+              cleanRef = cleanRef.replace('REF-', '');
+            }
+            setUserReferrerCode(cleanRef);
+            localStorage.setItem('userReferrerCode', cleanRef);
+          }
           
           const expandedData = { id: docIdToUse, ...data, balance: bal, points: pts };
           setCurrentUserData(expandedData);
@@ -1114,7 +1221,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   // Synchronize 1:1 inquiries in real-time
   useEffect(() => {
-    if (!currentUser) return;
+    const activeUsername = currentUserData?.username || currentUser?.username;
+    if (!activeUsername) return;
     
     setIsLoadingInquiries(true);
     let q;
@@ -1122,9 +1230,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
       // Admin sees ALL inquiries
       q = collection(db, 'inquiries');
     } else {
-      // Normal user only sees their own inquiries
-      const uid = auth.currentUser?.uid || 'unknown';
-      q = query(collection(db, 'inquiries'), where('userId', '==', uid));
+      // Normal user only sees their own inquiries (using username to be resilient to fallback and legacy empty userId values)
+      q = query(collection(db, 'inquiries'), where('username', '==', activeUsername));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -1141,6 +1248,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
       if (isAdmin) {
         setAdminInquiries(list);
+        // Also populate userInquiries with inquiries written by this admin so they can see/test their own on the user support tab
+        const myInquiries = list.filter(i => i.username === activeUsername);
+        setUserInquiries(myInquiries);
       } else {
         setUserInquiries(list);
       }
@@ -1152,7 +1262,177 @@ export default function MainPage({ onLogout }: MainPageProps) {
     });
 
     return () => unsubscribe();
-  }, [auth.currentUser?.uid, isAdmin]);
+  }, [currentUserData?.username, currentUser?.username, isAdmin]);
+
+  // Synchronize user notes (쪽지) in real-time
+  useEffect(() => {
+    const activeUsername = currentUserData?.username || currentUser?.username;
+    if (!activeUsername) return;
+
+    console.log("Setting up real-time listener for notes of receiver:", activeUsername);
+    const q = query(collection(db, 'notes'), where('receiverId', '==', activeUsername));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+
+      // Sort by createdAt descending
+      list.sort((a, b) => {
+        const timeA = a.createdAt ? Number(a.createdAt) : 0;
+        const timeB = b.createdAt ? Number(b.createdAt) : 0;
+        return timeB - timeA;
+      });
+
+      setUserNotes(list);
+    }, (error) => {
+      console.warn("Notes sync failed:", error);
+    });
+
+    return () => unsubscribe();
+  }, [currentUserData?.username, currentUser?.username]);
+
+  // Periodic Sound Alerter for unread notes (쪽지) - repeats every 1 minute if there are any unread messages
+  const unreadNotesKey = userNotes.filter(n => !n.read).map(n => n.id).join(',');
+
+  useEffect(() => {
+    if (!unreadNotesKey) return;
+
+    const playNotificationSound = () => {
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance("쪽지가 도착했습니다, 빨리 확인해주세요.");
+          utterance.lang = "ko-KR";
+          utterance.rate = 1.05;
+          utterance.pitch = 1.0;
+          window.speechSynthesis.speak(utterance);
+          console.log("[Notes Sound Alerter] Announcement played for unread notes list: ", unreadNotesKey);
+        } catch (e) {
+          console.error("[Notes Sound Alerter] SpeechSynthesis failed:", e);
+        }
+      }
+    };
+
+    // Play immediately on mount or when the set of unread notes changes
+    playNotificationSound();
+
+    // Repeat once every 1 minute (60,000 milliseconds)
+    const intervalId = setInterval(() => {
+      playNotificationSound();
+    }, 60000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [unreadNotesKey]);
+
+  // Mobile/iOS Safari/Android Autoplay SpeechSynthesis Unlocker
+  useEffect(() => {
+    const unlockSpeech = () => {
+      if ('speechSynthesis' in window) {
+        try {
+          const emptyUtterance = new SpeechSynthesisUtterance("");
+          emptyUtterance.volume = 0;
+          window.speechSynthesis.speak(emptyUtterance);
+          console.log("SpeechSynthesis successfully primed/unlocked for mobile environment.");
+          
+          // Remove listener upon first interaction unlock
+          window.removeEventListener('click', unlockSpeech);
+          window.removeEventListener('touchstart', unlockSpeech);
+        } catch (e) {
+          console.warn("SpeechSynthesis autoplay unlock failed: ", e);
+        }
+      }
+    };
+
+    window.addEventListener('click', unlockSpeech, { passive: true });
+    window.addEventListener('touchstart', unlockSpeech, { passive: true });
+
+    return () => {
+      window.removeEventListener('click', unlockSpeech);
+      window.removeEventListener('touchstart', unlockSpeech);
+    };
+  }, []);
+
+  const handleReadNote = async (note: any) => {
+    setSelectedNote(note);
+    if (!note.read) {
+      try {
+        await updateDoc(doc(db, 'notes', note.id), { read: true });
+      } catch (err) {
+        console.warn("Failed to mark note as read:", err);
+      }
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('이 쪽지를 정말로 삭제하시겠습니까?')) {
+      try {
+        await deleteDoc(doc(db, 'notes', noteId));
+        if (selectedNote?.id === noteId) {
+          setSelectedNote(null);
+        }
+      } catch (err) {
+        console.warn("Failed to delete note:", err);
+      }
+    }
+  };
+
+  const handleSendAdminNote = async () => {
+    if (!adminNoteTitle.trim() || !adminNoteContent.trim()) {
+      alert('쪽지 제목과 내용을 모두 입력해주십시오.');
+      return;
+    }
+
+    try {
+      if (adminNoteTargetUsername === 'ALL_USERS') {
+        if (adminUsers.length === 0) {
+          alert('등록된 회원 목록이 비어있어 발송할 수 없습니다.');
+          return;
+        }
+        
+        let sentCount = 0;
+        for (const user of adminUsers) {
+          if (user.username) {
+            await addDoc(collection(db, 'notes'), {
+              receiverId: user.username,
+              sender: '운영자',
+              title: adminNoteTitle.trim(),
+              content: adminNoteContent.trim(),
+              read: false,
+              createdAt: Date.now()
+            });
+            sentCount++;
+          }
+        }
+        alert(`전체 발송 성공: 총 ${sentCount}명의 회원 전원에게 일괄 쪽지를 발송 완료하였습니다!`);
+      } else {
+        if (!adminNoteTargetUsername) {
+          alert('수신 회원 정보가 올바르지 않습니다.');
+          return;
+        }
+        await addDoc(collection(db, 'notes'), {
+          receiverId: adminNoteTargetUsername,
+          sender: '운영자',
+          title: adminNoteTitle.trim(),
+          content: adminNoteContent.trim(),
+          read: false,
+          createdAt: Date.now()
+        });
+        alert(`[${adminNoteTargetNickname || adminNoteTargetUsername}] 회원에게 개별 쪽지를 성공적으로 발송하였습니다!`);
+      }
+
+      setAdminNoteTitle('');
+      setAdminNoteContent('');
+      setIsAdminNoteModalOpen(false);
+    } catch (err) {
+      console.error("Failed to send admin note:", err);
+      alert('쪽지 전송 처리 도중 데이터베이스 서버 통신 오류가 발생했습니다.');
+    }
+  };
 
   const handleSubmitInquiry = async () => {
     if (!inquiryTitle.trim() || !inquiryContent.trim()) {
@@ -1160,7 +1440,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
     try {
-      const uid = auth.currentUser?.uid || 'unknown';
+      const uid = currentUserData?.id || currentUser?.id || 'unknown';
       const uName = currentUserData?.username || currentUser?.username || 'unknown';
       const nick = currentUserData?.nickname || nickname || '회원';
       
@@ -1963,6 +2243,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
       });
       console.log("Loaded game results (latest 30 per game):", results);
       setGameResults(results);
+
+      // Fetch sports matches
+      const sportsSnap = await getDocs(collection(db, 'matches'));
+      const fetchedSports = sportsSnap.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      setSportsResults(fetchedSports);
     } catch (e) {
       console.error("Error loading game results:", e);
     } finally {
@@ -2023,6 +2311,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const usdtAmt = Number(depositAmountUsdt) || 0;
     if (usdtAmt <= 0) {
       alert("신청할 테더(USDT) 금액을 입력해주세요.");
+      return;
+    }
+    if (usdtAmt < 20) {
+      alert("최소 충전금액은 20 USDT 입니다.");
       return;
     }
     const finalAddress = (depositWalletAddressInput || currentUserData?.tetherWalletAddress || currentUser?.tetherWalletAddress || '').trim();
@@ -2089,13 +2381,28 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const finalPassword = editingPassword || (targetUser?.password || '');
       const finalWithdrawalPassword = editingWithdrawalPassword || (targetUser?.withdrawalPassword || '');
 
+      const prevPts = targetUser && targetUser.points !== undefined ? Number(targetUser.points) : 50000;
+      const diffPts = nextPts - prevPts;
+      let newPointsHistory = targetUser?.pointsHistory || [];
+      if (diffPts !== 0) {
+        const item = {
+          createdAt: Date.now(),
+          type: 'admin_adjust',
+          description: diffPts > 0 ? `관리자 포인트 지급 (${diffPts.toLocaleString()}P)` : `관리자 포인트 차감 (${Math.abs(diffPts).toLocaleString()}P)`,
+          amount: diffPts,
+          balanceAfter: nextPts
+        };
+        newPointsHistory = [item, ...newPointsHistory].slice(0, 200);
+      }
+
       await updateDoc(doc(db, 'users', userId), {
         nickname: editingNickname,
         tetherWalletAddress: editingWallet,
         password: finalPassword,
         withdrawalPassword: finalWithdrawalPassword,
         balance: nextBal,
-        points: nextPts
+        points: nextPts,
+        pointsHistory: newPointsHistory
       });
       
       setAdminUsers(prev => prev.map(u => u.id === userId ? { 
@@ -2105,7 +2412,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         password: finalPassword,
         withdrawalPassword: finalWithdrawalPassword,
         balance: nextBal,
-        points: nextPts
+        points: nextPts,
+        pointsHistory: newPointsHistory
       } : u));
 
       // Sync local profile state if editing self
@@ -2119,7 +2427,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
             localStorage.setItem('currentUser', JSON.stringify({ 
               ...curObj, 
               balance: nextBal, 
-              points: nextPts 
+              points: nextPts,
+              pointsHistory: newPointsHistory
             }));
           } catch (err) {
             console.error(err);
@@ -2159,16 +2468,111 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const currentBal = userData?.balance !== undefined ? userData.balance : 5000000;
       const nextBal = currentBal + (amountKrw || 0);
 
-      await updateDoc(userDocRef, {
-        balance: nextBal
-      });
+      // Calculate 10% charge bonus points
+      const depositBonusPoints = Math.floor((amountKrw || 0) * 0.1);
+      let runningPoints = userData?.points !== undefined ? Number(userData.points) : 50000;
+      let updatedPointsHistory = [...(userData?.pointsHistory || [])];
+
+      // Let's add the 10% deposit bonus inside runningPoints and points history
+      if (depositBonusPoints > 0) {
+        runningPoints += depositBonusPoints;
+        const depositBonusHistoryItem = {
+          createdAt: Date.now(),
+          type: 'deposit_bonus',
+          description: `무한 매충전 10% 보너스 지급`,
+          amount: depositBonusPoints,
+          balanceAfter: runningPoints
+        };
+        updatedPointsHistory.unshift(depositBonusHistoryItem);
+      }
+
+      // Check for Qualified Bettor referral reward
+      // Trigger: Single deposit transaction >= 200,000 KRW + registered referrer + not yet rewarded
+      let referralUpdateObj: any = {};
+      const hadReferralBonus = (amountKrw >= 200000 && userData?.appliedReferrerCode && !userData?.isQualifiedBettor);
+      
+      if (hadReferralBonus) {
+        runningPoints += 50000;
+        
+        const depositorHistoryItem = {
+          createdAt: Date.now(),
+          type: 'referral_bonus_depositor',
+          description: '추천인 코드 등록 첫 충전(20만원 이상) 포인트 지급',
+          amount: 50000,
+          balanceAfter: runningPoints
+        };
+        updatedPointsHistory.push(depositorHistoryItem); // keep order or unshift: let's unshift for timeline view, and slice next
+        updatedPointsHistory = [depositorHistoryItem, ...updatedPointsHistory.filter(h => h !== depositorHistoryItem)];
+
+        referralUpdateObj = {
+          isQualifiedBettor: true
+        };
+        
+        try {
+          // Award points to the referrer
+          const referrerQuery = query(collection(db, 'users'), where('referrerCode', '==', userData.appliedReferrerCode));
+          const referrerSnapshot = await getDocs(referrerQuery);
+          
+          if (!referrerSnapshot.empty) {
+            const referrerDocDoc = referrerSnapshot.docs[0];
+            const referrerDocRef = doc(db, 'users', referrerDocDoc.id);
+            const referrerData = referrerDocDoc.data();
+            const referrerCurrentPoints = referrerData.points !== undefined ? Number(referrerData.points) : 50000;
+            const referrerNewPoints = referrerCurrentPoints + 50000;
+
+            const referrerHistoryItem = {
+              createdAt: Date.now(),
+              type: 'referral_bonus_referrer',
+              description: `지인 추천 보너스 지급 (${userData.nickname || userData.username})`,
+              amount: 50000,
+              balanceAfter: referrerNewPoints
+            };
+            const updatedReferrerHistory = [referrerHistoryItem, ...(referrerData.pointsHistory || [])].slice(0, 200);
+
+            await updateDoc(referrerDocRef, {
+              points: referrerNewPoints,
+              pointsHistory: updatedReferrerHistory
+            });
+            console.log(`Successfully awarded 50,000P to referrer: ${referrerDocDoc.id}`);
+          }
+        } catch (referrerErr) {
+          console.error("Failed to update referrer points, but proceeding with depositor's balance/upgrade:", referrerErr);
+        }
+      }
+
+      updatedPointsHistory = updatedPointsHistory.slice(0, 200);
+
+      const depositorFinalUpdate = {
+        balance: nextBal,
+        points: runningPoints,
+        pointsHistory: updatedPointsHistory,
+        ...referralUpdateObj
+      };
+
+      // Award points in real-time if this depositor is current user
+      if (currentUserData && currentUserData.id === userId) {
+        setUserPoints(runningPoints);
+      }
+
+      await updateDoc(userDocRef, depositorFinalUpdate);
 
       await updateDoc(doc(db, 'depositRequests', requestId), {
         status: 'approved',
         processedAt: new Date().toISOString()
       });
       
-      setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, balance: nextBal } : u));
+      setAdminUsers(prev => prev.map(u => {
+        if (u.id === userId) {
+          return { 
+            ...u, 
+            balance: nextBal,
+            points: runningPoints,
+            pointsHistory: updatedPointsHistory,
+            ...(hadReferralBonus ? { isQualifiedBettor: true } : {})
+          };
+        }
+        return u;
+      }));
       setAdminDepositRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved', processedAt: new Date().toISOString() } : r));
 
       if (currentUserData && currentUserData.id === userId) {
@@ -2177,14 +2581,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
         if (savedUserStr) {
           try {
             const curObj = JSON.parse(savedUserStr);
-            localStorage.setItem('currentUser', JSON.stringify({ ...curObj, balance: nextBal }));
+            localStorage.setItem('currentUser', JSON.stringify({ 
+              ...curObj, 
+              balance: nextBal,
+              points: runningPoints,
+              pointsHistory: updatedPointsHistory,
+              ...(hadReferralBonus ? { isQualifiedBettor: true } : {})
+            }));
           } catch (err) {
             console.error(err);
           }
         }
       }
 
-      alert("입금 신청 승인이 성공적으로 처리되었습니다.\n회원의 시뮬레이터 잔액이 정산 처리되었습니다.");
+      alert(`입금 신청 승인이 성공적으로 처리되었습니다.\n회원의 시뮬레이터 잔액이 정산 처리되었습니다.\n\n🎉 [보너스 포인트 지급 완료]\n- 무한 매충전 10% 보너스: +${depositBonusPoints.toLocaleString()}P가 자동 지급되었습니다.${hadReferralBonus ? '\n\n🎉 [적격실배터 추천보상 완료]\n해당 회원과 추천인에게 규정에 따라 각각 50,000P가 보너스로 자동 지급되었습니다!' : ''}`);
     } catch (e) {
       console.error("Failed to approve deposit:", e);
       alert("입금 승인 처리 중 오류가 발생했습니다: " + (e instanceof Error ? e.message : String(e)));
@@ -2392,7 +2802,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
       
       const isPowerball = res.gameName === 'N파워볼(5분)' || res.gameName === 'N파워볼(3분)';
       const isLadder = res.gameName === 'N파워사다리(5분)' || res.gameName === 'N파워사다리(3분)' || res.gameName === '레드파워사다리(5분)';
-      // isDaridari3 removed
       
       if (isPowerball) {
         const details = res.details || {};
@@ -2403,7 +2812,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 일반볼 [홀짝]`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '홀',
           homeOdds: '1.95',
           awayName: '짝',
@@ -2420,7 +2829,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 일반볼 [언더오버]`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '언더 [72.5]',
           homeOdds: '1.95',
           awayName: '오버 [72.5]',
@@ -2437,7 +2846,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 파워볼 [홀짝]`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '홀',
           homeOdds: '1.95',
           awayName: '짝',
@@ -2454,7 +2863,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 파워볼 [언더오버]`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '언더 [4.5]',
           homeOdds: '1.95',
           awayName: '오버 [4.5]',
@@ -2471,7 +2880,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 일반볼 [대/중/소]`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '대 [대]',
           homeOdds: '2.90',
           awayName: '소 [소]',
@@ -2490,7 +2899,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 시작방향_좌우`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '좌',
           homeOdds: '1.95',
           awayName: '우',
@@ -2507,7 +2916,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 줄개수_3/4`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '3줄',
           homeOdds: '1.95',
           awayName: '4줄',
@@ -2524,7 +2933,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           dateStr,
           timeStr,
           gameName: res.gameName,
-          league: `[${res.round}회차] 최종결과_홀짝`,
+          league: `[${res.round}회차] ${res.gameName}`,
           homeName: '홀',
           homeOdds: '1.95',
           awayName: '짝',
@@ -2538,9 +2947,221 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return rows;
     };
 
-    return gameResults
+    const getSportCategoryMain = (match: any): '축구' | '농구' | '야구' | '배구' => {
+      if (match.sport === 'soccer' || match.sport === '축구') return '축구';
+      if (match.sport === 'basketball' || match.sport === '농구') return '농구';
+      if (match.sport === 'baseball' || match.sport === '야구') return '야구';
+      if (match.sport === 'volleyball' || match.sport === '배구') return '배구';
+
+      const name = ((match.league || '') + ' ' + (match.homeTeam || '') + ' ' + (match.awayTeam || '') + ' ' + (match.sport || '')).toLowerCase();
+      if (name.includes('농구') || name.includes('nba') || name.includes('kbl') || name.includes('wkbl') || name.includes('basketball')) {
+        return '농구';
+      }
+      if (name.includes('야구') || name.includes('mlb') || name.includes('kbo') || name.includes('npb') || name.includes('baseball')) {
+        return '야구';
+      }
+      if (name.includes('배구') || name.includes('kovo') || name.includes('volleyball')) {
+        return '배구';
+      }
+      return '축구';
+    };
+
+    const minigameRows = gameResults
       .filter((res: any) => gameResultFilter === '전체' ? true : res.gameName.trim() === gameResultFilter)
       .flatMap(res => expandGameResultToRows(res));
+
+    const cleanLineValue = (valStr: string): string => {
+      if (!valStr) return '';
+      const trimmed = valStr.trim();
+      if (trimmed.includes('/')) {
+        const parts = trimmed.split('/');
+        return parts[parts.length - 1].trim();
+      }
+      return trimmed;
+    };
+
+    const formatHandicapDisplay = (valStr: string, homeOdds?: number, awayOdds?: number): string => {
+      if (!valStr) return '0';
+      const cleaned = cleanLineValue(valStr);
+      const num = parseFloat(cleaned);
+      if (isNaN(num) || num === 0) return '0';
+      
+      const withoutSign = cleaned.replace(/[+-]/g, '').trim();
+      if (homeOdds !== undefined && awayOdds !== undefined && homeOdds !== 0 && awayOdds !== 0) {
+        if (homeOdds < awayOdds) {
+          return `-${withoutSign}`;
+        } else {
+          return `+${withoutSign}`;
+        }
+      }
+
+      const isNegative = cleaned.startsWith('-');
+      if (isNegative) {
+        return `-${withoutSign}`;
+      } else {
+        return `+${withoutSign}`;
+      }
+    };
+
+    const parseHandicapValue = (valStr: string): number => {
+      if (!valStr) return 0;
+      valStr = valStr.trim();
+      if (valStr.includes('/')) {
+        const parts = valStr.split('/');
+        const p1 = parseFloat(parts[0]) || 0;
+        const p2 = parseFloat(parts[1]) || 0;
+        return (p1 + p2) / 2;
+      }
+      return parseFloat(valStr) || 0;
+    };
+
+    const sportsRowsList: any[] = [];
+    sportsResults.forEach((match: any) => {
+      const sportName = getSportCategoryMain(match);
+      if (gameResultFilter !== '전체' && sportName !== gameResultFilter) return;
+
+      // Check if start time has passed
+      let elapsed = false;
+      let dateVal = '';
+      let timeVal = '';
+      const now = new Date();
+      if (match.dateTime) {
+        const parts = match.dateTime.trim().match(/^(\d{2})[\.\-](\d{2})\s+(\d{2}):(\d{2})/);
+        if (parts) {
+          const m = parseInt(parts[1], 10) - 1;
+          const d = parseInt(parts[2], 10);
+          const h = parseInt(parts[3], 10);
+          const min = parseInt(parts[4], 10);
+          const matchDate = new Date(now.getFullYear(), m, d, h, min);
+          elapsed = now >= matchDate;
+          dateVal = `${parts[1]}-${parts[2]}`;
+          timeVal = `${parts[3]}:${parts[4]}`;
+        }
+      }
+      
+      // We only show sports matches on results page AFTER their start time has passed
+      if (!elapsed) return;
+
+      const curYear = new Date().getFullYear();
+      const fullDateStr = dateVal ? `${curYear}-${dateVal}` : `${curYear}-06-07`;
+
+      const isPending = match.status === 'pending';
+      const score = isPending ? '대기 중' : `${match.homeScore ?? 0} : ${match.awayScore ?? 0}`;
+      const statusText = isPending ? '결과대기' : '결과완료';
+
+      const rawStatus = match.status;
+
+      // 1. [승무패] (Match Winner)
+      const ml = match.markets?.matchWinner || {};
+      const homeOdds = ml.home || '0.00';
+      const awayOdds = ml.away || '0.00';
+      const drawOdds = ml.draw;
+      const midStandard = (drawOdds && Number(drawOdds) > 1.01) ? `${drawOdds}` : 'VS';
+      const winner = rawStatus === 'completed' ? match.outcome : (rawStatus === 'pending' ? 'none' : rawStatus);
+
+      sportsRowsList.push({
+        id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_matchWinner`,
+        dateStr: fullDateStr,
+        timeStr: timeVal || '00:00',
+        gameName: sportName,
+        league: match.league || sportName,
+        homeName: match.homeTeam || 'Home',
+        homeOdds: typeof homeOdds === 'number' ? homeOdds.toFixed(2) : homeOdds,
+        awayName: match.awayTeam || 'Away',
+        awayOdds: typeof awayOdds === 'number' ? awayOdds.toFixed(2) : awayOdds,
+        midStandard: midStandard,
+        winner: winner,
+        score: score,
+        statusText: statusText
+      });
+
+      // 2. [핸디캡] (Handicap) - 만약 핸디캡 데이터가 있다면 (배구는 제외)
+      const handicap = match.markets?.handicap || {};
+      if (sportName !== '배구' && handicap && (handicap.home || handicap.away || handicap.value)) {
+        // 핸디캡 결과 판정
+        let handiWinner = 'none';
+        if (rawStatus !== 'pending') {
+          const homeScoreVal = Number(match.homeScore ?? 0);
+          const awayScoreVal = Number(match.awayScore ?? 0);
+          const hVal = parseHandicapValue(handicap.value);
+          const homeFinal = homeScoreVal + hVal;
+          if (homeFinal > awayScoreVal) {
+            handiWinner = 'home';
+          } else if (homeFinal < awayScoreVal) {
+            handiWinner = 'away';
+          } else {
+            handiWinner = 'draw';
+          }
+        }
+
+        const baseLineValue = formatHandicapDisplay(
+          handicap.value, 
+          match.markets?.matchWinner?.home, 
+          match.markets?.matchWinner?.away
+        );
+
+        sportsRowsList.push({
+          id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_handicap`,
+          dateStr: fullDateStr,
+          timeStr: timeVal || '00:00',
+          gameName: sportName,
+          league: match.league || sportName,
+          homeName: `${match.homeTeam || 'Home'}`,
+          homeOdds: handicap.home ? (typeof handicap.home === 'number' ? handicap.home.toFixed(2) : handicap.home) : '0.00',
+          awayName: `${match.awayTeam || 'Away'}`,
+          awayOdds: handicap.away ? (typeof handicap.away === 'number' ? handicap.away.toFixed(2) : handicap.away) : '0.00',
+          midStandard: baseLineValue || '0',
+          winner: handiWinner,
+          score: score,
+          statusText: statusText
+        });
+      }
+
+      // 3. [언더오버] (Over Under) - 만약 언더오버 데이터가 있다면 (배구는 제외)
+      const overUnder = match.markets?.overUnder || {};
+      if (sportName !== '배구' && overUnder && (overUnder.over || overUnder.under || overUnder.value)) {
+        // 언오버 결과 판정
+        let ouWinner = 'none';
+        if (rawStatus !== 'pending') {
+          const homeScoreVal = Number(match.homeScore ?? 0);
+          const awayScoreVal = Number(match.awayScore ?? 0);
+          const totalScore = homeScoreVal + awayScoreVal;
+          const ouVal = parseFloat(cleanLineValue(overUnder.value)) || 0;
+          if (totalScore > ouVal) {
+            ouWinner = 'home'; // 오버가 home에 지정됨
+          } else if (totalScore < ouVal) {
+            ouWinner = 'away'; // 언더가 away에 지정됨
+          } else {
+            ouWinner = 'draw';
+          }
+        }
+
+        sportsRowsList.push({
+          id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_overUnder`,
+          dateStr: fullDateStr,
+          timeStr: timeVal || '00:00',
+          gameName: sportName,
+          league: match.league || sportName,
+          homeName: `오버 ▲ (${match.homeTeam || 'Home'})`,
+          homeOdds: overUnder.over ? (typeof overUnder.over === 'number' ? overUnder.over.toFixed(2) : overUnder.over) : '0.00',
+          awayName: `언더 ▼ (${match.awayTeam || 'Away'})`,
+          awayOdds: overUnder.under ? (typeof overUnder.under === 'number' ? overUnder.under.toFixed(2) : overUnder.under) : '0.00',
+          midStandard: cleanLineValue(overUnder.value) || '2.5',
+          winner: ouWinner,
+          score: score,
+          statusText: statusText
+        });
+      }
+    });
+
+    const combined = [...minigameRows, ...sportsRowsList];
+    combined.sort((a, b) => {
+      const timeStrA = `${a.dateStr} ${a.timeStr}`;
+      const timeStrB = `${b.dateStr} ${b.timeStr}`;
+      return timeStrB.localeCompare(timeStrA);
+    });
+
+    return combined;
   };
 
   const allExpandedRows = getGameResultRows();
@@ -2742,7 +3363,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             {/* Navigation Menus (Centered) */}
             <nav className="flex flex-wrap justify-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300">
-              {['테더가이드', '스포츠', '미니게임', '폴리마켓', '경기결과', '베팅내역', '입금신청', '출금신청', '공지사항'].map((item) => {
+              {['테더가이드', '스포츠', '미니게임', '폴리마켓', '경기결과', '베팅내역', '포인트내역', '입금신청', '출금신청', '이벤트', '공지사항'].map((item) => {
+                if (item === '테더가이드') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('tetherguide')}
+                      className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showTetherGuide ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                    >
+                      테더가이드
+                    </button>
+                  );
+                }
                 if (item === '스포츠') {
                   return (
                       <button 
@@ -2858,13 +3490,64 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   );
                 }
 
+                if (item === '포인트내역') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('pointshistory')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showPointsHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                    >
+                      포인트내역
+                    </button>
+                  );
+                }
+
+                if (item === '이벤트') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('event')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showEventScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                    >
+                      이벤트
+                    </button>
+                  );
+                }
+
+                if (item === '공지사항') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('notice')}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showNoticeScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-405'}`}
+                    >
+                      공지사항
+                    </button>
+                  );
+                }
+
+                if (item === '텔레그램') {
+                  return (
+                    <a 
+                      key={item} 
+                      href="https://telegram.me/Choice_root"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sky-400 font-bold hover:text-sky-300 transition-colors uppercase tracking-tight relative pb-1 hover:border-b-2 hover:border-sky-400 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4 text-sky-400 transform -rotate-12 translate-x-[0.5px] translate-y-[0.5px]" />
+                      <span>텔레그램</span>
+                    </a>
+                  );
+                }
+
                 return (
                   <button 
                     key={item} 
                     onClick={() => {
                       alert(`${item} 기능은 준비 중입니다.`);
                     }}
-                    className="hover:text-amber-400 transition-colors cursor-pointer"
+                    className="hover:text-amber-400 transition-colors cursor-pointer uppercase tracking-tight"
                   >
                     {item}
                   </button>
@@ -2908,12 +3591,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
 
               {/* Messages Box (Crimson Flame Glow) */}
-              <div className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.1)] transition-transform hover:scale-105 duration-250">
+              <button 
+                onClick={() => setShowMailboxModal(true)}
+                className="flex items-center gap-2.5 bg-neutral-950/90 px-4 py-2 rounded-lg border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.1)] transition-transform hover:scale-105 duration-250 cursor-pointer text-left"
+              >
                 <span className="text-rose-450 font-black">신규쪽지</span>
-                <span className="bg-rose-950 border border-rose-800 text-rose-400 text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
-                  0
+                <span className={`bg-rose-950 border border-rose-800 text-rose-450 text-[10px] font-black px-2 py-0.5 rounded-full ${unreadCount > 0 ? 'animate-bounce text-rose-400 bg-rose-950 border-rose-700' : 'opacity-80'}`}>
+                  {unreadCount}
                 </span>
-              </div>
+              </button>
 
               {/* My Page Button */}
               <button 
@@ -2922,6 +3608,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 onClick={() => navigateTo('mypage')}
               >
                 My Page
+              </button>
+
+              {/* Referrer Button */}
+              <button 
+                type="button"
+                className="bg-gradient-to-b from-[#1e1f24] via-[#111215] to-[#0a0b0d] border border-neutral-800 hover:border-amber-500/50 hover:text-amber-400 text-gray-200 px-4 py-2 rounded-lg font-black transition-all shadow-md active:scale-95 cursor-pointer text-xs"
+                onClick={() => setIsReferrerModalOpen(true)}
+              >
+                👥 추천인
               </button>
 
               {/* Attendance Calendar Button */}
@@ -2993,11 +3688,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { alert('쪽지함 기능은 준비 중입니다.'); setIsMobileMenuOpen(false); }}
-                    className="text-gray-400 hover:text-white p-1 rounded-lg"
+                    onClick={() => { setShowMailboxModal(true); setIsMobileMenuOpen(false); }}
+                    className="text-gray-400 hover:text-white p-1 rounded-lg relative"
                     aria-label="쪽지"
                   >
                     <Mail className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+                    )}
                   </button>
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -3064,49 +3762,70 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 px-1">
                   GAME TYPE & COMMUNITY
                 </div>
-                <div className="grid grid-cols-3 gap-1 bg-[#101216] p-1 rounded-xl border border-neutral-900">
+                <div className="grid grid-cols-3 gap-1 bg-[#101216] p-1 rounded-xl border border-red-900">
                   
 
                   {/* 미니게임 */}
                   <button
                     type="button"
                     onClick={() => { navigateTo('minigame'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-neutral-850 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-amber-500/20"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-amber-500/20"
                   >
                     <span className="text-xs font-bold text-amber-400">미니게임</span>
                     <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Mini Game</span>
                   </button>
 
+                  {/* 테더 가이드 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('tetherguide'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition ring-1 ring-emerald-500/25"
+                  >
+                    <span className="text-xs font-bold text-emerald-400">테더가이드</span>
+                    <span className="text-[7.5px] text-emerald-500 uppercase font-bold tracking-tight">USDT Guide</span>
+                  </button>
 
-                  {/* 스포츠+크로스 */}
+
+                  {/* 스포츠+ */}
                   <button
                     type="button"
                     onClick={() => { navigateTo('sports'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-neutral-850 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-sm font-bold text-amber-500 font-extrabold flex flex-col items-center leading-tight">
                       <span>스포츠+</span>
-                      <span>크로스</span>
                     </span>
-                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Sports+Cross</span>
+                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Sports+</span>
                   </button>
 
-
-                  {/* 공지사항 */}
+                  {/* 폴리마켓 */}
                   <button
                     type="button"
-                    onClick={() => { navigateTo('gameresult'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    onClick={() => { alert('폴리마켓 기능은 준비중입니다.'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition"
                   >
-                    <span className="text-xs font-bold text-gray-200 block">공지사항</span>
-                    <span className="text-[7.5px] text-gray-400">Notice</span>
+                    <span className="text-sm font-bold text-amber-500 font-extrabold flex flex-col items-center leading-tight">
+                      <span>폴리마켓</span>
+                    </span>
+                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Polymarket</span>
                   </button>
+
+
+                    {/* 포인트내역 */}
+                    <button
+                      type="button"
+                      onClick={() => { navigateTo('pointshistory'); setIsMobileMenuOpen(false); }}
+                      className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                    >
+                      <span className="text-xs font-bold text-gray-200 block">포인트내역</span>
+                      <span className="text-[7.5px] text-gray-400">Points</span>
+                    </button>
 
                   {/* 이벤트 (Attendance) */}
                   <button
                     type="button"
                     onClick={() => { setShowAttendanceChecker(true); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-emerald-400 block animate-pulse">이벤트</span>
                     <span className="text-[7.5px] text-emerald-500">Event</span>
@@ -3116,7 +3835,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('페이백 이벤트가 진행 예정입니다!'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">페이백</span>
                     <span className="text-[7.5px] text-gray-400">Payback</span>
@@ -3126,7 +3845,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('지인 추천 내역이 존재하지 않습니다.'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">지인리스트</span>
                     <span className="text-[7px] text-gray-500">Friends</span>
@@ -3136,7 +3855,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('지인추천 페이백 정산 시스템이 로딩 중입니다.'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-[11px] font-bold text-gray-300 block">지인페이백</span>
                     <span className="text-[7px] text-gray-500">Friend Pb</span>
@@ -3146,7 +3865,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { alert('지인 롤링 적립금 정산 시스템이 로딩 중입니다.'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-[10px] font-bold text-gray-300 block leading-tight">지인롤링</span>
                     <span className="text-[6.5px] text-gray-500 block leading-none">Rolling Pb</span>
@@ -3156,17 +3875,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { navigateTo('mypage'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-gray-200 block">마이페이지</span>
                     <span className="text-[7.5px] text-gray-400">My Page</span>
+                  </button>
+
+                  {/* 추천인 */}
+                  <button
+                    type="button"
+                    onClick={() => { setIsReferrerModalOpen(true); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center"
+                  >
+                    <span className="text-xs font-bold text-gray-200 block">추천인</span>
+                    <span className="text-[7.5px] text-gray-400">Referrer</span>
                   </button>
 
                   {/* 머니내역 */}
                   <button
                     type="button"
                     onClick={() => { navigateTo('deposit'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-gray-200 block">머니내역</span>
                     <span className="text-[7.5px] text-gray-400">Trans Log</span>
@@ -3176,17 +3905,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { navigateTo('bethistory'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-amber-400 block">베팅내역</span>
                     <span className="text-[7.5px] text-amber-500">Bet Hist</span>
+                  </button>
+
+                  {/* 공지사항 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('notice'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-teal-400 block animate-pulse">공지사항</span>
+                    <span className="text-[7.5px] text-teal-500">Notice</span>
                   </button>
 
                   {/* 콤프내역 */}
                   <button
                     type="button"
                     onClick={() => { alert('누적된 콤프 포인트를 보유머니로 즉시 환전하실 수 있습니다!'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-neutral-850 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">콤프내역</span>
                     <span className="text-[7.5px] text-gray-400">Comp Rep</span>
@@ -3221,7 +3960,593 @@ export default function MainPage({ onLogout }: MainPageProps) {
       )}
 
       {/* Conditional Rendering: My Page vs Betting History vs Mini Game vs Dashboard */}
-      {showSports ? (
+      {showTetherGuide ? (
+        <div id="tether_guide_container" className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto font-sans text-gray-100 space-y-8 animate-in fade-in duration-200">
+          {/* Breadcrumbs */}
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setShowTetherGuide(false)} className="hover:text-white transition-colors cursor-pointer">홈</button> 
+              <span>&gt;</span> 
+              <span className="text-emerald-400 font-extrabold">테더(USDT) 사용 가이드</span>
+            </div>
+            <button 
+              onClick={() => navigateTo('home')} 
+              className="bg-neutral-950 border border-neutral-800 hover:bg-neutral-900 text-gray-300 font-bold px-3 py-1.5 rounded-lg transition active:scale-95 cursor-pointer text-[11px]"
+            >
+              메인 대시보드로 이동
+            </button>
+          </div>
+
+          {/* Title Banner */}
+          <div className="border-b border-neutral-850 pb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <Coins className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  CHOICE 테더(USDT) 초심자 가이드 <span className="text-emerald-400 text-xs font-black tracking-wider uppercase bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/25">USDT PROTOCOL GUIDE</span>
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">인증받은 글로벌 거래소를 통해 빠르고 안전하게 가상자산 테더(USDT)를 거래 및 입출금하는 공식 프로토콜 가이드입니다.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Special Notice for Binance & Personal Wallets */}
+          <div className="bg-sky-950/20 border border-sky-800/40 rounded-xl p-4 flex items-start gap-3 shadow-md">
+            <span className="text-sky-400 text-base flex-shrink-0">📢</span>
+            <div className="text-xs text-gray-300 leading-relaxed">
+              <strong className="text-sky-400 font-bold block mb-1">바이낸스 / 개인지갑 사용자 안내</strong>
+              바이낸스나, 개인지갑을 사용하고 계신 회원님들은 굳이 바이비트를 사용하지 않아도 지갑을 통해 입금 진행해 주시면 되겠습니다. (실시간 공식 입금 신청 메뉴에서 개방된 TRC-20 체인을 통해 안전 발송이 가능합니다.)
+            </div>
+          </div>
+
+          {/* Top Primary Rule: Secure USDT TETHER (Luxury Emerald/Slate Box) */}
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-neutral-950 via-[#061510] to-[#122e23]/30 p-6 md:p-8 shadow-[0_0_50px_rgba(16,185,129,0.06)]">
+            <div className="absolute top-1/2 right-[10%] w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none -translate-y-1/2"></div>
+            
+            <div className="relative z-10 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/10 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></div>
+                  <h3 className="text-base font-black text-emerald-400 tracking-tight flex items-center gap-1.5">
+                    🚨 안전하고 신속한 CHOICE 자산 전송 프로토콜
+                  </h3>
+                </div>
+              </div>
+              <p className="text-xs text-gray-450 leading-relaxed">
+                가장 강력한 보안성과 신뢰성을 자랑하는 가상화폐 <strong className="text-emerald-400">테더 (USDT - TRC20)</strong> 체인을 통해 즉각적인 대조 및 완벽한 입출금 처리가 작동합니다. 가상자산을 활용한 거래는 별도의 금융기관 점검시간의 제약을 일절 받지 않으며, 실효 추적이 불가능해 프라이버시가 안전하게 절대 보호됩니다.
+              </p>
+            </div>
+          </div>
+
+          {/* Steps Container */}
+          <div className="space-y-8">
+
+            {/* Step 1 Card with Visual Bybit Signup Mockup App */}
+            <div className="bg-neutral-950 border border-neutral-850 rounded-xl overflow-hidden shadow-lg p-5 md:p-8 space-y-6">
+              <div className="flex items-center gap-3 border-b border-neutral-900 pb-4">
+                <span className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 font-extrabold text-xs flex items-center justify-center font-mono">01</span>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  글로벌 거래소 'Bybit(바이비트)' 제휴 초간편 회원가입
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div className="lg:col-span-7 space-y-4 text-xs text-gray-400 leading-relaxed">
+                  <p className="text-gray-300">
+                    세계 최대 규모의 메이저 거래소 <strong className="text-amber-400">Bybit(바이비트)</strong>를 통해 복잡한 시세 추적이나 환전 필요 없이 가장 빠른 원화 간편 테더(USDT) 구매 및 거래를 이용하실 수 있습니다.
+                  </p>
+                  <p className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 text-amber-300 text-[11px] leading-relaxed">
+                    ⚠️ <strong className="font-bold">평생 수수료 20% 특별 우대 및 최대 신규 리워드 혜택을 수령하기 위해</strong> 반드시 아래의 <strong className="text-white">공식 제휴 파트너 초대 주소</strong>로 가입을 승인하셔야 거래 등급 패널티 없이 정상 혜택이 즉각 가동됩니다.
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <span className="font-extrabold text-neutral-200 block text-xs">🚀 간편 3단계 가입 절차 안내:</span>
+                    <ul className="list-decimal list-inside space-y-2 pl-1">
+                      <li>오른쪽의 <strong className="text-white">우대 가입</strong> 단추를 클릭해 바이비트 회원 등록 페이지로 전이합니다.</li>
+                      <li>휴대폰 번호(Mobile) 혹은 이메일(Email) 중 원하시는 로그인 수단을 지정합니다.</li>
+                      <li>비밀번호와 보낸 번호 인증 코드(6자리)를 입력하신 뒤, 가입 양식을 전송하여 주시면 회원가입이 즉시 체결됩니다.</li>
+                      <li>가입 페이지 내부 <span className="bg-neutral-800 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">Promo Code: 137881</span>이 올바르게 박혀있는지 필히 한 번 확인해 주세요!</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2">
+                    <a 
+                      href="https://partner.bybit.com/b/137881" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-550 text-black font-black py-3 px-6 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.15)] transition duration-200 active:scale-95 cursor-pointer text-xs"
+                    >
+                      <span>바이비트 공식 20% 혜택가입 가기 ➔</span>
+                    </a>
+                  </div>
+                </div>
+                
+                {/* Visual Mockup 1: Bybit Signup Screen */}
+                <div className="lg:col-span-5 flex justify-center">
+                  <div className="w-full max-w-[320px] bg-[#0c0d12] border-4 border-neutral-800 rounded-[32px] p-4 p-y-5 shadow-[0_0_35px_rgba(0,0,0,0.6)] font-sans relative overflow-hidden select-none">
+                    {/* Mock Status Bar */}
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 font-semibold mb-4 px-2">
+                      <span>BYBIT SIGNUP</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-[9px]">LTE</span>
+                      </div>
+                    </div>
+
+                    {/* App Window Inside */}
+                    <div className="space-y-4">
+                      {/* Logo and Partner Tag */}
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1">
+                          <div className="w-5 h-5 bg-amber-400 rounded flex items-center justify-center font-black text-black text-xs font-serif">B</div>
+                          <span className="text-xs font-black text-white tracking-widest font-mono">BYBIT</span>
+                        </div>
+                        <span className="text-[9px] bg-amber-400/10 text-amber-400 border border-amber-400/20 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                          PARTNER: 137881
+                        </span>
+                      </div>
+
+                      {/* Title */}
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-black text-white">Create Account</h4>
+                        <p className="text-[9px] text-gray-500">Welcome! Special 20% discount on trade fees is applied.</p>
+                      </div>
+
+                      {/* Mock Form */}
+                      <div className="space-y-2.5">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-gray-400 font-bold">Email or Mobile Number</label>
+                          <div className="bg-[#14161f] border border-red-500/50 rounded px-2.5 py-1.5 text-xs text-red-500 font-extrabold text-center animate-pulse">
+                            ID로 사용하실 이메일
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-gray-400 font-bold">Password</label>
+                          <div className="bg-[#14161f] border border-red-500/50 rounded px-2.5 py-1.5 text-xs text-red-500 font-extrabold text-center animate-pulse">
+                            패스워드
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-amber-400 font-bold flex justify-between items-center">
+                            <span>Referral / Promo Code (Optional)</span>
+                            <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1 rounded">Applied</span>
+                          </label>
+                          <div className="bg-[#14161f] border border-amber-500/30 rounded px-2.5 py-1.5 text-xs text-amber-400 font-bold font-mono">
+                            137881
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mock Submit Button */}
+                      <button type="button" className="w-full bg-amber-400 hover:bg-amber-300 text-black text-[11px] font-black py-2 rounded-lg transition-colors mt-2">
+                        Get My Welcoming Benefits
+                      </button>
+
+                      {/* Footer Info */}
+                      <div className="text-[8px] text-center text-gray-500">
+                        Securely encrypted by Bybit Global Security Framework.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 Card with Visual KYC Verification Page Mockup */}
+            <div className="bg-neutral-950 border border-neutral-850 rounded-xl overflow-hidden shadow-lg p-5 md:p-8 space-y-6">
+              <div className="flex items-center gap-3 border-b border-neutral-900 pb-4">
+                <span className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold text-xs flex items-center justify-center font-mono">02</span>
+                <h3 className="text-lg font-black text-white">
+                  실명인증(KYC Level 1) 필수 및 본인인증 전 과정 가이드
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div className="lg:col-span-7 text-xs text-gray-400 leading-relaxed space-y-4">
+                  <p className="text-gray-350">
+                    오남용 및 안전 보안 금융 이전을 대조하고 트래블룰을 수렴하기 위하여, Bybit 거래 가동 전 <span className="text-emerald-400 font-bold">1단계 KYC(본인 실명 인증)</span>를 단 1차례 이행해 주셔야 합니다.
+                  </p>
+                  
+                  <div className="bg-neutral-900/60 border border-neutral-850 p-4 rounded-xl space-y-3">
+                    <div className="space-y-1">
+                      <span className="text-gray-300 font-bold block text-xs uppercase tracking-wider text-amber-500">📁인증 준비물:</span>
+                      <p className="text-[11px] leading-relaxed text-gray-400">
+                        본인 명의의 실물 신분증 1선 (주민등록증, 운전면허증, 여권 택일)
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 border-t border-neutral-800 pt-2.5">
+                      <span className="text-gray-300 font-bold block text-xs uppercase tracking-wider text-emerald-400">⚡ 실속 모바일 간편 인증 방법:</span>
+                      <ul className="list-decimal pl-4 text-[11px] space-y-2 text-gray-400 mt-1">
+                        <li>휴대폰 스토어(업스토어/구글플레이)에서 <strong className="text-white">Bybit 공식 앱</strong>을 찾고 설치합니다.</li>
+                        <li>생성한 제휴 계정으로 모바일 앱 상에 정상적으로 입력 후 로그인합니다.</li>
+                        <li>좌측 메인 홈화면의 우측 상단 혹은 좌측 상단 <strong className="text-white">프로필(사람 모양)</strong>을 눌러 준 뒤 대시 메뉴 중 <strong className="text-emerald-400 font-bold">Identity Verification</strong> 에 접속합니다.</li>
+                        <li>국가를 <strong className="text-white">Republic of Korea(대한민국)</strong>로 바르게 지정하시고 확보해 둔 신분증 규격을 설정합니다.</li>
+                        <li>제시되는 조도 원형 및 눈금 프레임에 입각하여 본인의 앞면/뒷면 실물 신분증을 촬영하고, 정면 셀프 성명 인식을 통과시켜 줍니다.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <p className="text-neutral-400 text-[11px] leading-relaxed italic bg-[#110d0d] p-3 rounded-lg border border-red-950/20">
+                    ℹ️ 평균 소요 시간은 약 1분에서 3분 가량이며, 거래소 AI 검토 후 즉시 영구 해제가 실행되어 입출금이 완전 가동됩니다.
+                  </p>
+                </div>
+                
+                {/* Visual Mockup 2: Bybit KYC Page */}
+                <div className="lg:col-span-5 flex justify-center">
+                  <div className="w-full max-w-[320px] bg-[#0c0d12] border-4 border-neutral-800 rounded-[32px] p-4 py-5 shadow-[0_0_35px_rgba(16,185,129,0.04)] font-sans relative overflow-hidden select-none">
+                    {/* Mock Status Bar */}
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 font-semibold mb-4 px-2">
+                      <span>IDENTITY VERIFICATION</span>
+                      <span className="text-emerald-400 text-[9px] font-bold">● LIVE VERIFY</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Card layout header */}
+                      <div className="bg-[#14161f] border border-neutral-800 rounded-xl p-3.5 space-y-3.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-gray-400 font-bold">Korea, Rep. of</span>
+                          <span className="text-[10px] text-emerald-400 font-black flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/10">
+                            ✓ Auto Verified
+                          </span>
+                        </div>
+
+                        {/* Title inside card */}
+                        <div className="space-y-1">
+                          <span className="text-xs font-black text-white block">Identity Verification Level 1</span>
+                          <span className="text-[9px] text-gray-550 block">Enjoy full trading limits and deposit accessibility instantly.</span>
+                        </div>
+
+                        {/* ID Type selected */}
+                        <div className="bg-neutral-900 border border-neutral-850 p-2.5 rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">🪪</span>
+                            <div className="leading-none">
+                              <span className="text-[10px] font-bold text-gray-300 block">ID Card / Driver License</span>
+                              <span className="text-[8px] text-gray-500 block">Korean Resident Registration Card</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold">Confirmed</span>
+                        </div>
+                      </div>
+
+                      {/* Scan Graphic Animation replica */}
+                      <div className="border border-dashed border-emerald-500/30 rounded-xl p-4 flex flex-col items-center justify-center space-y-2 relative bg-[#101217]">
+                        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-pulse"></div>
+                        
+                        <div className="w-16 h-16 rounded-full border border-neutral-800 flex items-center justify-center bg-neutral-900 text-gray-400 relative">
+                          <span className="text-xl">👤</span>
+                          <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-[8px] text-black font-extrabold font-mono">✓</span>
+                        </div>
+                        <div className="text-center space-y-0.5">
+                          <span className="text-[9px] font-bold text-gray-300 block">Facial Recognition Verified</span>
+                          <span className="text-[8px] text-gray-500 block">Biometric scan matches registration data perfectly.</span>
+                        </div>
+                      </div>
+
+                      {/* Confirm Info Block */}
+                      <div className="bg-[#122e23]/10 border border-emerald-500/20 rounded-lg p-2.5 flex items-center justify-between text-[9px]">
+                        <span className="text-emerald-400 font-bold">✓ Daily Outflow Cap:</span>
+                        <span className="text-white font-mono font-bold">$1,000,000 USDT</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3 Card: DIRECT USDT Purchase Guide without TRX Conversion + Mobile Mockup UI */}
+            <div className="bg-neutral-950 border border-neutral-850 rounded-xl overflow-hidden shadow-lg p-5 md:p-8 space-y-6">
+              <div className="flex items-center gap-3 border-b border-neutral-900 pb-4">
+                <span className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 font-extrabold text-xs flex items-center justify-center font-mono">03</span>
+                <h3 className="text-lg font-black text-white">
+                  테더(USDT) 다이렉트 구매 및 CHOICE 자금 전송 프로토콜
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in">
+                <div className="lg:col-span-7 text-xs text-gray-400 leading-relaxed space-y-4">
+                  <p className="text-gray-350 leading-relaxed">
+                    복잡하게 다른 알트코인(TRX/XRP 등)을 산 뒤 수수료 부담과 시세 손해를 보며 환전하는 절차는 이제 무필요합니다! 곧바로 **테더(USDT) 자체를 다이렉트로 안전하게 구매 및 연계 이체**할 수 있습니다.
+                  </p>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Direct Method A */}
+                    <div className="bg-[#111217] border border-neutral-850 p-4.5 rounded-xl space-y-2">
+                      <span className="text-[10px] uppercase font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-bold">방법 A: 원화 마켓 구매 후 해외지갑 활용</span>
+                      <h4 className="text-xs font-bold text-white">국내 거래소 구매 후 '명확하게' 개인/해외 지갑 거쳐 전송</h4>
+                      <p className="text-[11px] leading-relaxed text-gray-405">
+                        국내 공식 거래소(빗썸, 코인원, 코빗 등)에서 원화로 USDT(테더)를 직접 구매할 수 있습니다. 단, <strong className="text-rose-450">트래블룰 규정으로 인해 본인 명의가 아닌 외부 주소(저희 CHOICE 지갑)로 바로 직접 출금하는 것은 원천 불가</strong>합니다. 따라서, <strong className="text-white font-bold">본인 명의의 해외거래소 지갑(Bybit/Binance 등)이나 개인 지갑으로 1차 전송을 무조건 완료하신 후, 해당 지갑에서 저희 사이트의 지갑(TRC-20)으로 전송</strong>해야 안전하고 빠르게 영구 반영됩니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#122e23]/5 border border-emerald-500/10 p-5 rounded-xl space-y-2.5 text-[11px]">
+                    <p className="font-extrabold text-white text-xs text-emerald-400 mb-1">💳 확보된 바이비트 테더(USDT)로 CHOICE 입금 신청 마무리 방법:</p>
+                    <ol className="list-decimal pl-4 space-y-2 text-gray-400">
+                      <li>CHOICE 상단 네비게이션 바에서 <strong className="text-amber-400 font-bold">입금신청</strong> 페이지로 이동하여 안전 지정 입금용 주소를 획득 및 눈으로 식별 확인합니다.</li>
+                      <li>바이비트 앱 ➔ <strong className="text-white">Assets</strong> ➔ <strong className="text-white">Withdraw</strong> ➔ <strong className="text-emerald-300 font-bold">USDT</strong>를 기체하여 출금 진행 창을 개방합니다.</li>
+                      <li>확인하신 CHOICE 공식 고유 충전 전용 지갑 주소를 정확하게 붙여넣습니다.</li>
+                      <li>⚠️ **[가장 중요]** 네트워크 형식은 필히 <strong className="text-rose-400 font-black">TRC-20 (TRON 기축 네트워크)</strong> 으로 유일 선택하셔야 전송 유실 위험 없이 1분 내로 극속 신호 대조 대입이 작동 성립됩니다.</li>
+                      <li>송금이 전산 출금 완료되면, 본사 입금 신청서 폼 안에 이체 처리한 수량을 입력하신 후 전송 신청하기 버튼을 넣어 주시면 즉각 전산 대조 승인이 격추됩니다.</li>
+                    </ol>
+                  </div>
+                </div>
+                
+                {/* Visual Mockup 3: Bybit Wallet & CHOICE Transfer configuration screen */}
+                <div className="lg:col-span-5 flex justify-center">
+                  <div className="w-full max-w-[320px] bg-[#0c0d12] border-4 border-neutral-800 rounded-[32px] p-4 py-5 shadow-[0_0_35px_rgba(56,189,248,0.06)] font-sans relative overflow-hidden select-none">
+                    {/* Mock Status Bar */}
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 font-semibold mb-4 px-2">
+                      <span>WITHDRAWAL CONSOLE</span>
+                      <span className="text-sky-400 font-mono text-[9px] font-black">TRC-20 TETHER</span>
+                    </div>
+
+                    <div className="space-y-3.5">
+                      {/* Currency badge */}
+                      <div className="flex items-center gap-2 bg-[#14161f] p-2.5 rounded-lg border border-neutral-800">
+                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-white text-xs font-mono">T</div>
+                        <div>
+                          <span className="text-[10px] font-bold text-white block">Tether (USDT)</span>
+                          <span className="text-[8px] text-gray-500 block">Stablecoin pegged 1:1 USD</span>
+                        </div>
+                      </div>
+
+                      {/* Mock input 1: Address */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[9px] font-bold">
+                          <span className="text-gray-400">Recipient Address (수신 지갑 주소)</span>
+                          <span className="text-emerald-450 italic">CHOICE Secure Address Verified</span>
+                        </div>
+                        <div className="bg-[#14161f] border border-red-500/50 rounded-lg px-2.5 py-1.5 text-center text-red-500 font-extrabold text-[11px] animate-pulse">
+                          여기에 사이트의 지갑주소를 입력하세요.
+                        </div>
+                      </div>
+
+                      {/* Mock input 2: Network selection */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[9px] font-bold">
+                          <span className="text-gray-400">Withdrawal Network (네트워크 체인)</span>
+                          <span className="text-rose-400 font-black animate-pulse">Required: TRC-20</span>
+                        </div>
+                        <div className="bg-[#14161f] border border-[#ff4e4e]/20 rounded-lg px-2.5 py-1.5 flex justify-between items-center text-xs font-black text-rose-300">
+                          <span className="font-mono text-[10px]">TRC-20 (Tron Network)</span>
+                          <span className="text-[8px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded border border-rose-500/10">Fixed</span>
+                        </div>
+                      </div>
+
+                      {/* Mock input 3: Amount selector */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[9px] text-gray-400 font-bold">
+                          <span>Withdrawal Amount (이체 수량)</span>
+                          <span>Fee: 1.00 USDT</span>
+                        </div>
+                        <div className="bg-[#14161f] border border-neutral-800 rounded-lg px-2.5 py-1.5 flex justify-between items-center text-xs text-white font-mono">
+                          <span className="font-bold">1,500.00</span>
+                          <span className="text-[8.5px] text-gray-500">USDT</span>
+                        </div>
+                      </div>
+
+                      {/* Shiny Neon glowing transaction button */}
+                      <div className="pt-1.5">
+                        <button type="button" className="w-full bg-gradient-to-r from-emerald-500 to-sky-500 text-black text-[11px] font-black py-2.5 rounded-lg active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.15)] flex items-center justify-center gap-1.5">
+                          <span>Confirm Web-3 Withdrawal</span>
+                          <span>➔</span>
+                        </button>
+                      </div>
+
+                      <div className="text-[8px] text-center text-gray-500">
+                        Blockchain transfers are instant and secured via TRON Smart Contract.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Bottom Help block */}
+          <div className="bg-[#110d0d] border border-rose-950 rounded-xl p-5 text-center space-y-1.5 max-w-2xl mx-auto">
+            <p className="text-xs font-black text-rose-300 tracking-tight">상세한 절차 설명에 어려움이 있을 시 24시간 실시간 고객센터 1:1 고객지원을 접수하시면 운영진이 가장 친절히 보조해 드립니다.</p>
+            <p className="text-[10px] text-gray-500 font-medium">CHOICE SPORTS & CASINO GLOBAL SECURE SYSTEM</p>
+          </div>
+        </div>
+      ) : showNoticeScreen ? (
+        <div id="notice_section_container" className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto font-sans text-gray-100 space-y-8">
+          {/* Breadcrumbs */}
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setShowNoticeScreen(false)} className="hover:text-white transition-colors cursor-pointer">홈</button> 
+              <span>&gt;</span> 
+              <span className="text-amber-400 font-extrabold">공지사항 및 이용규정</span>
+            </div>
+            <button 
+              onClick={() => navigateTo('home')} 
+              className="bg-neutral-950 border border-neutral-800 hover:bg-neutral-900 text-gray-300 font-bold px-3 py-1.5 rounded-lg transition active:scale-95 cursor-pointer text-[11px]"
+            >
+              메인 대시보드로 이동
+            </button>
+          </div>
+
+          {/* Title Banner */}
+          <div className="border-b border-neutral-850 pb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  CHOICE 공지사항 <span className="text-amber-400 text-xs font-black tracking-wider uppercase bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">OFFICIAL NOTICES & RULES</span>
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">회원님들의 소중한 자산 보호와 투명하고 안전한 시뮬레이션 베팅을 위한 필독 이용 안내입니다.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Top Primary Rule: Secure USDT TETHER (Luxury Emerald/Slate Box) */}
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-neutral-950 via-[#0a1410] to-neutral-950 p-6 md:p-8 shadow-[0_0_50px_rgba(16,185,129,0.06)]">
+            <div className="absolute top-1/2 right-[10%] w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none -translate-y-1/2"></div>
+            
+            <div className="relative z-10 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/10 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></div>
+                  <h3 className="text-base font-black text-emerald-400 tracking-tight flex items-center gap-1.5">
+                    🚨 [첫째도 안전, 둘째도 안전] CHOICE 보안 안심 거래 시스템 안내
+                  </h3>
+                </div>
+                <span className="text-[10px] font-black text-rose-455 bg-rose-500/10 px-2.5 py-1 rounded border border-rose-500/20 animate-pulse tracking-wide">보안 안전 최우선 필독</span>
+              </div>
+              
+              <p className="text-xs md:text-sm text-gray-300 leading-relaxed font-medium">
+                초이스는 회원님들의 신뢰와 개인정보, 자금 보안을 세계 최고 수준으로 유지하기 위해 <strong className="text-emerald-400 font-extrabold underline decoration-emerald-500">USDT 테더(TRC-20) 시스템</strong>만을 전격 채택하여 운영하고 있습니다. 
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div className="p-4 rounded-xl bg-black/40 border border-neutral-850 space-y-2">
+                  <div className="text-xs font-bold text-gray-200 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" /> 자금사고 원천 차단
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-normal">
+                    추적이 불가능한 악성 자금(보이스피싱, 금융사기 보상금 등) 및 금융권 통장 협박 유입을 실시간으로 차단하여 선량한 회원님들이 불필요한 계좌 정지 위협 없이 안심하고 이용하실 수 있는 가장 깨끗한 가상 거래 환경을 제공합니다.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/40 border border-neutral-850 space-y-2">
+                  <div className="text-xs font-bold text-gray-200 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" /> 다소 번거로운 가이드라인 이용 당부
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-normal">
+                    해외 가상자산 전송 방식이 처음에는 생소하고 번거롭게 느껴지실 수 있으나, CHOICE는 익명성과 거래 무결성을 동시에 잡는 가장 완벽한 VIP 전용 플랫폼이므로 양해와 지속적인 테더 지갑 활용을 진심으로 당부드립니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Core Rules Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Rule 1: Deposit & MyPage Rules (Amber Theme) */}
+            <div className="bg-neutral-900 border border-amber-500/20 rounded-xl p-5 md:p-6 space-y-4 shadow-lg hover:border-amber-500/35 transition-all">
+              <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+                <div className="w-7 h-7 rounded bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">충전 및 지갑·보안 설정</h4>
+              </div>
+              
+              <ul className="space-y-3.5 text-[11.5px] text-gray-300 leading-normal list-inside list-decimal pl-1">
+                <li className="list-item">
+                  <span className="font-extrabold text-amber-400">출금 비밀번호 초기 필수 설정</span>: 가입 후 마이페이지 내에서 본인만 알 수 있는 출금 고유 비밀번호를 우선적으로 입력 및 설정해주셔야 출금 신청 진행이 승인됩니다.
+                </li>
+                <li className="list-item">
+                  <span className="font-extrabold text-amber-500">최소 충전 한도 20 USDT</span>: 충전 전송 시 20 USDT 이상의 금액으로만 매칭 심사가 정상 진행됩니다. (<strong className="text-rose-400">20 USDT 미만</strong>은 소멸/반려 처리)
+                </li>
+                <li className="list-item">
+                  <span className="font-extrabold text-rose-455">지갑주소 오 입력 경고</span>: 지갑 주소 오기재 내지 네트워크 불일치로 발생한 잘못된 매체 전송으로 인한 분실 건은 CHOICE측에서 기술적으로 책임지지 않으니 발송 전 최종 검증을 기하셔야 합니다.
+                </li>
+              </ul>
+            </div>
+
+            {/* Rule 2: Rolling Requirements (Emerald Theme) */}
+            <div className="bg-neutral-900 border border-emerald-500/20 rounded-xl p-5 md:p-6 space-y-4 shadow-lg hover:border-emerald-500/35 transition-all">
+              <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+                <div className="w-7 h-7 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">투명한 롤링 (Rolling) 수칙</h4>
+              </div>
+
+              <div className="bg-black/35 rounded-lg p-3 space-y-2 border border-neutral-850">
+                <span className="text-[10px] text-gray-500 font-bold block">환전 정산 충족 조건 (지급 보너스 포함)</span>
+                <div className="flex justify-between items-center bg-teal-950/20 border border-teal-500/10 p-2 rounded">
+                  <span className="text-xs font-bold text-gray-300">스포츠</span>
+                  <span className="text-xs font-black text-emerald-400">롤링 100%</span>
+                </div>
+                <div className="flex justify-between items-center bg-emerald-950/20 border border-emerald-500/10 p-2 rounded">
+                  <span className="text-xs font-bold text-gray-300">미니게임</span>
+                  <span className="text-xs font-black text-emerald-400">롤링 300%</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-neutral-950/60 rounded-lg border border-neutral-850">
+                <p className="text-[10px] text-gray-400 leading-normal">
+                  * 롤링 계산 시, 지급받은 충전 보너스를 모두 포함하여 롤링 제한 요율이 충족되어야 정상 정산됩니다. 단, 무한 페이백 포인트(5%) 환급건은 롤링 요율 제한에서 우대 제외 처리 완료됩니다.
+                </p>
+              </div>
+            </div>
+
+            {/* Rule 3: Win Upper Limits (Red Theme) */}
+            <div className="bg-neutral-900 border border-rose-500/20 rounded-xl p-5 md:p-6 space-y-4 shadow-lg hover:border-rose-500/35 transition-all">
+              <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+                <div className="w-7 h-7 rounded bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-450">
+                  <Gamepad2 className="w-4 h-4 text-rose-500" />
+                </div>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">베팅 폴더 및 당첨 상한금 한도</h4>
+              </div>
+
+              <ul className="space-y-3 text-[11.5px] text-gray-300 ml-1">
+                <li className="flex items-center justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">스포츠 최대 베팅 폴더 수</span>
+                  <span className="font-extrabold text-white text-xs bg-neutral-950 px-2 py-0.5 rounded border border-neutral-800">최대 10 폴더</span>
+                </li>
+                <li className="flex items-center justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">스포츠 [단폴더] 적중 상한</span>
+                  <span className="font-black text-rose-400 text-xs">최대 2,000,000 원</span>
+                </li>
+                <li className="flex items-center justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">스포츠 [다폴더] 적중 상한</span>
+                  <span className="font-black text-rose-400 text-xs text-right">최대 10,000,000 원</span>
+                </li>
+                <li className="flex items-center justify-between pb-1">
+                  <span className="text-gray-400 font-medium">미니게임 회차별 당첨 한도</span>
+                  <span className="font-black text-amber-400 text-xs">최대 4,000,000 원</span>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          {/* Feedback & Error Report Program (Deep Purple/Sunset Card) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Feedback Part */}
+            <div className="rounded-xl border border-blue-500/20 bg-gradient-to-r from-neutral-950 to-neutral-900 p-5 space-y-3 shadow">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black w-fit uppercase">
+                <Zap className="w-3.5 h-3.5" /> ERROR REPORT BONUS
+              </div>
+              <h4 className="text-sm font-black text-white">오류 제보 시 10,000P 즉시 지급</h4>
+              <p className="text-xs text-gray-450 leading-relaxed">
+                시뮬레이터 진행 도중 이상이나 결함, 오표기를 발견하여 고객센터 1:1 문의 채널을 통해 성실히 제보해 주시는 회원께는 관리자가 검토 후 감사의 선물로 **10,000 P**의 고유 보너스 포인트를 자동 즉시 무제한 지급해 드립니다.
+              </p>
+            </div>
+
+            {/* Custom Features and Feedback Proposal */}
+            <div className="rounded-xl border border-pink-500/20 bg-gradient-to-r from-neutral-950 to-neutral-900 p-5 space-y-3 shadow">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-pink-500/10 border border-pink-500/20 text-pink-400 text-[10px] font-black w-fit uppercase">
+                <Sparkles className="w-3.5 h-3.5 text-pink-400" /> CUSTOM SUGGESTIONS
+              </div>
+              <h4 className="text-sm font-black text-white">다양하고 풍부한 건의사항 접수</h4>
+              <p className="text-xs text-gray-450 leading-relaxed">
+                초이스는 회원님들과 늘 실시간 호흡하는 글로벌 모의 스포츠 솔루션을 꿈꿉니다. 스포츠 통계, 베팅 연출, 편리한 마이페이지 기능 제안 등 어떠한 건의사항이라도 편하게 제안해주시면 적극적으로 개발에 반영해 드립니다.
+              </p>
+            </div>
+
+          </div>
+
+          {/* Footer Warm Message */}
+          <div className="bg-[#110d0d] border border-rose-950 rounded-xl p-5 text-center space-y-1.5 max-w-2xl mx-auto">
+            <p className="text-xs font-black text-rose-300 tracking-tight">전세계 베터들의 자수정처럼 단단한 동반자 CHOICE SPORTS & CASINO</p>
+            <p className="text-[11px] text-gray-500 font-medium">회원 성원을 바탕으로 항상 전진하겠습니다. 회원님들의 큰 행운과 건승을 기원합니다. 진심으로 감사드립니다.</p>
+          </div>
+        </div>
+      ) : showSports ? (
         <SportsContainer 
           currentUserData={currentUserData} 
           userBalance={userBalance} 
@@ -3231,7 +4556,268 @@ export default function MainPage({ onLogout }: MainPageProps) {
           mobileBetSlipOpen={mobileBetSlipOpen}
         />
       ) : showBetHistory ? (
-        <BetHistoryView currentUserData={currentUserData} />
+        <BetHistoryView currentUserData={currentUserData} sportsResults={sportsResults} />
+      ) : showEventScreen ? (
+        <div className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto font-sans">
+          {/* Breadcrumbs */}
+          <div className="mb-4 text-sm text-gray-400">
+            <button onClick={() => setShowEventScreen(false)} className="hover:text-white">홈</button> &gt; 이벤트 &gt; 무한 매충전 10%
+          </div>
+
+          {/* Title Banner */}
+          <div className="mb-6 border-b border-neutral-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <Gift className="w-6 h-6 text-amber-500" />
+                CHOICE 이벤트 <span className="text-amber-500 text-xs font-black tracking-wider uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">CHOICE PREMIUM EVENTS</span>
+              </h2>
+              <p className="text-xs text-gray-400 mt-1">초이스에서 선사하는 압도적인 혜택과 다채로운 이벤트를 만나보세요.</p>
+            </div>
+          </div>
+
+          {/* Luxury Event Banner Panel (Custom Golden Shimmer Graphic Card) */}
+          <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-neutral-950 via-[#16120d] to-neutral-950 p-6 md:p-10 shadow-[0_0_50px_rgba(245,158,11,0.08)] mb-8">
+            {/* Ambient gold glow beam */}
+            <div className="absolute top-0 right-[15%] w-[400px] h-[400px] bg-amber-500/10 rounded-full blur-[140px] pointer-events-none -translate-y-1/2"></div>
+            <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] bg-red-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+              {/* Text column */}
+              <div className="md:col-span-7 space-y-6">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black tracking-wider uppercase animate-pulse">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  CHOICE INFINITE BONUS
+                </div>
+
+                <div className="space-y-4">
+                  <span className="block text-gray-300 text-sm font-bold tracking-tight">회원 특별 혜택 업그레이드</span>
+                  <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 tracking-tight leading-tight">
+                    초이스 특별 혜택<br />더블 무한 보너스!
+                  </h1>
+                </div>
+
+                <div className="text-xs text-gray-300 leading-relaxed max-w-md space-y-2 bg-neutral-950/40 p-3.5 rounded-lg border border-neutral-800/60">
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-amber-400 font-bold">①</span>
+                    <div>
+                      <strong className="text-white">무한 매충전 10% 보너스:</strong> 매 입금/충전 승인 시 원화 정산액의 <strong className="text-amber-400">10% 포인트</strong> 즉시 자동 적립
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-1.5 border-t border-neutral-900 pt-2 mt-2">
+                    <span className="text-amber-400 font-bold">②</span>
+                    <div>
+                      <strong className="text-white">무한 베팅 페이백 5%:</strong> 모든 스포츠/미니게임 페어 베팅 참여 시 <strong className="text-amber-400">무한 +5% 페이백포인트</strong> 지급!
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    onClick={() => navigateTo('deposit')}
+                    className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-xs rounded-xl shadow-[0_10px_20px_rgba(245,158,11,0.2)] transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+                  >
+                    <Coins className="w-4 h-4" /> 지금 충전하고 10% 받기
+                  </button>
+                  <button
+                    onClick={() => navigateTo('home')}
+                    className="px-6 py-3 bg-neutral-900 hover:bg-neutral-800 text-gray-300 border border-neutral-800 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer"
+                  >
+                    게임 둘러보기
+                  </button>
+                </div>
+              </div>
+
+              {/* Graphical Luxury Visual Card (Simulates Sophisticated Banner Asset perfectly as requested!) */}
+              <div className="md:col-span-5 flex justify-center">
+                <div className="relative w-full max-w-[320px] aspect-[4/3] rounded-2xl bg-gradient-to-tr from-amber-500/20 to-neutral-900 border-2 border-amber-500/40 p-1 flex items-center justify-center overflow-hidden group shadow-[0_0_35px_rgba(245,158,11,0.15)]">
+                  {/* Subtle dynamic grid backgrounds */}
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+                  
+                  {/* Metallic Glossy Visual Face */}
+                  <div className="w-full h-full bg-slate-950/90 rounded-xl relative flex flex-col items-center justify-between p-6 overflow-hidden">
+                    {/* Ring glow */}
+                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl"></div>
+                    <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-red-500/20 rounded-full blur-2xl"></div>
+
+                    {/* Banner Headline */}
+                    <div className="text-center space-y-1">
+                      <span className="text-[9px] font-black tracking-[0.2em] text-amber-500/80 uppercase">CHOICE SPECIAL BONUS</span>
+                      <div className="h-[1px] w-12 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent mx-auto"></div>
+                    </div>
+
+                    {/* Massive Graphic Element */}
+                    <div className="text-center relative py-4">
+                      <div className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-b from-amber-100 via-amber-400 to-amber-700 tracking-tight drop-shadow-[0_2px_8px_rgba(245,158,11,0.4)]">
+                        10%
+                      </div>
+                      <div className="text-[10px] text-amber-400 font-black tracking-widest uppercase mt-1">
+                        UNLIMITED BONUS
+                      </div>
+                      <span className="absolute -top-1 -right-3 text-[10px] text-red-500 font-black px-1.5 py-0.5 bg-red-955/20 border border-red-500/30 rounded skew-x-12 animate-bounce">
+                        무한
+                      </span>
+                    </div>
+
+                    {/* Golden Coins/Dust representation */}
+                    <div className="flex gap-1.5 justify-center items-center">
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-ping"></div>
+                      <div className="w-2 h-2 rounded-full bg-amber-600"></div>
+                    </div>
+
+                    {/* Brand Signature */}
+                    <div className="text-center">
+                      <span className="text-[8px] tracking-[0.3em] font-bold text-gray-500 uppercase">CHOICE SIMULATOR PLATFORM</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Info Cards & Grid Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Box 1: Event Details */}
+            <div className="bg-[#0e111a] border border-neutral-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5 border-b border-neutral-800 pb-3">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                이벤트 상세 정보 (Details)
+              </h3>
+              
+              <div className="space-y-3.5 text-xs text-gray-300">
+                <div className="flex justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">대상 회원</span>
+                  <span className="font-bold text-gray-100">초이스 모든 실배터 회원</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">매 충전 보너스</span>
+                  <span className="font-extrabold text-amber-400">승인 원화금액의 10% 즉시 포인트 지급</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">베팅 페이백</span>
+                  <span className="font-extrabold text-emerald-400">베팅 완료 시 무한 +5% 페이백 포인트 지급</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-850 pb-2">
+                  <span className="text-gray-400 font-medium">이벤트 기한</span>
+                  <span className="font-bold text-rose-400">연중 무휴 24시간 특별 자동 정산</span>
+                </div>
+                <div className="flex justify-between pb-1">
+                  <span className="text-gray-400 font-medium">참여 횟수 제한</span>
+                  <span className="font-black text-amber-400">제한 없음 (모든 충전 및 베팅 시 무한 적용)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Box 2: Points Conversion Guide (No Balance - Just variable details!) */}
+            <div className="bg-[#0e111a] border border-neutral-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5 border-b border-neutral-800 pb-3">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                충전금액별 지급 포인트 예시 (Example Chart)
+              </h3>
+
+              <div className="space-y-2.5">
+                {[
+                  { deposit: 100000, points: 10000 },
+                  { deposit: 300000, points: 30000 },
+                  { deposit: 500000, points: 50000 },
+                  { deposit: 1000000, points: 100000 },
+                  { deposit: 2000000, points: 200000 },
+                ].map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-xs bg-neutral-950/60 p-2.5 rounded border border-neutral-850 hover:border-amber-500/25 transition-all">
+                    <span className="text-gray-300 font-mono font-bold">{item.deposit.toLocaleString()} 원 충전 시</span>
+                    <span className="text-gray-400">➔</span>
+                    <span className="font-extrabold text-[#b5cb85] font-mono">+{item.points.toLocaleString()} P 무상 지급!</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 추천인 연동 파트너십 제휴 이벤트 (Referral Special Event) */}
+          <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-gradient-to-br from-neutral-950 via-[#180f10] to-neutral-950 p-6 md:p-8 shadow-[0_0_50px_rgba(239,68,68,0.06)] mb-8 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            {/* Ambient hot aura */}
+            <div className="absolute top-1/2 left-1/2 w-[350px] h-[350px] bg-rose-500/5 rounded-full blur-[130px] pointer-events-none -translate-x-1/2 -translate-y-1/2"></div>
+            
+            <div className="relative z-10 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-rose-500/10 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 animate-pulse">
+                    <Users className="w-5 h-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm md:text-base font-black text-white flex items-center gap-2">
+                      🍀 실배터 추천인 연동 특별 프로모션 <span className="text-rose-400 text-[9px] font-black tracking-widest uppercase bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">LIFETIME PARTNER EVENT</span>
+                    </h3>
+                    <p className="text-[11px] text-gray-400 mt-0.5">지인 추천 및 파트너 관계 형성을 통해 한 차원 높은 특별 우대 보상을 영구적으로 획득하세요.</p>
+                  </div>
+                </div>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold border border-neutral-800 rounded px-2.5 py-1 bg-black/40 w-fit">Realtime Partnership</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 혜택 1: 즉시 포인트 지급 */}
+                <div className="bg-neutral-950/80 border border-rose-950/40 rounded-xl p-5 space-y-4 hover:border-rose-500/20 transition-all">
+                  <div className="flex items-center gap-2 bg-rose-500/5 border border-rose-500/10 rounded-lg px-3 py-1.5 w-fit">
+                    <span className="text-[10px] font-extrabold text-rose-400 uppercase">BENEFIT 01</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-rose-105">신규 가입자 연동 & 실배터 충전 보상</h4>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      나를 초청해 준 추천인의 가입코드를 기입하고 가입한 회원이 총 충전금액 <strong className="text-amber-400">200,000원 이상 충전</strong> 후, 적격 실배터 심사(실제 베팅 검증) 완료 시 추천인과 가입자 모두에게 압도적인 가입/초대 축하 기프트를 즉각 지급해 드립니다.
+                    </p>
+                  </div>
+
+                  <div className="bg-rose-500/5 rounded-lg border border-rose-500/10 p-3 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block mb-0.5">추천인 및 가입자 동시 지급</span>
+                      <span className="text-xs md:text-sm font-black text-white">각각 <strong className="text-rose-400">50,000 P</strong> 즉시 자동 수령 (<strong className="text-amber-400">총 100,000P</strong>)</span>
+                    </div>
+                    <Gift className="w-8 h-8 text-rose-400/30" />
+                  </div>
+                </div>
+
+                {/* 혜택 2: 롤링 커미션 */}
+                <div className="bg-neutral-950/80 border border-emerald-950/40 rounded-xl p-5 space-y-4 hover:border-emerald-500/20 transition-all">
+                  <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-1.5 w-fit">
+                    <span className="text-[10px] font-extrabold text-emerald-400 uppercase">BENEFIT 02</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-emerald-105">평생 베팅 롤링 적립 서비스 (Lifetime Commission)</h4>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      추천 연동되어 가입한 파트너가 초이스에서 제공하는 모든 스포츠 매치 및 실시간 미니게임 등의 시뮬레이터 베팅(롤링)에 참여할 때마다, <strong className="text-emerald-400 font-extrabold">승패 결과와 완전히 무관하게</strong> 실시간 베팅액 기준의 패시브 포인트가 영구적으로 평생 무료 적립됩니다.
+                    </p>
+                  </div>
+
+                  <div className="bg-emerald-500/5 rounded-lg border border-emerald-500/10 p-3 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block mb-0.5">평생 영구 지속 패시브 보너스</span>
+                      <span className="text-xs md:text-sm font-black text-white">가입자 실시간 베팅 총액의 <strong className="text-emerald-400">0.5% 평생 무제한 롤링 적립</strong></span>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-emerald-400/30" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notice Board */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-3">
+            <h4 className="text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-tight">
+              <Info className="w-4 h-4" />
+              신청 규정 및 어뷰징 금지 조항
+            </h4>
+            <ul className="list-disc pl-5 text-xs text-gray-400 leading-relaxed space-y-1.5">
+                  <li>충전 신청 승인이 완료되면 별도의 신청 접수 없이 <strong className="text-gray-350">10% 충전 보너스 포인트가 완전 자동 계산</strong>되어 즉시 합산 처리됩니다.</li>
+                  <li>모든 베팅 참여 시 <strong className="text-gray-350">무한 +5% 페이백 포인트(지정 보상)</strong> 조항에 따라 당첨/낙첨 결과에 무관하게 베팅 마감 후 즉시 페이백이 정산됩니다.</li>
+                  <li>지급된 모든 보너스 및 페이백 포인트는 CHOICE에서 제공하는 모든 시뮬레이터 미니게임 및 스포츠 베팅에 100% 동일하게 사용될 수 있습니다.</li>
+              <li>동일인 다중 IP 접속 및 의도적인 중복 가입을 통해 보너스 포인트를 편취하려는 시도나 매칭 어뷰징 행위 발생 시, 시스템 적발 프로그램을 통해 불이익(계정 영구 제한 및 자산 몰수 처리)이 부여되므로 정직한 모의 베팅 스포츠 매칭을 즐겨주시길 당부 드립니다.</li>
+            </ul>
+          </div>
+        </div>
       ) : showSupportScreen ? (
         <div className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto">
           {/* Breadcrumbs */}
@@ -3264,23 +4850,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
           </div>
 
-          {/* 1:1 문의등록 버튼 섹션 */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-bold text-white mb-2">나의 최근 문의 내역</h3>
-            {userInquiries.length === 0 ? (
-              <p className="text-gray-500 text-xs">작성한 문의 내역이 없습니다.</p>
-            ) : (
-              <div className="border border-neutral-800 rounded-lg overflow-hidden">
-                {userInquiries.slice(0, 3).map((inq) => (
-                  <div key={inq.id} className="p-3 border-b border-neutral-800 last:border-b-0 text-xs text-gray-300">
-                    <span className="font-bold text-amber-500">[{inq.status === 'pending' ? '답변대기' : '답변완료'}]</span> 
-                    <span className="ml-2">{inq.title}</span>
-                    <span className="ml-auto text-gray-500"> - {new Date(inq.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+
 
           {/* Table / List Container */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
@@ -3618,7 +5188,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
                 <ul className="space-y-2 text-xs text-gray-300 list-disc pl-5 leading-normal">
                   <li>지정된 아래 전송 주소로 <span className="text-amber-400 font-extrabold">USDT (TRC-20)</span>를 정확히 전송해주셔야 처리됩니다.</li>
-                  <li>입금 신청 금액은 1테더 기준 고정 환율 <span className="text-emerald-400 font-bold">1USD = 1,531원</span>으로 자동 정산되어 충전됩니다.</li>
+                  <li>최소 충전 신청 금액은 <span className="text-amber-400 font-extrabold">20 USDT</span> 입니다. (20 USDT 미만 신청 건은 즉시 반려 및 소멸 처리됩니다)</li>
+                  <li>입금 신청 금액은 1테더 기준 고정 환율 <span className="text-emerald-400 font-bold">1USD = {exchangeRate.toLocaleString()}원</span>으로 자동 정산되어 충전됩니다.</li>
                   <li>거래소 전송 비용이나 패널티, 가스머니는 본인 부담이며, 수수료를 제외한 실입금액 기준으로 입금 신청해주십시오.</li>
                   <li>등록된 본인의 테더 지갑 주소에서 발신한 트랜잭션만 자동 매칭됩니다. 발신 주소가 일치하지 않을 시 처리가 지연될 수 있습니다.</li>
                   <li>USDT 및 코인 시세는 실시간 미국 대표 코인거래소 시세를 기준으로 고정 반영된 고유 안전 환율입니다.</li>
@@ -3687,7 +5258,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           setDepositAmountUsdt(val);
                         }}
-                        placeholder="전송하신 USDT 수량을 입력하세요."
+                        placeholder="전송하신 USDT 수량을 입력하세요. (최소 20)"
                         className="w-full bg-neutral-950 border border-neutral-800 text-right text-gray-100 rounded px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold font-mono"
                       />
                       <span className="text-xs font-bold text-gray-400 min-w-[40px] text-left">USDT</span>
@@ -4118,7 +5689,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             {/* Game Result Categories */}
             <div className="flex flex-wrap gap-2 mb-6 border-b border-neutral-800/80 pb-6">
-              {['전체', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'].map(cat => (
+              {['전체', '축구', '농구', '야구', '배구', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'].map(cat => (
                 <button 
                   key={cat} 
                   onClick={() => {
@@ -4152,7 +5723,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <div key={row.id} className="bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 text-xs">
                         <div className="flex justify-between items-center mb-3">
                           <span className="text-gray-400 font-mono text-[11px]">{row.dateStr} {row.timeStr}</span>
-                          <span className="text-emerald-400 bg-emerald-950/30 border border-emerald-900/60 px-2 py-0.5 rounded font-bold text-[10px]">
+                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${
+                            row.statusText === '결과대기'
+                              ? 'text-amber-500 bg-amber-950/30 border-amber-900/60 animate-pulse'
+                              : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/60'
+                          }`}>
                             {row.statusText}
                           </span>
                         </div>
@@ -4201,9 +5776,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         <tr>
                           <th className="p-3 text-left pl-6 min-w-[100px]">경기일시</th>
                           <th className="p-3 text-left">리그 (구분)</th>
-                          <th className="p-3 text-center min-w-[170px]">승 (홈)</th>
+                          <th className="p-3 text-center min-w-[170px]">승 (홈) / 오버</th>
                           <th className="p-3 text-center min-w-[90px]">무 / 기준값</th>
-                          <th className="p-3 text-center min-w-[170px]">패 (원정)</th>
+                          <th className="p-3 text-center min-w-[170px]">패 (원정) / 언더</th>
                           <th className="p-3 text-center min-w-[100px]">스코어</th>
                           <th className="p-3 text-center pr-6 min-w-[90px]">결과</th>
                         </tr>
@@ -4235,13 +5810,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                             <td className="p-3 text-center align-middle py-4">
                               <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
                                 row.winner === 'home' 
-                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  ? 'bg-amber-500 text-black border-amber-500 shadow-md font-black' 
                                   : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
                               }`}>
-                                <span className={`font-bold ${row.winner === 'home' ? 'text-amber-400' : 'text-gray-300'}`}>
+                                <span className={`font-bold ${row.winner === 'home' ? 'text-black' : 'text-gray-300'}`}>
                                   {row.homeName}
                                 </span>
-                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                <span className={`font-bold font-mono tracking-wider ml-auto text-[11px] ${row.winner === 'home' ? 'text-black' : 'text-amber-500'}`}>
                                   {row.homeOdds}
                                 </span>
                               </div>
@@ -4258,13 +5833,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
                             <td className="p-3 text-center align-middle py-4">
                               <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs h-9 font-medium transition duration-200 select-none ${
                                 row.winner === 'away' 
-                                  ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
+                                  ? 'bg-amber-500 text-black border-amber-500 shadow-md font-black' 
                                   : 'bg-neutral-900/60 border-neutral-800/60 hover:bg-neutral-900/90'
                               }`}>
-                                <span className={`font-bold ${row.winner === 'away' ? 'text-amber-400' : 'text-gray-300'}`}>
+                                <span className={`font-bold ${row.winner === 'away' ? 'text-black' : 'text-gray-300'}`}>
                                   {row.awayName}
                                 </span>
-                                <span className="text-amber-500 font-bold font-mono tracking-wider ml-auto text-[11px]">
+                                <span className={`font-bold font-mono tracking-wider ml-auto text-[11px] ${row.winner === 'away' ? 'text-black' : 'text-amber-500'}`}>
                                   {row.awayOdds}
                                 </span>
                               </div>
@@ -4285,7 +5860,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                             {/* 결과 */}
                             <td className="p-3 text-center align-middle pr-6 py-4">
-                              <div className="inline-block border border-emerald-900/60 text-emerald-400 bg-emerald-950/30 px-3 py-1 text-[11px] rounded font-bold tracking-tight shadow-[0_2px_4px_rgba(16,185,129,0.05)] select-none">
+                              <div className={`inline-block border px-3 py-1 text-[11px] rounded font-bold tracking-tight select-none shadow-[0_2px_4px_rgba(245,158,11,0.05)] ${
+                                row.statusText === '결과대기'
+                                  ? 'text-amber-500 bg-amber-950/30 border-amber-900/60 animate-pulse'
+                                  : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/60'
+                              }`}>
                                 {row.statusText}
                               </div>
                             </td>
@@ -4345,10 +5924,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <div className="mb-3 text-xs md:text-sm text-gray-400 px-1">
             <button onClick={() => setShowMiniGame(false)} className="hover:text-white">홈</button> &gt; 미니게임
           </div>
-          <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 items-start relative w-full max-w-full overflow-hidden">
+          <div className={`flex ${isMobile ? 'flex-col' : 'flex-row'} gap-4 md:gap-6 items-start justify-center relative w-full max-w-full overflow-hidden`}>
             
             {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
-            <div className="flex-[3] w-full max-w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden xl:mr-[350px]">
+            <div className="flex-1 max-w-[1120px] w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
               <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
                   <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
@@ -4635,7 +6214,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                       <span className={`font-black ${isMiddleSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{(row.middle as any).dividend}</span>
                                     </button>
                                   ) : (
-                                    <div className="bg-neutral-950 border border-neutral-900 py-1.5 px-2 rounded font-black text-gray-500 text-[10px] text-center select-none font-mono">
+                                    <div className={`bg-neutral-950 border border-neutral-900 py-1.5 px-2 rounded font-black text-center select-none font-mono ${
+                                      row.middle !== 'VS' ? 'text-amber-400 bg-amber-950/30 text-xs border-amber-900/30' : 'text-gray-500 text-[10px]'
+                                    }`}>
                                       {row.middle as string}
                                     </div>
                                   )}
@@ -4687,20 +6268,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
 
               </div>
-            </div>
 
             {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 적용 */}
             <div 
               style={!isMobile ? {
                 paddingBottom: '20px',
-                marginRight: '80px',
-                marginBottom: '0px',
-                marginTop: '290px'
+                marginBottom: '0px'
               } : undefined}
               className={`
               ${isMobile 
                 ? `fixed bottom-[54px] left-0 right-0 max-h-[85vh] overflow-y-auto bg-neutral-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl px-4 py-3 pb-8 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] flex flex-col space-y-3 z-40 transition-all duration-300 transform ${mobileBetSlipOpen ? 'translate-y-0 opacity-100 animate-none' : 'translate-y-full opacity-0 pointer-events-none'}` 
-                : 'w-full xl:w-80 bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl xl:absolute xl:right-0 xl:top-0 z-30 py-4 mr-0 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto'
+                : 'w-80 shrink-0 bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto'
               }
             `}>
               <div className="space-y-4 flex flex-col flex-1">
@@ -4748,7 +6326,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
 
                 {/* Selections Section */}
-                <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] xl:max-h-none">
+                <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none">
                   {selectedOptions.length === 0 ? (
                     <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
                       <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
@@ -4873,13 +6451,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           <span className="text-neutral-500 font-extrabold">최종 수렴 배당</span>
                           <span className="text-zinc-200 font-black font-mono">{totalDiv.toFixed(2)} 배</span>
                         </div>
-                        <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
-                          <span className="text-neutral-300 font-black flex items-center gap-1">
-                            <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
-                          </span>
-                          <span className="text-sm font-black text-emerald-400 font-sans tracking-tight">
-                            {estimatedPay.toLocaleString()}원
-                          </span>
+                        <div className="flex flex-col gap-1.5 pt-1.5 border-t border-neutral-900">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-neutral-300 font-black flex items-center gap-1">
+                              <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
+                            </span>
+                            <span className={`text-sm font-black font-sans tracking-tight ${estimatedPay > 4000000 ? 'text-red-400' : 'text-emerald-400'}`}>
+                              {estimatedPay.toLocaleString()}원
+                            </span>
+                          </div>
+                          {estimatedPay > 4000000 && (
+                            <div className="text-right text-[10px] text-red-500/90 font-bold bg-red-950/30 p-1.5 rounded border border-red-900/50">
+                              미니게임 최대 적중 상한금액 (4,000,000원) 초과
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -4918,6 +6503,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           </div>
         </div>
+      </div>
       ) : (
         <>
           {/* Main Feature Banner - High-End Luxury Cohesive VIP Cockpit Board */}
@@ -5060,40 +6646,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </div>
                   </motion.div>
 
-                  {/* 3. Live NBA Sports Frame */}
-                  <motion.div
-                    whileHover={{ y: -8, scale: 1.03 }}
-                    transition={{ duration: 0.3 }}
-                    className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-emerald-500/25 bg-neutral-950 shadow-[0_20px_40px_rgba(0,0,0,0.9)] cursor-pointer group"
-                  >
-                    {/* Emerald sweep light */}
-                    <motion.div
-                      animate={{ x: ['-100%', '200%'] }}
-                      transition={{ duration: 4.8, repeat: Infinity, repeatDelay: 0.5, ease: "easeInOut" }}
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent skew-x-12 z-20 pointer-events-none"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
-
-                    {/* NBA Basketball Player Action */}
-                    <img
-                      src="https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800"
-                      alt="Choice Live Sports NBA Basketball"
-                      className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-
-                    {/* Stamp */}
-                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-500/30 shadow-lg">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-                      <span className="text-emerald-400 text-[9px] font-black tracking-widest uppercase">NBA & LIVE SPORTS</span>
-                    </div>
-
-                    {/* Bottom glass panel */}
-                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-emerald-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-emerald-450 tracking-wider uppercase">GLOBAL REALTIME MATCH</span>
-                      <span className="text-[8.5px] font-black font-mono text-emerald-300">LIVE INDOOR COURT 🏀</span>
-                    </div>
-                  </motion.div>
+                  {/* 3. Luxury Telegram Customer Center Card */}
+                  <VerticalTelegramBanner />
                   
                 </div>
 
@@ -5242,7 +6796,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     onClick={() => setAdminActiveTab('matches')}
                     className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'matches' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
-                    <Edit className="w-3 h-3 text-white" /> 경기 등록
+                    <Edit className="w-3 h-3 text-white" /> 경기 등록 / 정산
                   </button>
                 </div>
               </div>
@@ -5573,16 +7127,30 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
               ) : (
                 <>
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-                    <input 
-                      type="text" 
-                      placeholder="아이디 또는 닉네임으로 회원 검색..." 
-                      value={searchQuery || ''}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-black/60 border border-neutral-800 text-gray-200 rounded pl-10 pr-4 py-2 focus:outline-none focus:border-red-600 text-sm"
-                    />
+                  {/* Search Bar & Global Message Trigger */}
+                  <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 justify-between">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                      <input 
+                        type="text" 
+                        placeholder="아이디 또는 닉네임으로 회원 검색..." 
+                        value={searchQuery || ''}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-black/60 border border-neutral-800 text-gray-200 rounded pl-10 pr-4 py-2 focus:outline-none focus:border-red-600 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAdminNoteTargetUsername('ALL_USERS');
+                        setAdminNoteTargetNickname('전체 회원');
+                        setAdminNoteTitle('');
+                        setAdminNoteContent('');
+                        setIsAdminNoteModalOpen(true);
+                      }}
+                      className="whitespace-nowrap px-4 py-2 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-650 hover:to-red-750 text-white font-black text-xs rounded-lg shadow-md border border-red-650/30 flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-white animate-pulse" /> 전체 회원 쪽지 전송
+                    </button>
                   </div>
 
                   {/* Loader */}
@@ -5596,18 +7164,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <table className="w-full text-left text-xs text-gray-300">
                         <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
                           <tr>
-                            <th className="p-3">가입코드</th>
-                            <th className="p-3">아이디</th>
-                            <th className="p-3">비밀번호</th>
-                            <th className="p-3">닉네임</th>
-                            <th className="p-3">테더 지갑 주소</th>
-                            <th className="p-3">출금비밀번호</th>
-                            <th className="p-3">보유금액</th>
-                            <th className="p-3">포인트</th>
-                            <th className="p-3 text-center">동작</th>
+                            <th className="p-3 whitespace-nowrap">가입코드</th>
+                            <th className="p-3 whitespace-nowrap">아이디</th>
+                            <th className="p-3 whitespace-nowrap">비밀번호</th>
+                            <th className="p-3 whitespace-nowrap">닉네임</th>
+                            <th className="p-3 whitespace-nowrap">테더 지갑 주소</th>
+                            <th className="p-3 whitespace-nowrap">출금비밀번호</th>
+                            <th className="p-3 whitespace-nowrap">보유금액</th>
+                            <th className="p-3 whitespace-nowrap">포인트</th>
+                            <th className="p-3 whitespace-nowrap">추천 정보</th>
+                            <th className="p-3 text-center whitespace-nowrap">동작</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-neutral-800/50">
+                        <tbody className="divide-y divide-neutral-800/10">
                           {adminUsers
                             .filter(u => {
                               const qStr = searchQuery.toLowerCase();
@@ -5618,9 +7187,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               const isEditing = editingUserId === user.id;
                               return (
                                 <tr key={user.id} className="hover:bg-neutral-850/40 transition">
-                                  <td className="p-3 font-mono text-amber-500 font-bold">{user.joinCode || '5882'}</td>
-                                  <td className="p-3 font-bold text-white">{user.username}</td>
-                                  <td className="p-3">
+                                  <td className="p-3 font-mono text-amber-500 font-bold whitespace-nowrap">{user.joinCode || '5882'}</td>
+                                  <td className="p-3 font-bold text-white whitespace-nowrap">{user.username}</td>
+                                  <td className="p-3 whitespace-nowrap">
                                     {isEditing ? (
                                       <input 
                                         type="text" 
@@ -5632,7 +7201,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                       <span className="font-mono text-red-400/85">{user.password}</span>
                                     )}
                                   </td>
-                                  <td className="p-3 font-bold">
+                                  <td className="p-3 font-bold whitespace-nowrap text-sky-455">
                                     {isEditing ? (
                                       <input 
                                         type="text" 
@@ -5644,7 +7213,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                       <span className="text-sky-400">{user.nickname || '-'}</span>
                                     )}
                                   </td>
-                                  <td className="p-3 font-mono">
+                                  <td className="p-3 font-mono whitespace-nowrap">
                                     {isEditing ? (
                                       <input 
                                         type="text" 
@@ -5653,15 +7222,29 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                         className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-full max-w-sm text-xs focus:outline-none"
                                       />
                                     ) : (
-                                      <span className="text-gray-400 text-[11px] truncate max-w-[250px] inline-block" title={user.tetherWalletAddress}>
-                                        {user.tetherWalletAddress || '-'}
-                                      </span>
+                                      <div className="flex items-center gap-1.5 matches-wallet-container">
+                                        <span className="text-gray-300 text-[11px] font-mono whitespace-nowrap font-semibold select-all">
+                                          {user.tetherWalletAddress || '-'}
+                                        </span>
+                                        {user.tetherWalletAddress && (
+                                          <button
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(user.tetherWalletAddress);
+                                              alert('지갑 주소가 복사되었습니다.');
+                                            }}
+                                            className="text-gray-500 hover:text-amber-400 p-1 rounded hover:bg-neutral-800 transition active:scale-90 cursor-pointer flex-shrink-0"
+                                            title="지갑주소 복사"
+                                          >
+                                            <Copy className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
                                     )}
                                   </td>
-                                  <td className="p-3 font-mono text-amber-500/80 text-xs">
+                                  <td className="p-3 font-mono text-amber-500/80 text-xs whitespace-nowrap">
                                     {user.withdrawalPassword || '-'}
                                   </td>
-                                  <td className="p-3 font-bold font-mono text-emerald-400 text-xs">
+                                  <td className="p-3 font-bold font-mono text-emerald-400 text-xs whitespace-nowrap">
                                     {isEditing ? (
                                       <input 
                                         type="number" 
@@ -5673,7 +7256,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                       `${(user.balance !== undefined ? user.balance : 5000000).toLocaleString()}원`
                                     )}
                                   </td>
-                                  <td className="p-3 font-bold font-mono text-cyan-400 text-xs">
+                                  <td className="p-3 font-bold font-mono text-cyan-400 text-xs whitespace-nowrap">
                                     {isEditing ? (
                                       <input 
                                         type="number" 
@@ -5685,36 +7268,74 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                       `${(user.points !== undefined ? user.points : 50000).toLocaleString()}P`
                                     )}
                                   </td>
+                                  <td className="p-3 text-xs whitespace-nowrap border-r border-neutral-800/10">
+                                    <div className="flex flex-col gap-0.5 leading-normal">
+                                      <div className="text-[10px] text-gray-400 font-medium">내 추천코드: <span className="font-bold text-amber-500 font-sans">{user.referrerCode || '-'}</span></div>
+                                      <div className="text-[10px] text-gray-450 font-medium">상위 추천인: <span className="font-bold text-cyan-455 font-sans">{user.appliedReferrerCode || '없음'}</span></div>
+                                      <div className="text-[10px] text-gray-450 font-medium">추천 회원수: <span className="font-black text-emerald-450 font-sans">{adminUsers.filter(u => u.appliedReferrerCode === user.referrerCode).length}명</span></div>
+                                    </div>
+                                  </td>
                                   <td className="p-3 text-center">
-                                    <div className="flex items-center justify-center gap-1.5">
+                                    <div className="flex items-center justify-center gap-1.5 flex-wrap max-w-[180px] mx-auto">
                                       {isEditing ? (
                                         <>
                                           <button 
                                             onClick={() => handleSaveEdit(user.id)}
-                                            className="bg-green-950 hover:bg-green-900 border border-green-800 text-green-400 px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition"
+                                            className="w-[82px] h-7 bg-green-950 hover:bg-green-900 border border-green-800 text-green-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
                                           >
-                                            저장
+                                            <Save className="w-3.5 h-3.5 text-green-400" />
+                                            <span>저장</span>
                                           </button>
                                           <button 
                                             onClick={() => setEditingUserId(null)}
-                                            className="bg-neutral-850 hover:bg-neutral-800 text-gray-300 px-2.5 py-1 rounded text-[11px] cursor-pointer"
+                                            className="w-[82px] h-7 bg-neutral-850 hover:bg-neutral-800 text-gray-300 border border-neutral-700 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
                                           >
-                                            취소
+                                            <X className="w-3.5 h-3.5 text-gray-300" />
+                                            <span>취소</span>
                                           </button>
                                         </>
                                       ) : (
                                         <>
                                           <button 
-                                            onClick={() => handleStartEdit(user)}
-                                            className="bg-blue-950 hover:bg-blue-900/60 border border-blue-900/50 text-blue-400 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition"
+                                            onClick={() => {
+                                              setAdminSelectedUserForBets(user);
+                                              setIsAdminBetsModalOpen(true);
+                                            }}
+                                            className="w-[82px] h-7 bg-emerald-950 hover:bg-emerald-900/60 border border-emerald-900/50 text-emerald-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
+                                            title="이 회원의 실시간 배팅내역 확인"
                                           >
-                                            수정
+                                            <History className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>배팅내역</span>
+                                          </button>
+                                          <button 
+                                            onClick={() => {
+                                              setAdminNoteTargetUsername(user.username || user.id);
+                                              setAdminNoteTargetNickname(user.nickname || user.username || '회원');
+                                              setAdminNoteTitle('');
+                                              setAdminNoteContent('');
+                                              setIsAdminNoteModalOpen(true);
+                                            }}
+                                            className="w-[82px] h-7 bg-amber-950 hover:bg-amber-900/60 border border-amber-900/50 text-amber-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
+                                            title="이 회원에게 개별 쪽지 발송"
+                                          >
+                                            <Mail className="w-3.5 h-3.5 text-amber-400" />
+                                            <span>쪽지</span>
+                                          </button>
+                                          <button 
+                                            onClick={() => handleStartEdit(user)}
+                                            className="w-[82px] h-7 bg-blue-950 hover:bg-blue-900/60 border border-blue-900/50 text-blue-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
+                                            title="수정"
+                                          >
+                                            <Edit className="w-3.5 h-3.5 text-blue-400" />
+                                            <span>수정</span>
                                           </button>
                                           <button 
                                             onClick={() => handleDeleteUser(user.id)}
-                                            className="bg-red-950/60 hover:bg-red-900/60 border border-red-900/50 text-red-400 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition"
+                                            className="w-[82px] h-7 bg-red-950/60 hover:bg-red-900/60 border border-red-900/50 text-red-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
+                                            title="삭제"
                                           >
-                                            삭제
+                                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                            <span>삭제</span>
                                           </button>
                                         </>
                                       )}
@@ -5725,7 +7346,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                             })}
                           {adminUsers.length === 0 && (
                             <tr>
-                              <td colSpan={9} className="p-8 text-center text-gray-500">
+                              <td colSpan={10} className="p-8 text-center text-gray-500">
                                 가입된 회원이 존재하지 않습니다.
                               </td>
                             </tr>
@@ -5743,7 +7364,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <p>어드민 가이드: 비밀번호, 닉네임, 지갑 주소를 실시간 수동 관리할 수 있습니다.</p>
               <button 
                 onClick={() => setShowAdminPanel(false)}
-                className="bg-neutral-800 hover:bg-neutral-750 text-white font-bold px-4 py-2 border border-neutral-700 rounded cursor-pointer text-xs"
+                className="bg-neutral-800 hover:bg-[#1f2229] hover:text-white text-gray-400 font-bold px-4 py-2 border border-neutral-700/50 rounded cursor-pointer text-xs"
               >
                 닫기
               </button>
@@ -5773,10 +7394,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
             onClick={() => {
               setShowAttendanceChecker(true);
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-450 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Vote className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+              <Vote className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               콤프내역
@@ -5827,27 +7448,730 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </span>
           </button>
 
-          {/* 5. 쿠키삭제 */}
+          {/* 5. 포인트내역 */}
           <button
             onClick={() => {
-              try {
-                localStorage.clear();
-                sessionStorage.clear();
-                alert("브라우저 쿠키 및 세션 데이터가 성공적으로 삭제되었습니다.\n(로그아웃 후 초기 세션으로 재시작됩니다.)");
-                window.location.reload();
-              } catch (err) {
-                console.error(err);
-              }
+              navigateTo('pointshistory');
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-rose-400 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Trash2 className="w-5 h-5 text-gray-400 group-hover:text-red-400" />
+              <Coins className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
-              쿠키삭제
+              포인트내역
             </span>
           </button>
+        </div>
+      )}
+
+      {showPointsHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-0 md:p-6">
+          <div className="relative w-full h-full md:h-auto md:max-w-5xl bg-[#090b10] md:border md:border-neutral-800 md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <button 
+              onClick={() => setShowPointsHistory(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white p-2 z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <PointHistoryView currentUserData={currentUserData} />
+          </div>
+        </div>
+      )}
+      {isReferrerModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 text-white">
+          <div className="bg-[#0b0c10] border border-red-900 max-w-xl w-full rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(239,68,68,0.15)] relative animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* 닫기 버튼 */}
+            <button
+              onClick={() => setIsReferrerModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition p-1.5 hover:bg-neutral-800 rounded-lg cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            
+            {/* 상단 헤더 */}
+            <div className="p-6 border-b border-neutral-800 bg-neutral-950/60 flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-red-950/50 rounded-xl border border-red-900/60 flex items-center justify-center text-red-500 shadow-inner">
+                <Users className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-1.5">
+                  👥 VIP 파트너 추천인 시스템
+                </h3>
+                <p className="text-xs text-gray-400">지인을 초대하고 든든하고 강력한 평생 베팅 롤링 보상을 획득하세요.</p>
+              </div>
+            </div>
+
+            {/* 콘텐츠 영역 */}
+            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto font-sans">
+              
+              {/* 제도 소개 배너 */}
+              <div className="bg-gradient-to-r from-neutral-950 to-neutral-900 border border-neutral-800 p-4 rounded-xl space-y-2.5 font-sans">
+                <span className="text-[10px] bg-red-950/40 text-red-400 border border-red-900 px-2 py-0.5 rounded font-black tracking-wider uppercase">HOW IT WORKS</span>
+                <h4 className="text-xs font-black text-amber-500">가장 쉽고 강력한 하부 롤링(Rolling) 및 가상 정산 프로토콜</h4>
+                <ul className="text-[11px] text-gray-300 space-y-1.5 leading-relaxed">
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-red-500 font-extrabold">✓</span>
+                    <span><strong>VIP 추천인 코드 수동 심사제:</strong> 무분별한 어뷰징 계정을 걸러내고 가깝고 확실한 유저 유입에 집중하여 1:1 고객센터 상담 검증 후 발급합니다.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-red-500 font-extrabold">✓</span>
+                    <span><strong>실시간 0.5% 평생 베팅 롤링 적립:</strong> 내 코드로 가입한 지인이 스포츠/미니게임 무엇이든 배팅하면 적중 결과 무관하게 <strong>배팅액의 0.5%</strong>가 롤링금으로 계속 적립됩니다!</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="text-red-500 font-extrabold">✓</span>
+                    <span><strong>실배터 충전 보너스 혜택:</strong> 내 코드로 가입한 신규 회원이 <strong>누적 20만원 이상 충전(입금)</strong> 시 정식 <strong className="text-amber-450 font-extrabold">‘적격실배터’</strong>로 자동 인정되며, <strong>가입자와 추천인 모두에게 각각 50,000P</strong>를 전산 지급합니다.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* 2단 그리드 layout (본인의 코드 정보 vs 피추천인 상제 정산) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* 내 추천인 코드 및 적립 상태 */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850/75 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2.5">
+                    <span className="text-[10px] text-gray-400 font-black tracking-wider uppercase block">MY PARTNER CODE</span>
+                    <div className="flex items-center gap-2">
+                      {userReferrerCode ? (
+                        <div className="bg-[#111217] border border-neutral-800 px-3.5 py-1.5 rounded-lg flex items-center justify-between w-full">
+                          <span className="font-mono font-black text-sm text-amber-450 tracking-wide">{userReferrerCode}</span>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(userReferrerCode);
+                              alert('추천인 파트너 코드가 클립보드에 복사되었습니다!');
+                            }}
+                            className="text-[10px] text-gray-400 hover:text-white bg-neutral-800 px-2.5 py-1 rounded transition border border-neutral-700/50 cursor-pointer"
+                          >
+                            복사
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full space-y-2">
+                          <div className="bg-[#111217] border border-dashed border-red-900/60 p-3 rounded-lg text-center">
+                            <span className="text-[11px] text-red-500 font-bold block">⚠️ 코드 미발급 상태</span>
+                            <span className="text-[9px] text-gray-500 block">고객센터에 발급 심사 요청이 필요합니다.</span>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setIsReferrerModalOpen(false);
+                              setShowCreateInquiryModal(true);
+                              setInquiryTitle('VIP 추천인 파트너 코드 발급을 신청합니다.');
+                              setInquiryContent(`안녕하십니까. VIP 추천인 파트너 코드를 정식 신청하고자 합니다.\n\n[예상 지인 유입수]: 10명 내외\n[주요 홍보 방식/도메인]: 단체 텔레그램방 및 지인 입소문 홍보\n\n확인 후 코드 심사 승인 및 신속 발급 부탁드리겠습니다.`);
+                              navigateTo('support');
+                            }}
+                            className="w-full bg-gradient-to-r from-red-950 to-red-900 hover:from-red-900 hover:to-red-850 text-white font-black text-xs py-2 rounded-lg transition active:scale-95 cursor-pointer shadow-md border border-neutral-800"
+                          >
+                            💬 1:1 고객센터 발급신청
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 테스트용 가상 어드민 치트 */}
+                  {!userReferrerCode && (
+                    <div className="border-t border-neutral-900 pt-2.5">
+                      <button
+                        onClick={() => {
+                          const randomCode = Math.floor(1000 + Math.random() * 9005).toString();
+                          setUserReferrerCode(randomCode);
+                          localStorage.setItem('userReferrerCode', randomCode);
+                          alert(`[테스트용 임시 코드 승인] 관리자 심사가 승인되어 코드 [ ${randomCode} ] 를 성공적으로 발급 완료하였습니다!`);
+                        }}
+                        className="w-full bg-[#111217] hover:bg-neutral-800 border border-neutral-800 text-[9.5px] text-amber-500 hover:text-amber-400 font-bold py-1.5 rounded-md transition cursor-pointer"
+                      >
+                        ⚙️ [개발자 테스트] 즉시 파트너 코드 승인받기
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 수익 전환 정산 판 */}
+                  {userReferrerCode && (
+                    <div className="border-t border-neutral-900 pt-2.5 space-y-2">
+                      <div className="flex justify-between items-center text-xs font-sans">
+                        <span className="text-gray-400">현재 누적 추천인</span>
+                        <span className="font-extrabold text-white">{referredUsersCount} 명</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-sans">
+                        <span className="text-gray-400">하부 총 베팅액</span>
+                        <span className="font-bold text-gray-500 font-mono">{referredTotalBet.toLocaleString()} 원</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-[#111c14] p-2.5 rounded-lg border border-emerald-950 text-xs font-sans">
+                        <span className="text-emerald-400 font-bold">롤링 적립금</span>
+                        <span className="font-mono text-emerald-400 font-black">{rollingPoints.toLocaleString()} 원</span>
+                      </div>
+                      <button 
+                        disabled={rollingPoints <= 0}
+                        onClick={() => {
+                          setUserBalance(prev => {
+                            const nextBal = prev + rollingPoints;
+                            localStorage.setItem('walletBalance', String(nextBal));
+                            return nextBal;
+                          });
+                          alert(`🎉 성공적으로 롤링 적립금 ${rollingPoints.toLocaleString()}원이 보유머니로 100% 정산 전환되었습니다!`);
+                          setRollingPoints(0);
+                          localStorage.setItem('rollingPoints', '0');
+                        }}
+                        className={`w-full font-black text-xs py-2 rounded-lg transition active:scale-95 ${rollingPoints > 0 ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-450 hover:to-emerald-550 text-neutral-950 cursor-pointer shadow-md' : 'bg-neutral-850 text-neutral-600 cursor-not-allowed opacity-50'}`}
+                      >
+                        💰 롤링 적립금 보유머니로 전환
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 내가 상부 추천인 코드를 등록하는 기능 */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850/75 space-y-3 flex flex-col justify-between font-sans">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-black tracking-wider uppercase block mb-1">ENTER UPPER CODE</span>
+                    <p className="text-[11px] text-gray-405 mb-2.5 leading-relaxed font-sans">
+                      회원가입 시 입력하신 가입 코드를 기반으로 상부 파트너 추천인과의 매칭 연동이 <strong>자동으로 완료</strong>되었습니다. 20만원 이상 충전 발생 시 본인 및 추천인에게 <strong>각각 50,000P</strong>가 시스템 전산으로 자동 추가 적립됩니다.
+                    </p>
+                    
+                    {myAppliedReferrer ? (
+                      <div className="bg-[#111217] border border-neutral-800 p-3 rounded-lg flex flex-col items-center justify-center gap-1.5 text-center">
+                        <span className="text-[10px] text-emerald-400 font-black uppercase flex items-center gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-400" /> 추천인 연동 완료 👤
+                        </span>
+                        <span className="font-mono font-black text-xs text-gray-200">{myAppliedReferrer}</span>
+                        {currentUserData?.isQualifiedBettor ? (
+                          <span className="text-[9.5px] bg-amber-950/40 border border-amber-900/50 rounded px-2 py-0.5 mt-1 text-amber-500 font-bold">
+                            👑 적격실배터 인증 완료 (50,000P 완료)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-gray-500 text-center leading-normal mt-0.5">
+                            (미인증 상태 - 누적 20만원 이상 입금 시 <br />본인/추천인 각각 50,000P 자동 실시간 생성)
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-[#111217] border border-dashed border-neutral-800 p-3 rounded-lg text-center">
+                        <span className="text-[11.5px] text-gray-400 font-bold block">⚠️ 연동 추천인 없음</span>
+                        <span className="text-[9px] text-gray-500 block">회원 가입 당시 가입 코드 없이 가입된 임시 회원입니다.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 홍보 문구 복사 배너 */}
+                  <div className="border-t border-neutral-900 pt-2 text-[10px] text-gray-505 space-y-1">
+                    <span className="text-[9px] text-amber-550 font-black block">📢 추천 활동 길잡이</span>
+                    <p className="leading-snug">가이드 커뮤니티, 블로그, 단톡방 등에서 본인의 정식 파트너 코드를 홍보하시면 평생 정산되는 영구적 롤링 수익 기여가 생성됩니다.</p>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* 하부 피추천 회원 리스트 */}
+              {userReferrerCode && (
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850/75 space-y-2.5">
+                  <div className="flex justify-between items-center border-b border-neutral-900 pb-1.5 font-sans">
+                    <span className="text-[10px] text-gray-400 font-black uppercase tracking-wider">나의 추천 가입자 목록</span>
+                    <span className="text-[9px] text-emerald-500 font-black font-mono tracking-tight">LIVE REVENUE</span>
+                  </div>
+                  <div className="overflow-x-auto text-[11px] font-sans">
+                    <table className="w-full text-left text-gray-300">
+                      <thead>
+                        <tr className="text-[9.5px] text-gray-500 border-b border-neutral-900/60 font-bold whitespace-nowrap">
+                          <th className="py-1">가입 일자</th>
+                          <th className="py-1">회원 아이디</th>
+                          <th className="py-1">VIP 등급</th>
+                          <th className="py-1 text-right">총 배팅 모두</th>
+                          <th className="py-1 text-right text-emerald-500">기여 롤링 포인트 (0.5%)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-900/40 text-gray-300 font-mono">
+                        {referredUsersCount === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-gray-500 font-sans text-xs">
+                              추천 가입자가 존재하지 않습니다.
+                            </td>
+                          </tr>
+                        ) : (
+                          <>
+                            <tr className="hover:bg-neutral-900/20 transition-colors">
+                              <td className="py-1.5 text-gray-500">2026.06.08</td>
+                              <td className="py-1.5 font-bold text-gray-200">user7***</td>
+                              <td className="py-1.5 text-amber-500 text-[9px] font-black">VIP 1</td>
+                              <td className="py-1.5 text-right font-semibold">15,000,000 원</td>
+                              <td className="py-1.5 text-right text-emerald-450 font-extrabold">75,000 원</td>
+                            </tr>
+                            <tr className="hover:bg-neutral-900/20 transition-colors">
+                              <td className="py-1.5 text-gray-500">2026.06.09</td>
+                              <td className="py-1.5 font-bold text-gray-200">sports_***</td>
+                              <td className="py-1.5 text-amber-500 text-[9px] font-black">VIP 1</td>
+                              <td className="py-1.5 text-right font-semibold">9,000,000 원</td>
+                              <td className="py-1.5 text-right text-emerald-450 font-extrabold">45,000 원</td>
+                            </tr>
+                            <tr className="hover:bg-neutral-900/20 transition-colors">
+                              <td className="py-1.5 text-gray-500">2026.06.10</td>
+                              <td className="py-1.5 font-bold text-gray-200">bet_pro***</td>
+                              <td className="py-1.5 text-amber-500 text-[9px] font-black">VIP 1</td>
+                              <td className="py-1.5 text-right font-semibold">5,000,000 원</td>
+                              <td className="py-1.5 text-right text-emerald-450 font-extrabold">25,000 원</td>
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* 하단 푸터 */}
+            <div className="p-4 border-t border-neutral-800 bg-neutral-950/80 flex justify-between items-center whitespace-normal">
+              <span className="text-[9.5px] text-gray-500 flex items-center gap-1.5 font-semibold text-left">
+                <ShieldCheck className="w-4 h-4 text-red-500 shrink-0" />
+                안전하고 믿을 수 있는 베팅 플랫폼 지향, 셀프 롤링 어뷰징 적발 시 전환 취소됩니다.
+              </span>
+              <button
+                onClick={() => setIsReferrerModalOpen(false)}
+                className="bg-neutral-800 hover:bg-neutral-750 text-gray-200 text-xs font-bold px-4.5 py-2 rounded-lg transition-all active:scale-95 cursor-pointer border border-neutral-700/40 shrink-0"
+              >
+                닫기
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 쪽지함 (Mailbox) Modal - Luxury Zero-Trust Design */}
+      {showMailboxModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[9999] p-2 md:p-4 text-white font-sans animate-in fade-in duration-200">
+          <div className="bg-[#0b0c10] border border-amber-500/30 max-w-4xl w-full h-[85vh] rounded-2xl overflow-hidden shadow-[0_0_60px_rgba(245,158,11,0.15)] flex flex-col relative animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4.5 border-b border-neutral-800 bg-neutral-950/75 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500/10 to-amber-500/10 border border-rose-500/30 flex items-center justify-center text-rose-450 shadow-inner">
+                  <Mail className="w-5 h-5 animate-pulse text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm md:text-base font-black text-white flex items-center gap-2">
+                    📥 CHOICE 개인 쪽지함 <span className="text-amber-500 font-mono text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">{unreadCount} 미확인</span>
+                  </h3>
+                  <p className="text-[11px] text-gray-400">초이스 운영진이 발송한 중요 공지 및 개별 혜택 소식을 실시간 확인하세요.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowMailboxModal(false); setSelectedNote(null); }}
+                className="text-gray-400 hover:text-white transition p-2 hover:bg-neutral-800 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Split layout content area */}
+            <div className="flex-1 flex overflow-hidden min-h-0 bg-neutral-950/30">
+              
+              {/* LIST PANE (Visible on desktop always; visible on mobile when no note is selected) */}
+              <div className={`w-full md:w-5/12 border-r border-[#1c1d22] flex flex-col min-h-0 ${selectedNote && isMobile ? 'hidden' : 'flex'}`}>
+                <div className="p-3 border-b border-neutral-900 bg-neutral-900/30 flex justify-between items-center text-xs text-gray-400">
+                  <span>총 {userNotes.length}개의 메시지</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-neutral-900/60 p-2 space-y-1.5 custom-scrollbar">
+                  {userNotes.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                      <div className="w-12 h-12 rounded-full border border-neutral-800 flex items-center justify-center text-gray-600 bg-neutral-950">
+                        <Mail className="w-5 h-5 text-gray-500" />
+                      </div>
+                      <p className="text-xs text-gray-500">도착한 쪽지가 없습니다.</p>
+                    </div>
+                  ) : (
+                    userNotes.map((note) => {
+                      const dateStr = note.createdAt ? new Date(note.createdAt).toLocaleString('ko-KR', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : '';
+                      return (
+                        <div
+                          key={note.id}
+                          onClick={() => handleReadNote(note)}
+                          className={`group relative p-3.5 rounded-xl border text-left cursor-pointer transition-all duration-200 ${
+                            selectedNote?.id === note.id
+                              ? 'bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/40 shadow-md'
+                              : 'bg-[#0f1118]/80 border-neutral-850 hover:border-neutral-750 hover:bg-[#121520]'
+                          }`}
+                        >
+                          {/* Unread indicator dot */}
+                          {!note.read && (
+                            <span className="absolute top-4.5 left-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                          )}
+
+                          <div className="pl-2 space-y-1">
+                            <div className="flex items-center justify-between gap-2.5">
+                              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
+                                note.sender === '운영자' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-neutral-800 text-gray-300'
+                              }`}>
+                                {note.sender}
+                              </span>
+                              <span className="text-[10px] text-gray-500 font-mono">{dateStr}</span>
+                            </div>
+
+                            <h4 className={`text-xs mt-1 truncate ${!note.read ? 'text-white font-extrabold' : 'text-gray-300 font-medium'}`}>
+                              {note.title}
+                            </h4>
+
+                            <div className="flex justify-between items-center text-[11px] text-gray-400 font-light pt-1">
+                              <p className="truncate max-w-[150px] md:max-w-[170px]">{note.content}</p>
+                              <button
+                                onClick={(e) => handleDeleteNote(note.id, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-450 rounded transition duration-150 relative z-10"
+                                title="쪽지 삭제"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-gray-500 hover:text-rose-500" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* READ PANE (Visible on desktop always; visible on mobile when a note is selected) */}
+              <div className={`flex-1 flex flex-col min-h-0 ${!selectedNote && isMobile ? 'hidden' : 'flex'}`}>
+                {selectedNote ? (
+                  <div className="flex-1 flex flex-col min-h-0 bg-neutral-950/60 p-5 md:p-6 select-text overflow-hidden">
+                    
+                    {/* Header Controls for Mobile Back Navigation & Delete */}
+                    <div className="flex items-center justify-between border-b border-neutral-850 pb-4 mb-4 font-sans">
+                      {isMobile && (
+                        <button
+                          onClick={() => setSelectedNote(null)}
+                          className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-gray-300 text-[11px] font-bold rounded-lg flex items-center gap-1 border border-neutral-805 transition cursor-pointer"
+                        >
+                          ← 목록으로
+                        </button>
+                      )}
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-gray-400 font-medium font-mono">발송일: {selectedNote.createdAt ? new Date(selectedNote.createdAt).toLocaleString('ko-KR') : ''}</span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          handleDeleteNote(selectedNote.id, e);
+                        }}
+                        className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800/40 text-rose-450 hover:text-rose-300 text-[11px] font-black rounded-lg flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> 삭제하기
+                      </button>
+                    </div>
+
+                    {/* Content view box */}
+                    <div className="flex-1 overflow-y-auto pr-1 select-text custom-scrollbar">
+                      <div className="space-y-4 max-w-2xl">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-amber-500/10 text-amber-500 border border-amber-500/30 text-[10px] font-black tracking-wider px-2 py-0.5 rounded uppercase">
+                              FROM: {selectedNote.sender}
+                            </span>
+                          </div>
+                          <h2 className="text-sm md:text-base font-extrabold text-white leading-snug">
+                            {selectedNote.title}
+                          </h2>
+                        </div>
+
+                        <div className="h-[1px] w-full bg-gradient-to-r from-neutral-800 via-neutral-900 to-transparent"></div>
+
+                        <p className="text-xs text-gray-300 leading-relaxed font-sans whitespace-pre-wrap break-all select-text pb-4 selection:bg-amber-500/30 selection:text-white">
+                          {selectedNote.content}
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-500 font-sans">
+                    <div className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-850 flex items-center justify-center text-neutral-700 shadow-inner mb-3">
+                      <Mail className="w-6 h-6 text-gray-600" />
+                    </div>
+                    <h4 className="text-xs font-bold text-gray-400">선택된 쪽지가 없습니다</h4>
+                    <p className="text-[11px] text-gray-500 mt-1 max-w-xs">왼쪽 목록에서 확인하실 쪽지를 선택하시면 세부 내용을 실시간으로 읽으실 수 있습니다.</p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Modal Bottom Banner */}
+            <div className="p-4 border-t border-neutral-800 bg-neutral-950 text-center text-[10.5px] text-gray-500">
+              초이스는 투명하고 믿을 수 있는 양질의 시뮬레이터 이용을 위해 24시간 실시간 고객지원 및 쪽지 문의 서비스를 제공합니다.
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 어드민 쪽지 발송 모달 (Admin Send Note Modal) */}
+      {isAdminNoteModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[10000] p-4 text-white font-sans animate-in fade-in duration-200">
+          <div className="bg-[#0b0c10] border-2 border-red-500/20 max-w-lg w-full rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(239,68,68,0.15)] flex flex-col animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-red-650/10 border border-red-500/30 flex items-center justify-center text-red-500">
+                  <Send className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-xs md:text-sm font-black text-white">
+                    ✉️ [운영진] 쪽지 발송 시스템
+                  </h3>
+                  <p className="text-[10px] text-gray-400">회원 또는 전체 회원에게 맞춤 안내 및 공지 쪽지를 즉각 발송합니다.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdminNoteModalOpen(false)}
+                className="text-gray-400 hover:text-white transition p-1 hover:bg-neutral-800 rounded cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content Form */}
+            <div className="p-5 space-y-4 bg-neutral-950/40">
+              {/* Target display */}
+              <div>
+                <label className="block text-[10px] uppercase font-black tracking-wider text-red-500 mb-1.5">
+                  수신 대상 (Receiver Information)
+                </label>
+                <div className="bg-[#111217] border border-neutral-805 rounded-lg px-3 py-2 text-xs font-mono text-white flex items-center justify-between">
+                  <span>
+                    {adminNoteTargetUsername === 'ALL_USERS' ? (
+                      <strong className="text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px]">
+                        ★ 전체 회원 일괄 발송 (CHOICE ALL USERS)
+                      </strong>
+                    ) : (
+                      <>
+                        수신 아이디: <strong className="text-sky-450 mr-2">{adminNoteTargetUsername}</strong>
+                        닉네임: <strong className="text-amber-500">{adminNoteTargetNickname}</strong>
+                      </>
+                    )}
+                  </span>
+                  <span className="text-[9px] text-gray-400 font-sans uppercase">수정 불가</span>
+                </div>
+              </div>
+
+              {/* Title input */}
+              <div>
+                <label className="block text-[10px] uppercase font-black tracking-wider text-red-500 mb-1.5">
+                  쪽지 제목 (Message Title)
+                </label>
+                <input
+                  type="text"
+                  placeholder="쪽지의 용건 및 핵심 헤드라인을 입력해주세요."
+                  value={adminNoteTitle}
+                  onChange={(e) => setAdminNoteTitle(e.target.value)}
+                  className="w-full bg-black/60 border border-neutral-800 hover:border-neutral-750 focus:border-red-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none placeholder-gray-500"
+                />
+              </div>
+
+              {/* Content textarea */}
+              <div>
+                <label className="block text-[10px] uppercase font-black tracking-wider text-red-500 mb-1.5">
+                  쪽지 본문 내용 (Detailed content)
+                </label>
+                <textarea
+                  rows={8}
+                  placeholder={`회원에게 직접 노출될 쪽지 내용을 구체적으로 상세히 작성해주세요.\n지원 항목: 행바꿈 줄개행, 줄간격 지원.`}
+                  value={adminNoteContent}
+                  onChange={(e) => setAdminNoteContent(e.target.value)}
+                  className="w-full bg-black/60 border border-neutral-800 hover:border-neutral-750 focus:border-red-600 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none placeholder-gray-500 resize-none leading-relaxed font-sans"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-5 py-3 border-t border-neutral-850 bg-neutral-950 flex justify-end gap-2 text-xs font-bold">
+              <button
+                onClick={() => setIsAdminNoteModalOpen(false)}
+                className="px-4 py-2 bg-neutral-850 hover:bg-neutral-800 text-gray-300 rounded-lg border border-neutral-750 transition cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSendAdminNote}
+                className="px-5 py-2 bg-gradient-to-r from-red-750 to-red-650 hover:from-red-700 hover:to-red-600 text-white rounded-lg transition shadow-lg shadow-red-950/40 cursor-pointer flex items-center gap-1"
+              >
+                <Send className="w-3.5 h-3.5" /> 쪽지 발송하기
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 어드민 배팅 내역 조회 모달 (Admin View Member Bets Modal) */}
+      {isAdminBetsModalOpen && adminSelectedUserForBets && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[10000] p-4 text-white font-sans animate-in fade-in duration-200">
+          <div className="bg-[#0b0c10] border-2 border-emerald-500/20 max-w-4xl w-full max-h-[85vh] rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] flex flex-col animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+                  <History className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="text-xs md:text-sm font-black text-white">
+                    🎯 [운영진 전용] <span className="text-amber-400">{adminSelectedUserForBets.nickname}</span> 회원 배팅내역 조회
+                  </h3>
+                  <p className="text-[10px] text-gray-400 font-medium">회원 아이디: <strong className="text-sky-400 mr-2">{adminSelectedUserForBets.username}</strong> | 닉네임: <strong className="text-amber-500">{adminSelectedUserForBets.nickname}</strong></p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAdminBetsModalOpen(false);
+                  setAdminSelectedUserForBets(null);
+                }}
+                className="text-gray-400 hover:text-white transition p-1 hover:bg-neutral-850 rounded cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content - Scrollable List of Bets */}
+            <div className="p-5 overflow-y-auto space-y-4 bg-neutral-950/40 flex-1">
+              {!adminSelectedUserForBets.bets || adminSelectedUserForBets.bets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-500 gap-2">
+                  <History className="w-12 h-12 text-neutral-800" />
+                  <p className="text-xs font-bold">최근 배팅 내역이 존재하지 않습니다.</p>
+                  <p className="text-[10px] text-gray-500">해당 회원의 실제 배팅 참여 이력이 존재하지 않습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {[...adminSelectedUserForBets.bets]
+                    .sort((a, b) => {
+                      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                      return timeB - timeA;
+                    })
+                    .map((bet, idx) => {
+                      const betTimeStr = bet.createdAt ? new Date(bet.createdAt).toLocaleString('ko-KR') : '-';
+                      const statusColor = 
+                        bet.status === 'win' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' :
+                        bet.status === 'lose' ? 'border-red-500 bg-red-500/10 text-red-400' :
+                        bet.status === 'cancel' ? 'border-gray-500 bg-gray-500/10 text-gray-400' :
+                        'border-amber-500 bg-amber-500/10 text-amber-400 animate-pulse';
+                      const statusText = 
+                        bet.status === 'win' ? '적중' :
+                        bet.status === 'lose' ? '미적중' :
+                        bet.status === 'cancel' ? '취소됨' : '대기중';
+
+                      return (
+                        <div key={idx} className="bg-neutral-950 border border-neutral-850 rounded-xl overflow-hidden shadow-md">
+                          {/* Upper stripe with date and overall result */}
+                          <div className="px-4 py-2 bg-neutral-900 border-b border-neutral-850 flex items-center justify-between text-[11px] text-gray-400 font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-neutral-800 text-gray-300 font-bold px-1.5 py-0.5 rounded text-[9px] uppercase">
+                                {bet.gameType === 'sports' ? '스포츠' : '미니게임'}
+                              </span>
+                              <span>{betTimeStr}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 border text-[10px] font-black rounded-md ${statusColor}`}>
+                              {statusText}
+                            </span>
+                          </div>
+
+                          {/* Inner betting detail listing */}
+                          <div className="p-4 space-y-3">
+                            {bet.folders && bet.folders.length > 0 ? (
+                              <div className="space-y-2.5">
+                                {bet.folders.map((f: any, fIdx: number) => {
+                                  const singleStatusColor = 
+                                    f.status === 'win' ? 'text-emerald-400 font-bold' :
+                                    f.status === 'lose' ? 'text-red-400 font-bold' :
+                                    'text-amber-500';
+                                  const singleStatusText = 
+                                    f.status === 'win' ? '[적중]' :
+                                    f.status === 'lose' ? '[미적중]' : '[대기]';
+                                  return (
+                                    <div key={fIdx} className="bg-neutral-900/60 p-3 rounded-lg border border-neutral-800/40 text-xs">
+                                      <div className="flex items-center justify-between text-gray-400 text-[10px] mb-1 font-mono">
+                                        <span>스포츠 {f.sport || '기타'}</span>
+                                        <span className={singleStatusColor}>{singleStatusText}</span>
+                                      </div>
+                                      <div className="font-bold text-white text-xs mb-1.5">{f.game || '경기 명칭 미지정'}</div>
+                                      <div className="flex justify-between items-center bg-black/40 px-2.5 py-1.5 rounded text-[11px] border border-neutral-850/50">
+                                        <span className="text-gray-355">선택 마켓: <span className="text-amber-400 font-semibold">{f.marketType === 'underOver' ? '언더오버' : f.marketType === 'handicap' ? '핸디캡' : '승무패'}</span></span>
+                                        <span className="text-gray-355">선택 옵션: <span className="text-sky-400 font-bold">{f.option || f.type}</span> <span className="text-neutral-500">@{f.dividend || '1.95'}</span></span>
+                                      </div>
+                                      {f.rollResult && (
+                                        <div className="text-[10px] text-amber-500/95 font-medium mt-1">결과 스코어: {f.rollResult}</div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="bg-neutral-900/40 p-3 rounded-lg border border-neutral-850/40 text-xs">
+                                <div className="flex items-center justify-between text-gray-400 text-[10px] mb-1 font-mono">
+                                  <span>{bet.sport || '게임'}</span>
+                                  {bet.status === 'win' && <span className="text-emerald-400 font-bold">[적중]</span>}
+                                  {bet.status === 'lose' && <span className="text-red-400 font-bold">[미적중]</span>}
+                                  {bet.status === 'pending' && <span className="text-amber-500 font-bold">[대기]</span>}
+                                </div>
+                                <div className="font-bold text-white text-xs mb-1.5">{bet.game || '단폴더 게임'}</div>
+                                <div className="flex justify-between items-center bg-black/40 px-2.5 py-1.5 rounded text-[11px] border border-neutral-850/50">
+                                  <span className="text-gray-355">구분: <span className="text-amber-400 font-semibold">{bet.marketType || '일반베팅'}</span></span>
+                                  <span className="text-gray-355">베팅내용: <span className="text-sky-400 font-bold">{bet.option || bet.type}</span> <span className="text-neutral-500">@{bet.dividend || '1.95'}</span></span>
+                                </div>
+                                {bet.rollResult && (
+                                  <div className="text-[10px] text-amber-500/95 font-medium mt-1">결과 스코어: {bet.rollResult}</div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Summary footer for the bet slip */}
+                            <div className="grid grid-cols-3 gap-2 border-t border-neutral-900 pt-3 text-center text-xs">
+                              <div className="bg-[#111217] p-2 rounded-lg border border-neutral-850/30">
+                                <span className="block text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">배팅 금액</span>
+                                <strong className="font-mono text-white text-[11px] font-black">{Number(bet.amount).toLocaleString()}원</strong>
+                              </div>
+                              <div className="bg-[#111217] p-2 rounded-lg border border-neutral-850/30">
+                                <span className="block text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">합산 배당</span>
+                                <strong className="font-mono text-amber-400 text-[11px] font-black">{bet.dividend}倍</strong>
+                              </div>
+                              <div className="bg-[#111217] p-2 rounded-lg border border-neutral-850/30">
+                                <span className="block text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">예상 / 정산 금액</span>
+                                <strong className={`font-mono text-[11px] font-black ${bet.status === 'win' ? 'text-emerald-400' : bet.status === 'lose' ? 'text-red-400 line-through' : 'text-cyan-400'}`}>
+                                  {bet.payout ? Number(bet.payout).toLocaleString() : Math.floor(bet.amount * bet.dividend).toLocaleString()}원
+                                </strong>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-neutral-850 bg-neutral-950 flex justify-end">
+              <button
+                onClick={() => {
+                  setIsAdminBetsModalOpen(false);
+                  setAdminSelectedUserForBets(null);
+                }}
+                className="px-5 py-2 bg-neutral-850 hover:bg-neutral-800 text-gray-300 rounded-lg border border-neutral-750 transition cursor-pointer text-xs font-bold"
+              >
+                닫기
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
     </div>

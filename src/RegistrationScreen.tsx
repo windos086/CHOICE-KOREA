@@ -57,8 +57,9 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleRegister = async () => {
-    if (formData.joinCode !== '5882') {
-      alert('올바른 가입 코드를 입력해주세요.');
+    // Check if joinCode is 4-digit number
+    if (!/^\d{4}$/.test(formData.joinCode)) {
+      alert('가입 코드는 4자리 숫자로 입력해주세요.');
       return;
     }
     if (formData.username.length < 3 || formData.username.length > 30 || !/^[a-zA-Z0-9]+$/.test(formData.username)) {
@@ -96,8 +97,9 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         password: formData.password,
         nickname: formData.nickname,
         tetherWalletAddress: formData.tetherWalletAddress,
-        balance: 5000000,
-        points: 50000,
+        balance: 0,
+        points: 0,
+        appliedReferrerCode: formData.joinCode,
         createdAt: new Date().toISOString()
       };
 
@@ -108,9 +110,20 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         password: formData.password,
         nickname: formData.nickname,
         tetherWalletAddress: formData.tetherWalletAddress,
-        balance: 5000000,
-        points: 50000,
+        balance: 0,
+        points: 0,
+        appliedReferrerCode: formData.joinCode,
         createdAt: serverTimestamp()
+      });
+
+      // Send a welcome personal note / message (신규 쪽지) to the user
+      await setDoc(doc(db, 'notes', `${formData.username}_welcome`), {
+        receiverId: formData.username,
+        sender: '운영자',
+        title: '🎉 초이스 가입을 진심으로 환영합니다!',
+        content: `안녕하세요, ${formData.nickname} 회원님!\n\n최상의 베팅 환경과 신뢰를 지향하는 시뮬레이터 플랫폼 초이스(CHOICE)를 찾아주셔서 진심으로 감사드립니다.\n\n회원님께서 서비스를 이용하시는 동안 어떠한 불편함도 겪지 않으시도록, 이용을 시작하시기 전에 먼저 상단 메뉴의 [공지사항] 탭 내에 명시되어 있는 '사이트 상세 이용 규정 및 베팅 가이드라인'을 반드시 확인하시어 뜻밖의 이용 제한 조치나 실수를 피하시길 당부 드립니다.\n\n더불어 초이스에서는 회원분들을 위해 상시 압도적인 혜택을 선사해 드리고 있습니다!\n\n🎁 [스페셜 프로모션 이벤트 안내]\n\n1. 무한 매충전 10% 지급 이벤트\n- 충전 신청 승인 시마다, 신청하신 충전 금액 정산액의 10%를 원화 가치 그대로 포인트(Points) 지갑에 무제한 즉시 포인트로 자동 적립해 드립니다!\n\n2. 무한 베팅 페이백 5% 이벤트\n- 미니게임, 스포츠 등 모든 베팅 승부 마감 시마다, 당첨 및 낙첨 여부와 관계없이 총 베팅 금액의 5%를 무제한 페이백 포인트로 환급해 드립니다!\n\n이 모든 소식과 특전은 상단 [이벤트] 메뉴에서 항상 가장 아름답고 상세하게 확인해 보실 수 있습니다.\n\n초이스와 함께 즐거운 경험과 건승이 가득한 베팅 여정이 되시기를 빌며, 이용 중 불편하시거나 궁금한 점이 있으실 경우 고객센터(1:1 문의)로 문의하시면 24시간 언제든 친절하고 친속하게 상담해 드리겠습니다.\n\n감사합니다.\n- 초이스 운영팀 드림`,
+        read: false,
+        createdAt: Date.now()
       });
 
       // Synchronize to localStorage fallback cache
@@ -121,6 +134,7 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
 
       // Safe auto log in
       localStorage.setItem('currentUser', JSON.stringify(newUser));
+      localStorage.setItem('myAppliedReferrer', formData.joinCode);
 
       setShowSuccess(true);
       setTimeout(() => {
@@ -173,11 +187,11 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
 
         <div className="w-full space-y-5">
           {[
-            { icon: Hash, placeholder: '가입 코드', field: 'joinCode', type: 'text', label: '' },
+            { icon: Hash, placeholder: '가입 코드 (예: 1378)', field: 'joinCode', type: 'text', label: '' },
             { icon: User, placeholder: '아이디', field: 'username', type: 'text', label: '영문, 숫자만 입력 가능. 최소 3자이상' },
             { icon: Lock, placeholder: '비밀번호', field: 'password', type: 'password', label: '영문, 숫자를 한자 이상 반드시 포함한 4~16자' },
             { icon: User, placeholder: '닉네임', field: 'nickname', type: 'text', label: '한글만 사용가능 3~6자' },
-            { icon: Wallet, placeholder: '테더지갑 주소 입력', field: 'tetherWalletAddress', type: 'text', label: '' },
+            { icon: Wallet, placeholder: '테더지갑 주소 입력', field: 'tetherWalletAddress', type: 'text', label: '네트워크: Tether TRC-20 (TRON)' },
           ].map((field, idx) => (
             <div key={idx} className="space-y-1">
               <div className="relative">

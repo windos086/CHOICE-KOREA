@@ -69,10 +69,10 @@ export const MobileBettingList = ({
                     : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950 border-r border-[#1b1e24]/60'
                 }`}
               >
-                <span className={`truncate text-left flex-1 min-w-0 mr-2 font-bold text-[13px] ${
+                <span className={`truncate text-left flex-1 min-w-0 mr-1 font-bold text-[12px] ${
                   isClosed ? 'text-neutral-600' : isLeftSelected ? 'text-white' : 'text-neutral-100'
                 }`}>
-                  {row.left.label}
+                  {row.left.label}{row.left.suffix || ''}
                 </span>
                 <span className={`font-mono text-xs font-black shrink-0 ${
                   isClosed ? 'text-neutral-600' : isLeftSelected ? 'text-white' : 'text-amber-500'
@@ -82,9 +82,11 @@ export const MobileBettingList = ({
               </button>
 
               {/* Column 2: Center Dividor Block (VS) */}
-              <div className="w-10 items-center justify-center text-center shrink-0 bg-[#07080b]/80 flex z-10">
-                <span className="font-mono text-[9px] font-bold text-neutral-500 select-none uppercase">
-                  vs
+              <div className="w-12 items-center justify-center text-center shrink-0 bg-[#07080b]/80 flex z-10 px-1 border-l border-r border-[#1b1e24]/60">
+                <span className={`font-mono font-bold select-none uppercase ${
+                  row.middle !== 'VS' ? 'text-amber-400 text-[11px]' : 'text-neutral-500 text-[9px]'
+                }`}>
+                  {row.middle || 'vs'}
                 </span>
               </div>
 
@@ -100,15 +102,15 @@ export const MobileBettingList = ({
                     : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950 border-l border-[#1b1e24]/60'
                 }`}
               >
-                <span className={`font-mono text-xs font-black shrink-0 mr-2 ${
+                <span className={`font-mono text-xs font-black shrink-0 mr-1 ${
                   isClosed ? 'text-neutral-600' : isRightSelected ? 'text-white' : 'text-amber-500'
                 }`}>
                   {row.right.dividend.toFixed(2)}
                 </span>
-                <span className={`truncate text-right flex-1 min-w-0 ml-2 font-bold text-[13px] ${
+                <span className={`truncate text-right flex-1 min-w-0 ml-1 font-bold text-[12px] ${
                   isClosed ? 'text-neutral-600' : isRightSelected ? 'text-white' : 'text-neutral-100'
                 }`}>
-                  {row.right.label}
+                  {row.right.label}{row.right.suffix || ''}
                 </span>
               </button>
             </div>

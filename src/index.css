@@ -20,6 +20,10 @@ body {
     0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.4), inset 0 0 2px rgba(245, 158, 11, 0.2); }
     50% { box-shadow: 0 0 18px rgba(245, 158, 11, 0.85), inset 0 0 6px rgba(245, 158, 11, 0.4); }
   }
+  @keyframes goldShine {
+    0% { transform: translateX(-150%) skewX(-25deg); }
+    100% { transform: translateX(250%) skewX(-25deg); }
+  }
   @keyframes neonBorder {
     0%, 100% { border-color: rgba(63, 63, 70, 0.8); }
     50% { border-color: rgba(220, 38, 38, 0.8); }
@@ -34,6 +38,9 @@ body {
   }
   .animate-gold-glow {
     animation: goldGlow 3s infinite ease-in-out;
+  }
+  .animate-gold-shine {
+    animation: goldShine 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
   .animate-neon-border {
     animation: neonBorder 3.5s infinite ease-in-out;

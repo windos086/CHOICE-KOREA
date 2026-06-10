@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { COUNTRY_FLAGS, findTeamLogo, findCountryFlag, findCountryFlagUrl, findLeagueLogo } from '../lib/teamLogos';
 
 interface SportsContainerProps {
   currentUserData?: any;
@@ -16,28 +17,61 @@ interface SportsContainerProps {
   mobileBetSlipOpen?: boolean;
 }
 
-function getTeamBadge(teamName: string) {
-  const initial = teamName ? teamName.trim().charAt(0) : '?';
-  let hash = 0;
-  for (let i = 0; i < teamName.length; i++) {
-    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const colors = [
-    'bg-blue-600 border-blue-400 text-white',
-    'bg-red-600 border-red-400 text-white',
-    'bg-emerald-600 border-emerald-400 text-white',
-    'bg-indigo-600 border-indigo-400 text-white',
-    'bg-amber-600 border-amber-500 text-white',
-    'bg-purple-600 border-purple-400 text-white',
-    'bg-rose-600 border-rose-400 text-white',
-    'bg-teal-600 border-teal-400 text-white',
-  ];
-  const colorClass = colors[Math.abs(hash) % colors.length];
+function renderSelectedOverlay(isActive: boolean) {
+  if (!isActive) return null;
   return (
-    <div className={`w-5 h-5 md:w-5.5 md:h-5.5 flex items-center justify-center rounded-full text-[10px] md:text-[11px] font-black border uppercase select-none shrink-0 ${colorClass}`}>
-      {initial}
-    </div>
+    <span className="absolute inset-0 rounded-none overflow-hidden pointer-events-none z-0">
+      {/* Golden metallic base glow */}
+      <span className="absolute inset-0 bg-gradient-to-r from-amber-600/25 via-amber-400/15 to-amber-500/25 animate-pulse duration-1000" />
+      {/* 45-degree angle hyper-shining high-speed light bar */}
+      <span className="absolute inset-0 w-[300%] -left-[100%] bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-[25deg] animate-gold-shine" />
+    </span>
   );
+}
+
+function getTeamBadge(teamName: string) {
+  const name = teamName.trim();
+  const logoUrl = findTeamLogo(name);
+  
+  if (logoUrl) {
+    return (
+        <img 
+          src={logoUrl} 
+          alt={name} 
+          className="w-5 h-5 mr-1.5 object-contain shrink-0" 
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+    );
+  }
+
+  // Find country flag image URL first (high-quality PNG rendered consistently across OS)
+  const flagUrl = findCountryFlagUrl(name);
+  if (flagUrl) {
+    return (
+        <img 
+          src={flagUrl} 
+          alt={name} 
+          className="w-[19px] h-[13px] mr-1.5 object-cover rounded-[1px] border border-neutral-700/50 shrink-0 select-none" 
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+    );
+  }
+
+  // Fallback to searching country emoji flags if country code is not mapped
+  const flag = COUNTRY_FLAGS[name] || findCountryFlag(name);
+  if (flag) {
+    return (
+        <span className="w-5 h-5 mr-1.5 flex items-center justify-center text-[15px] shrink-0 select-none">
+            {flag}
+        </span>
+    );
+  }
+
+  return null;
 }
 
 export function deduplicateLeagueName(name: string): string {
@@ -93,9 +127,10 @@ export function cleanTeamName(name: string): string {
 }
 
 function getLeagueHeaderLabel(leagueName: string, sampleMatch?: any) {
-  let emoji = '⚽';
   const name = deduplicateLeagueName(leagueName || '');
+  const leagueLogo = findLeagueLogo(name);
   
+  let emoji = '⚽';
   let sport = '축구';
   if (sampleMatch) {
     sport = getSportCategory(sampleMatch);
@@ -133,8 +168,27 @@ function getLeagueHeaderLabel(leagueName: string, sampleMatch?: any) {
   }
   
   return (
-    <span className="flex items-center gap-1.5 font-sans">
-      <span className="text-[14px] md:text-[16px] select-none">{emoji}</span>
+    <span className="flex items-center gap-2 font-sans text-white">
+      {leagueLogo ? (
+        <img 
+          src={leagueLogo} 
+          alt={name} 
+          className="w-5 h-5 md:w-[22px] md:h-[22px] object-contain shrink-0 select-none bg-neutral-800/40 rounded-full p-0.5 border border-white/5"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+            const fallbackSpan = e.currentTarget.nextElementSibling as HTMLElement;
+            if (fallbackSpan) {
+              fallbackSpan.style.display = 'inline';
+            }
+          }}
+        />
+      ) : null}
+      <span 
+        className="text-[14px] md:text-[16px] select-none"
+        style={{ display: leagueLogo ? 'none' : 'inline' }}
+      >
+        {emoji}
+      </span>
       <span>{name}</span>
     </span>
   );
@@ -151,7 +205,7 @@ function getSportCategory(match: any): '축구' | '농구' | '야구' | '배구'
   if (name.includes('농구') || name.includes('nba') || name.includes('kbl') || name.includes('wkbl') || name.includes('basketball')) {
     return '농구';
   }
-  if (name.includes('야구') || name.includes('mlb') || name.includes('kbo') || name.includes('npb') || name.includes('baseball')) {
+  if (name.includes('야구') || name.includes('mlb') || name.includes('kbo') || name.includes('npb') || name.includes('baseball') || name.includes('라스 투나스') || name.includes('마탄자스')) {
     return '야구';
   }
   if (name.includes('배구') || name.includes('kovo') || name.includes('volleyball')) {
@@ -347,7 +401,7 @@ export default function SportsContainer({
                 const mkt = f.marketType || 'matchWinner';
 
                 if (mkt === 'matchWinner') {
-                  const matchOutcome = dbMatch.status; // 'home', 'draw', 'away'
+                  const matchOutcome = dbMatch.status === 'completed' ? dbMatch.outcome : dbMatch.status; // 'home', 'draw', 'away'
                   isWinFolder = f.type === matchOutcome;
                   rollResultLabel = isWinFolder ? '승무패 적중' : '승무패 낙첨';
                 } else if (mkt === 'handicap') {
@@ -378,7 +432,8 @@ export default function SportsContainer({
                 foldersUpdated.push({
                   ...f,
                   status: isWinFolder ? 'win' : 'lose',
-                  rollResult: rollResultLabel
+                  rollResult: rollResultLabel,
+                  score: `${homeScore}:${awayScore}`
                 });
               }
             }
@@ -453,8 +508,21 @@ export default function SportsContainer({
     runSportsResolution();
   }, [matches, currentUserData?.bets, userBalance]);
 
+function isMatchActive(dateTimeStr: string): boolean {
+  if (!dateTimeStr) return true;
+  const now = new Date();
+  const match = dateTimeStr.trim().match(/^(\d{2})[\.\-](\d{2})\s+(\d{2}):(\d{2})/);
+  if (!match) return true;
+  const month = parseInt(match[1], 10) - 1;
+  const day = parseInt(match[2], 10);
+  const hour = parseInt(match[3], 10);
+  const minute = parseInt(match[4], 10);
+  const matchDate = new Date(now.getFullYear(), month, day, hour, minute);
+  return matchDate > now;
+}
+
 // 1. Filter matches based on the selected major sport tab, and sort favorites first
-  const sortedMatches = [...matches].sort((a, b) => {
+  const sortedMatches = [...matches].filter(m => isMatchActive(m.dateTime)).sort((a, b) => {
     const aFav = favorites.includes(a.id);
     const bFav = favorites.includes(b.id);
     if (aFav && !bFav) return -1;
@@ -767,6 +835,8 @@ export default function SportsContainer({
   const formattedTotalOdds = selectedFolders.length > 0 ? parseFloat(totalOdds.toFixed(2)) : 0.00;
   const estimatedPayout = Math.floor(betAmount * formattedTotalOdds);
 
+  const globalMaxPayoutLimit = 10000000;
+
   const handleClearCart = () => {
     setSelectedFolders([]);
   };
@@ -777,7 +847,7 @@ export default function SportsContainer({
 
   const handleSetMaxAmount = () => {
     if (userBalance > 0) {
-      setBetAmount(Math.min(userBalance, 2000000)); // Standard cap as in MainPage
+      setBetAmount(userBalance);
     }
   };
 
@@ -832,12 +902,9 @@ export default function SportsContainer({
       alert('보유머니가 부족합니다. 충전 후 다시 시도해 주세요.');
       return;
     }
-    if (betAmount > 2000000) {
-      alert('최대 배팅 가능 금액은 2,000,000원입니다.');
-      return;
-    }
-    if (estimatedPayout > 50000000) {
-      alert('최대 당첨 가능 금액은 50,000,000원입니다.');
+
+    if (estimatedPayout > globalMaxPayoutLimit) {
+      alert(`최대 당첨 가능 금액은 ${globalMaxPayoutLimit.toLocaleString()}원입니다.\n배팅 금액을 조절해주세요.`);
       return;
     }
 
@@ -874,6 +941,10 @@ export default function SportsContainer({
           game: sf.marketType === 'bonus' ? '다폴더 보너스 추가 배당' : `${sf.match.homeTeam} VS ${sf.match.awayTeam}`,
           gameType: sf.marketType === 'bonus' ? 'bonus' : 'sports',
           group: sf.marketType === 'bonus' ? '보너스' : (sf.marketType === 'handicap' ? '핸디캡' : sf.marketType === 'overUnder' ? '언더오버' : '승무패'),
+          sport: sf.marketType === 'bonus' ? 'bonus' : getSportCategory(sf.match),
+          league: sf.marketType === 'bonus' ? '보너스' : (sf.match?.league || ''),
+          matchTime: sf.match?.dateTime || sf.match?.matchTime || sf.matchTime || sf.dateTime || '',
+          dateTime: sf.match?.dateTime || sf.match?.matchTime || sf.matchTime || sf.dateTime || '',
           option: optionStr,
           dividend: sf.odds,
           matchId: sf.matchId,
@@ -889,6 +960,7 @@ export default function SportsContainer({
         id: 'bet_sports_' + Date.now(),
         game: gameLabelString,
         gameType: 'sports',
+        sport: isSingle ? sportName : '스포츠',
         group: isSingle ? (foldersForSave[0].group) : '조합배팅',
         option: isSingle 
           ? `${foldersForSave[0].option} (${foldersForSave[0].dividend})` 
@@ -906,6 +978,15 @@ export default function SportsContainer({
       const pointsToAward = Math.floor(betAmount * 0.05);
       const newPoints = (currentUserData.points || 0) + pointsToAward;
 
+      const sportsPointRewardItem = {
+        createdAt: Date.now(),
+        type: 'bet_reward_sports',
+        description: `스포츠 배팅 적립 (${gameLabelString})`,
+        amount: pointsToAward,
+        balanceAfter: newPoints
+      };
+      const updatedPointsHistory = [sportsPointRewardItem, ...(currentUserData?.pointsHistory || [])].slice(0, 200);
+
       if (setUserPoints) {
         setUserPoints(newPoints);
       }
@@ -918,6 +999,7 @@ export default function SportsContainer({
       await updateDoc(doc(db, 'users', userDocId), {
         balance: nextBalance,
         points: newPoints,
+        pointsHistory: updatedPointsHistory,
         bets: updatedBets
       });
 
@@ -930,6 +1012,7 @@ export default function SportsContainer({
             ...curObj, 
             balance: nextBalance,
             points: newPoints,
+            pointsHistory: updatedPointsHistory,
             bets: updatedBets
           }));
         } catch (err) {
@@ -974,10 +1057,11 @@ export default function SportsContainer({
           { id: '아이스하키', name: '아이스하키', emoji: '🏒' }
         ].map((sport) => {
           const count = sport.id === '전체'
-            ? matches.filter(m => m.status === 'pending').length
-            : matches.filter(m => m.status === 'pending' && getSportCategory(m) === sport.id).length;
+            ? matches.filter(m => m.status === 'pending' && isMatchActive(m.dateTime)).length
+            : matches.filter(m => m.status === 'pending' && getSportCategory(m) === sport.id && isMatchActive(m.dateTime)).length;
 
           const isActive = activeSportTab === sport.id;
+          const isBall = ['⚽', '🏀', '⚾', '🏐'].includes(sport.emoji);
 
           return (
             <button
@@ -986,31 +1070,42 @@ export default function SportsContainer({
                 setActiveSportTab(sport.id as any);
                 setActiveLeagueTab('전체');
               }}
-              className={`relative flex flex-col items-center justify-center p-2.5 w-full sm:w-28 h-20 md:w-32 md:h-24 rounded-2xl transition-all cursor-pointer border select-none group ${
+              className={`relative flex flex-col items-center justify-center p-2.5 w-full sm:w-28 h-20 md:w-32 md:h-24 rounded-2xl transition-all cursor-pointer border select-none group overflow-hidden ${
                 isActive
-                  ? 'bg-neutral-950 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                  ? 'bg-gradient-to-b from-amber-500/10 via-neutral-950 to-neutral-950 border-amber-400 border-2 shadow-[0_0_20px_rgba(245,158,11,0.45)] animate-gold-glow'
                   : 'bg-neutral-900 border-neutral-850 hover:bg-neutral-850 hover:border-neutral-750'
               }`}
             >
+              {/* Golden sparkling shimmer beam effect */}
+              {isActive && (
+                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 w-2/3 bg-gradient-to-r from-transparent via-amber-200/35 to-transparent -skew-x-[25deg] animate-gold-shine" />
+                </div>
+              )}
+
               {/* Count Badge */}
               <span className={`absolute top-1.5 right-1.5 px-1 py-0.5 rounded text-[8px] md:text-[9px] font-black font-mono shadow transition-colors border ${
                 isActive 
-                  ? 'bg-amber-500 text-black border-amber-500 font-extrabold'
+                  ? 'bg-amber-400 text-black border-amber-400 font-extrabold'
                   : 'bg-neutral-950 text-neutral-400 border-neutral-800 group-hover:text-white group-hover:border-neutral-750'
               }`}>
                 {count}
               </span>
 
-              {/* Emoji Sphere */}
-              <span className={`text-2xl md:text-3xl mb-1 transition-transform duration-300 group-hover:scale-110 select-none ${
-                isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] animate-bounce-short' : 'opacity-85'
+              {/* Emoji Sphere Container */}
+              <div className={`text-2xl md:text-3xl mb-1 transition-transform duration-300 group-hover:scale-110 select-none ${
+                isActive ? 'scale-110 drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]' : 'opacity-85'
               }`}>
-                {sport.emoji}
-              </span>
+                <span className={`inline-block ${
+                  isBall ? 'animate-[spin_6s_linear_infinite]' : isActive ? 'animate-bounce-short' : ''
+                }`}>
+                  {sport.emoji}
+                </span>
+              </div>
 
               {/* Text Label */}
               <span className={`text-[10px] md:text-xs font-black tracking-wider transition-colors ${
-                isActive ? 'text-amber-500 font-extrabold' : 'text-neutral-400 group-hover:text-neutral-200'
+                isActive ? 'text-amber-400 font-extrabold drop-shadow-[0_0_2px_rgba(245,158,11,0.4)]' : 'text-neutral-400 group-hover:text-neutral-200'
               }`}>
                 {sport.name}
               </span>
@@ -1243,17 +1338,20 @@ export default function SportsContainer({
                                     <button
                                       disabled={match.status !== 'pending'}
                                       onClick={() => handleSelectOption(match, 'home', match.markets?.matchWinner?.home)}
-                                      className={`flex-1 min-w-0 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                      className={`flex-1 min-w-0 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                         isSelected(match.id, 'home')
                                           ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                           : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
                                       }`}
                                     >
-                                      <span className={`truncate text-left flex-1 min-w-0 mr-1.5 font-black text-[12px] tracking-tight ${
-                                        isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'
-                                      }`}>
-                                        {match.homeTeam}
-                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        {getTeamBadge(match.homeTeam)}
+                                        <span className={`truncate text-left flex-1 min-w-0 font-black text-[12px] tracking-tight ${
+                                          isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'
+                                        }`}>
+                                          {match.homeTeam}
+                                        </span>
+                                      </div>
                                       <span className={`font-mono text-xs font-black shrink-0 ml-1.5 ${
                                         isSelected(match.id, 'home') ? 'text-black' : 'text-amber-550 text-amber-500'
                                       }`}>
@@ -1306,11 +1404,14 @@ export default function SportsContainer({
                                       }`}>
                                         {match.markets?.matchWinner?.away?.toFixed(2) || '1.00'}
                                       </span>
-                                      <span className={`truncate text-right flex-1 min-w-0 ml-1.5 font-black text-[12px] tracking-tight ${
-                                        isSelected(match.id, 'away') ? 'text-black' : 'text-neutral-200'
-                                      }`}>
-                                        {match.awayTeam}
-                                      </span>
+                                    <div className="flex items-center gap-1.5 justify-end">
+                                        <span className={`truncate text-right flex-1 min-w-0 font-black text-[12px] tracking-tight ${
+                                          isSelected(match.id, 'away') ? 'text-black' : 'text-neutral-200'
+                                        }`}>
+                                          {match.awayTeam}
+                                        </span>
+                                        {getTeamBadge(match.awayTeam)}
+                                      </div>
                                     </button>
                                   </div>
 
@@ -1321,13 +1422,13 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectHandicap(match, handi, 'home')}
-                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedHandicap(match.id, handi.value, 'home')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/40'
                                        }`}
                                      >
-                                       <div className="flex items-center gap-1 select-none">
+                                       <div className="flex items-center gap-1 select-none relative z-10">
                                          <span className="text-[9px] font-sans font-black text-emerald-400 border border-emerald-900/40 bg-emerald-950/60 px-1 py-0.2 rounded-sm shrink-0 leading-tight">
                                            H
                                          </span>
@@ -1337,11 +1438,12 @@ export default function SportsContainer({
                                            홈
                                          </span>
                                        </div>
-                                       <span className={`font-mono text-xs font-black shrink-0 ml-1.5 ${
+                                       <span className={`font-mono text-xs font-black shrink-0 ml-1.5 relative z-10 ${
                                          isSelectedHandicap(match.id, handi.value, 'home') ? 'text-black' : 'text-neutral-200'
                                        }`}>
                                          {handi.home?.toFixed(2) || '1.00'}
                                        </span>
+                                       {renderSelectedOverlay(isSelectedHandicap(match.id, handi.value, 'home'))}
                                      </button>
 
                                      {/* Line Value Center Pin */}
@@ -1353,18 +1455,18 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectHandicap(match, handi, 'away')}
-                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedHandicap(match.id, handi.value, 'away')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/40'
                                        }`}
                                      >
-                                       <span className={`font-mono text-xs font-black shrink-0 mr-1.5 ${
+                                       <span className={`font-mono text-xs font-black shrink-0 mr-1.5 relative z-10 ${
                                          isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-200'
                                        }`}>
                                          {handi.away?.toFixed(2) || '1.00'}
                                        </span>
-                                       <div className="flex items-center gap-1 justify-end select-none">
+                                       <div className="flex items-center gap-1 justify-end select-none relative z-10">
                                          <span className={`font-bold text-[11px] tracking-tight ${
                                            isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black font-black' : 'text-neutral-400'
                                          }`}>
@@ -1374,6 +1476,7 @@ export default function SportsContainer({
                                            H
                                          </span>
                                        </div>
+                                       {renderSelectedOverlay(isSelectedHandicap(match.id, handi.value, 'away'))}
                                      </button>
                                    </div>
                                  ))}
@@ -1385,23 +1488,24 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectOverUnder(match, ou, 'over')}
-                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedOverUnder(match.id, ou.value, 'over')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/40'
                                        }`}
                                      >
-                                       <div className="flex items-center gap-1 select-none">
+                                       <div className="flex items-center gap-1 select-none relative z-10">
                                          <span className={`text-[11px] font-bold ${
                                            isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black font-black' : 'text-neutral-400'
                                          }`}>오버</span>
                                          <span className="text-rose-500 font-black text-[9px]">▲</span>
                                        </div>
-                                       <span className={`font-mono text-xs font-black shrink-0 ml-1.5 ${
+                                       <span className={`font-mono text-xs font-black shrink-0 ml-1.5 relative z-10 ${
                                          isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-rose-450 text-rose-400'
                                        }`}>
                                          {ou.over?.toFixed(2) || '1.00'}
                                        </span>
+                                       {renderSelectedOverlay(isSelectedOverUnder(match.id, ou.value, 'over'))}
                                      </button>
 
                                      {/* OverUnder line value Center Pin */}
@@ -1413,23 +1517,24 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectOverUnder(match, ou, 'under')}
-                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 py-2 transition-all cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedOverUnder(match.id, ou.value, 'under')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/40'
                                        }`}
                                      >
-                                       <span className={`font-mono text-xs font-black shrink-0 mr-1.5 ${
+                                       <span className={`font-mono text-xs font-black shrink-0 mr-1.5 relative z-10 ${
                                          isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black' : 'text-sky-450'
                                        }`}>
                                          {ou.under?.toFixed(2) || '1.00'}
                                        </span>
-                                       <div className="flex items-center gap-1 justify-end select-none">
+                                       <div className="flex items-center gap-1 justify-end select-none relative z-10">
                                          <span className="text-sky-400 font-black text-[9px]">▼</span>
                                          <span className={`text-[11px] font-bold ${
                                            isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black font-black' : 'text-neutral-400'
                                          }`}>언더</span>
                                        </div>
+                                       {renderSelectedOverlay(isSelectedOverUnder(match.id, ou.value, 'under'))}
                                      </button>
                                    </div>
                                  ))}
@@ -1457,6 +1562,7 @@ export default function SportsContainer({
                                      }`}
                                    >
                                      <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                       {getTeamBadge(match.homeTeam)}
                                        <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
                                          isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'
                                        }`}>
@@ -1483,13 +1589,14 @@ export default function SportsContainer({
                                        <button
                                          disabled={match.status !== 'pending'}
                                          onClick={() => handleSelectOption(match, 'draw', match.markets.matchWinner.draw)}
-                                         className={`w-full h-full flex items-center justify-center font-mono text-[11px] md:text-[13px] font-bold transition-all cursor-pointer border-0 select-none ${
+                                         className={`w-full h-full flex items-center justify-center font-mono text-[11px] md:text-[13px] font-bold transition-all cursor-pointer border-0 select-none relative overflow-hidden ${
                                            isSelected(match.id, 'draw')
                                              ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                              : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-950/70'
                                          }`}
                                        >
-                                         {match.markets.matchWinner.draw.toFixed(2)}
+                                         <span className="relative z-10">{match.markets.matchWinner.draw.toFixed(2)}</span>
+                                         {renderSelectedOverlay(isSelected(match.id, 'draw'))}
                                        </button>
                                      ) : (
                                        <span className="font-mono text-[11px] md:text-[13px] font-extrabold text-neutral-600 uppercase select-none">
@@ -1502,24 +1609,26 @@ export default function SportsContainer({
                                    <button
                                      disabled={match.status !== 'pending'}
                                      onClick={() => handleSelectOption(match, 'away', match.markets?.matchWinner?.away)}
-                                     className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right group cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                     className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right group cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                        isSelected(match.id, 'away')
                                          ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                          : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
                                      }`}
                                    >
-                                     <span className={`font-mono text-xs md:text-[14px] font-black shrink-0 ${
+                                     <span className={`font-mono text-xs md:text-[14px] font-black shrink-0 relative z-10 ${
                                        isSelected(match.id, 'away') ? 'text-black' : 'text-amber-500'
                                      }`}>
                                        {match.markets?.matchWinner?.away?.toFixed(2) || '1.00'}
                                      </span>
-                                     <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
+                                     <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end relative z-10">
                                        <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
                                          isSelected(match.id, 'away') ? 'text-black' : 'text-neutral-200'
                                        }`}>
                                          {match.awayTeam}
                                        </span>
+                                       {getTeamBadge(match.awayTeam)}
                                      </div>
+                                     {renderSelectedOverlay(isSelected(match.id, 'away'))}
                                    </button>
                                  </div>
 
@@ -1537,20 +1646,20 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectHandicap(match, handi, 'home')}
-                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedHandicap(match.id, handi.value, 'home')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
                                        }`}
                                      >
-                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 relative z-10">
                                          <span className={`truncate font-bold text-[11px] md:text-xs ${
                                            isSelectedHandicap(match.id, handi.value, 'home') ? 'text-black' : 'text-neutral-300'
                                          }`}>
                                            {match.homeTeam}
                                          </span>
                                        </div>
-                                       <div className="flex items-center gap-1.5 shrink-0">
+                                       <div className="flex items-center gap-1.5 shrink-0 relative z-10">
                                          <span className="text-[9px] font-sans font-black text-emerald-450 border border-emerald-900/80 bg-emerald-950/40 px-1 py-0.5 rounded leading-none shrink-0 select-none">
                                            H
                                          </span>
@@ -1560,6 +1669,7 @@ export default function SportsContainer({
                                            {handi.home?.toFixed(2) || '1.00'}
                                          </span>
                                        </div>
+                                       {renderSelectedOverlay(isSelectedHandicap(match.id, handi.value, 'home'))}
                                      </button>
 
                                      {/* Column 3: Handicap line value */}
@@ -1573,13 +1683,13 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectHandicap(match, handi, 'away')}
-                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedHandicap(match.id, handi.value, 'away')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
                                        }`}
                                      >
-                                       <div className="flex items-center gap-1.5 shrink-0">
+                                       <div className="flex items-center gap-1.5 shrink-0 relative z-10">
                                          <span className={`font-mono text-xs md:text-[13px] font-extrabold mr-1.5 ${
                                            isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-200'
                                          }`}>
@@ -1589,13 +1699,14 @@ export default function SportsContainer({
                                            H
                                          </span>
                                        </div>
-                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
+                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end relative z-10">
                                          <span className={`truncate font-bold text-[11px] md:text-xs ${
                                            isSelectedHandicap(match.id, handi.value, 'away') ? 'text-black' : 'text-neutral-300'
                                          }`}>
                                            {match.awayTeam}
                                          </span>
                                        </div>
+                                       {renderSelectedOverlay(isSelectedHandicap(match.id, handi.value, 'away'))}
                                      </button>
                                    </div>
                                  ))}
@@ -1614,13 +1725,13 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectOverUnder(match, ou, 'over')}
-                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-left cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedOverUnder(match.id, ou.value, 'over')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
                                        }`}
                                      >
-                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 relative z-10">
                                          <div className="flex items-center gap-1 shrink-0">
                                            <span className={`text-[11px] md:text-xs font-bold ${
                                              isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-neutral-300'
@@ -1628,11 +1739,12 @@ export default function SportsContainer({
                                            <span className="text-rose-500 font-sans font-black text-[9px] md:text-xs select-none">▲</span>
                                          </div>
                                        </div>
-                                       <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 ${
+                                       <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 relative z-10 ${
                                          isSelectedOverUnder(match.id, ou.value, 'over') ? 'text-black' : 'text-rose-455 text-rose-400'
                                        }`}>
                                          {ou.over?.toFixed(2) || '1.00'}
                                        </span>
+                                       {renderSelectedOverlay(isSelectedOverUnder(match.id, ou.value, 'over'))}
                                      </button>
 
                                      {/* Column 3: Line value */}
@@ -1646,18 +1758,18 @@ export default function SportsContainer({
                                      <button
                                        disabled={match.status !== 'pending'}
                                        onClick={() => handleSelectOverUnder(match, ou, 'under')}
-                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed ${
+                                       className={`flex-1 flex items-center justify-between px-3 md:px-5 py-2.5 transition-all text-right cursor-pointer border-0 select-none disabled:cursor-not-allowed relative overflow-hidden ${
                                          isSelectedOverUnder(match.id, ou.value, 'under')
                                            ? 'bg-amber-500 text-black hover:bg-amber-400 font-black shadow-inner'
                                            : 'text-neutral-300 hover:bg-[#1f222a]/50 bg-neutral-900/60'
                                        }`}
                                      >
-                                       <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 ${
+                                       <span className={`font-mono text-xs md:text-[13px] font-extrabold shrink-0 relative z-10 ${
                                          isSelectedOverUnder(match.id, ou.value, 'under') ? 'text-black' : 'text-sky-450'
                                        }`}>
                                          {ou.under?.toFixed(2) || '1.00'}
                                        </span>
-                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end">
+                                       <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 justify-end relative z-10">
                                          <div className="flex items-center gap-1 shrink-0">
                                            <span className="text-sky-450 font-sans font-black text-[9px] md:text-xs select-none">▼</span>
                                            <span className={`text-[11px] md:text-xs font-bold ${
@@ -1665,6 +1777,7 @@ export default function SportsContainer({
                                            }`}>언더</span>
                                          </div>
                                         </div>
+                                        {renderSelectedOverlay(isSelectedOverUnder(match.id, ou.value, 'under'))}
                                       </button>
                                     </div>
                                   ))}
@@ -1832,7 +1945,7 @@ export default function SportsContainer({
               <button
                 type="button"
                 disabled={isPlacingBet}
-                onClick={() => setBetAmount(10000)}
+                onClick={() => setBetAmount(0)}
                 className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 p-2 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
               >
                 초기화
@@ -1846,13 +1959,20 @@ export default function SportsContainer({
               <span className="text-neutral-500 font-extrabold">최종 수렴 배당</span>
               <span className="text-zinc-200 font-black font-mono">{formattedTotalOdds} 배</span>
             </div>
-            <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
-              <span className="text-neutral-300 font-black flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
-              </span>
-              <span className="text-sm font-black text-emerald-400 font-sans tracking-tight">
-                {estimatedPayout.toLocaleString()}원
-              </span>
+            <div className="flex flex-col gap-1.5 pt-1.5 border-t border-neutral-900">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-neutral-300 font-black flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
+                </span>
+                <span className={`text-sm font-black font-sans tracking-tight ${estimatedPayout > globalMaxPayoutLimit ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {estimatedPayout.toLocaleString()}원
+                </span>
+              </div>
+              {estimatedPayout > globalMaxPayoutLimit && (
+                <div className="text-right text-[10px] text-red-500/90 font-bold bg-red-950/30 p-1.5 rounded border border-red-900/50">
+                  최대 적중 상한금액 ({globalMaxPayoutLimit.toLocaleString()}원) 초과
+                </div>
+              )}
             </div>
           </div>
 

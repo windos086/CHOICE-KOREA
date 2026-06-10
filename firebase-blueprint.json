@@ -70,6 +70,20 @@
       },
       "required": ["dates"]
     },
+    "note": {
+      "title": "Note",
+      "description": "User notification notes / messages / memos",
+      "type": "object",
+      "properties": {
+        "receiverId": { "type": "string", "description": "ID of user who is receiving the note" },
+        "sender": { "type": "string", "description": "Sender: e.g. 운영자, Admin" },
+        "title": { "type": "string", "description": "Title of the message/note" },
+        "content": { "type": "string", "description": "Markdown/HTML/Plain text content of the note" },
+        "read": { "type": "boolean", "description": "Whether the message is marked as read" },
+        "createdAt": { "type": "number", "description": "Creation EPOCH timestamp" }
+      },
+      "required": ["receiverId", "sender", "title", "content", "read", "createdAt"]
+    },
     "inquiry": {
       "title": "Inquiry",
       "description": "1:1 customer Q&A inquiries and administrator resolutions",
@@ -124,6 +138,10 @@
     "/attendance/{userId}": {
       "schema": "attendance",
       "description": "Store user attendance records"
+    },
+    "/notes/{noteId}": {
+      "schema": "note",
+      "description": "Store welcome and system notification notes"
     }
   }
 }

@@ -5,9 +5,156 @@ import { db } from '../lib/firebase';
 
 interface BetHistoryViewProps {
   currentUserData: any;
+  sportsResults?: any[];
 }
 
-export default function BetHistoryView({ currentUserData }: BetHistoryViewProps) {
+function getBetSports(bet: any): string[] {
+  const sports: string[] = [];
+
+  // 1. If parent game has sport category in brackets
+  if (bet.game) {
+    if (bet.game.includes('축구')) sports.push('축구');
+    if (bet.game.includes('농구')) sports.push('농구');
+    if (bet.game.includes('야구')) sports.push('야구');
+    if (bet.game.includes('배구')) sports.push('배구');
+    if (bet.game.includes('아이스하키')) sports.push('아이스하키');
+  }
+
+  // 2. Check explicit sport fields on parent or folder level
+  if (bet.sport) {
+    if (bet.sport === 'soccer' || bet.sport === '축구') sports.push('축구');
+    if (bet.sport === 'basketball' || bet.sport === '농구') sports.push('농구');
+    if (bet.sport === 'baseball' || bet.sport === '야구') sports.push('야구');
+    if (bet.sport === 'volleyball' || bet.sport === '배구') sports.push('배구');
+    if (bet.sport === 'hockey' || bet.sport === '아이스하키') sports.push('아이스하키');
+  }
+
+  if (bet.folders) {
+    bet.folders.forEach((f: any) => {
+      if (f.sport) {
+        if (f.sport === 'soccer' || f.sport === '축구') sports.push('축구');
+        if (f.sport === 'basketball' || f.sport === '농구') sports.push('농구');
+        if (f.sport === 'baseball' || f.sport === '야구') sports.push('야구');
+        if (f.sport === 'volleyball' || f.sport === '배구') sports.push('배구');
+        if (f.sport === 'hockey' || f.sport === '아이스하키') sports.push('아이스하키');
+      }
+      
+      // Secondary fallback heuristics based on game details (team names, league names)
+      const searchStr = ((f.game || '') + ' ' + (f.league || '') + ' ' + (f.option || '')).toLowerCase();
+      
+      if (searchStr.includes('nba') || searchStr.includes('kbl') || searchStr.includes('wkbl') || searchStr.includes('농구') || searchStr.includes('basketball')) {
+        sports.push('농구');
+      }
+      if (searchStr.includes('mlb') || searchStr.includes('kbo') || searchStr.includes('npb') || searchStr.includes('야구') || searchStr.includes('baseball') || searchStr.includes('한화') || searchStr.includes('두산') || searchStr.includes('기아') || searchStr.includes('삼성') || searchStr.includes('롯데') || searchStr.includes('키움') || searchStr.includes('ssg') || searchStr.includes('kt') || searchStr.includes('lg 트윈스') || searchStr.includes('요미우리') || searchStr.includes('소프트뱅크') || searchStr.includes('야쿠르트') || searchStr.includes('다저스') || searchStr.includes('양키스')) {
+        sports.push('야구');
+      }
+      if (searchStr.includes('kovo') || searchStr.includes('배구') || searchStr.includes('volleyball') || searchStr.includes('현대건설') || searchStr.includes('대한항공') || searchStr.includes('흥국생명') || searchStr.includes('우리카드') || searchStr.includes('ok금융그룹')) {
+        sports.push('배구');
+      }
+      if (searchStr.includes('k리그') || searchStr.includes('프리미어리그') || searchStr.includes('라리가') || searchStr.includes('분데스리가') || searchStr.includes('세리에') || searchStr.includes('축구') || searchStr.includes('soccer') || searchStr.includes('football') || searchStr.includes('fc') || searchStr.includes('유로')) {
+        sports.push('축구');
+      }
+    });
+  }
+
+  return Array.from(new Set(sports));
+}
+
+function getFolderSportAndBadge(f: any, bet: any) {
+  const isSports = bet.gameType === 'sports' || f.gameType === 'sports' || !!f.sport || (f.match && f.match.sport);
+  
+  if (!isSports) {
+    return {
+      isSports: false,
+      emoji: '🎰',
+      label: 'MINIGAME',
+      element: (
+        <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
+          <span className="block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
+          <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
+        </div>
+      )
+    };
+  }
+
+  // Robust sport detection
+  let sport = '축구';
+  let emoji = '⚽';
+
+  const sportField = (f.sport || (f.match && f.match.sport) || '').toLowerCase();
+  const searchStr = ((f.game || '') + ' ' + (f.league || '') + ' ' + (f.option || '') + ' ' + (f.match?.homeTeam || '') + ' ' + (f.match?.awayTeam || '')).toLowerCase();
+
+  // 1. Explicit check
+  if (['soccer', '축구'].includes(sportField)) {
+    sport = '축구';
+    emoji = '⚽';
+  } else if (['basketball', '농구'].includes(sportField)) {
+    sport = '농구';
+    emoji = '🏀';
+  } else if (['baseball', '야구'].includes(sportField)) {
+    sport = '야구';
+    emoji = '⚾';
+  } else if (['volleyball', '배구'].includes(sportField)) {
+    sport = '배구';
+    emoji = '🏐';
+  } else if (['hockey', '아이스하키'].includes(sportField)) {
+    sport = '아이스하키';
+    emoji = '🏒';
+  } else if (sportField === 'bonus') {
+    sport = '보너스';
+    emoji = '🎁';
+  } else {
+    // 2. Heuristic check
+    if (searchStr.includes('농구') || searchStr.includes('nba') || searchStr.includes('kbl') || searchStr.includes('wkbl') || searchStr.includes('basketball')) {
+      sport = '농구';
+      emoji = '🏀';
+    } else if (searchStr.includes('야구') || searchStr.includes('mlb') || searchStr.includes('kbo') || searchStr.includes('npb') || searchStr.includes('baseball') || searchStr.includes('투나스') || searchStr.includes('마탄자스') || searchStr.includes('다저스') || searchStr.includes('양키스')) {
+      sport = '야구';
+      emoji = '⚾';
+    } else if (searchStr.includes('배구') || searchStr.includes('kovo') || searchStr.includes('volleyball') || searchStr.includes('현대건설') || searchStr.includes('대한항공')) {
+      sport = '배구';
+      emoji = '🏐';
+    } else if (searchStr.includes('하키') || searchStr.includes('nhl') || searchStr.includes('hockey')) {
+      sport = '아이스하키';
+      emoji = '🏒';
+    } else if (searchStr.includes('보너스') || searchStr.includes('bonus')) {
+      sport = '보너스';
+      emoji = '🎁';
+    }
+  }
+
+  // Soccer flags
+  if (sport === '축구') {
+    const lg = searchStr;
+    if (lg.includes('독일') || lg.includes('bundesliga')) emoji = '🇩🇪';
+    else if (lg.includes('스페인') || lg.includes('라리가') || lg.includes('laliga')) emoji = '🇪🇸';
+    else if (lg.includes('영국') || lg.includes('프리미어') || lg.includes('잉글랜드') || lg.includes('premier')) emoji = '🇬🇧';
+    else if (lg.includes('이탈리아') || lg.includes('세리에') || lg.includes('serie')) emoji = '🇮🇹';
+    else if (lg.includes('프랑스') || lg.includes('리그1') || lg.includes('ligue')) emoji = '🇫🇷';
+    else if (lg.includes('대한민국') || lg.includes('한국') || lg.includes('k리그') || lg.includes('k league')) emoji = '🇰🇷';
+    else if (lg.includes('일본') || lg.includes('j리그') || lg.includes('j league')) emoji = '🇯🇵';
+  }
+
+  const element = (
+    <div className="flex flex-col items-center justify-center bg-[#070b13] border border-neutral-800 rounded px-1 min-w-[36px] min-h-[36px] h-9 w-9 select-none animate-fade-in shadow-[inset_0_0_4px_rgba(255,255,255,0.05)]">
+      <span className="text-[17px] leading-none filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+        {emoji}
+      </span>
+      <span className="text-[8px] font-extrabold text-neutral-400 mt-1 scale-90 tracking-tighter uppercase whitespace-nowrap overflow-hidden max-w-[34px] text-center">
+        {sport}
+      </span>
+    </div>
+  );
+
+  return {
+    isSports: true,
+    emoji,
+    label: sport,
+    element
+  };
+}
+
+export default function BetHistoryView({ currentUserData, sportsResults }: BetHistoryViewProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const itemsPerPage = 20;
@@ -16,7 +163,14 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
   
   const filteredBets = allBets.filter((bet: any) => {
     if (selectedCategory === '전체') return true;
-    return bet.game.includes(selectedCategory);
+    
+    const sportsCategories = ['축구', '농구', '야구', '배구'];
+    if (sportsCategories.includes(selectedCategory)) {
+      const matchedSports = getBetSports(bet);
+      return matchedSports.includes(selectedCategory);
+    } else {
+      return bet.game && bet.game.includes(selectedCategory);
+    }
   });
 
   const totalPages = Math.ceil(filteredBets.length / itemsPerPage);
@@ -256,11 +410,22 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
     const isSports = folderGameType === 'sports';
 
     if (isSports) {
-      const raw = folder.rollResult || '';
-      const statusSuffix = folder.status === 'win' ? ' [승]' : folder.status === 'lose' ? ' [패]' : '';
+      let displayScore = folder.score || '';
+      if (!displayScore && sportsResults && sportsResults.length > 0) {
+        // Look up by matchId, or fall back to team name string heuristics
+        const match = sportsResults.find((m: any) => m.id === folder.matchId);
+        if (match && (match.homeScore !== undefined || match.awayScore !== undefined)) {
+          displayScore = `${match.homeScore ?? 0}:${match.awayScore ?? 0}`;
+        }
+      }
+
+      const isLose = folder.status === 'lose';
+      const isWin = folder.status === 'win';
+      const textColorClass = isLose ? 'text-red-500 font-extrabold' : isWin ? 'text-emerald-400 font-extrabold' : 'text-amber-500';
+
       return (
-        <span className="text-amber-500 font-mono font-black text-xs">
-          {raw}{statusSuffix}
+        <span className={`${textColorClass} font-mono text-xs`}>
+          {displayScore ? `[${displayScore}]` : '[-:-]'}
         </span>
       );
     }
@@ -281,18 +446,13 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
       return <span className="text-gray-500 font-bold text-xs">대기 중</span>;
     }
 
-    let suffix = ' [승]';
-    if (rawResult === '중') {
-      suffix = ' [무]';
-    }
-
-    if (rawResult.includes('[승]') || rawResult.includes('[무]')) {
-      suffix = '';
-    }
+    const isLose = folder.status === 'lose';
+    const isWin = folder.status === 'win';
+    const textColorClass = isLose ? 'text-red-500 font-extrabold' : isWin ? 'text-emerald-400 font-extrabold' : 'text-amber-500';
 
     return (
-      <span className="text-amber-500 font-bold text-xs">
-        {rawResult}{suffix}
+      <span className={`${textColorClass} font-mono text-xs`}>
+        {`[${rawResult}]`}
       </span>
     );
   }
@@ -404,14 +564,17 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                               {/* 리그 (구분) */}
                               <td className="p-3 text-left align-middle py-4">
                                 <div className="flex items-center gap-3">
-                                  {/* Live Red Glow Indicator - Matches Game Result screen */}
-                                  <div className="flex flex-col items-center justify-center bg-[#1d0e11] border border-red-950/60 rounded px-1.5 py-1 min-w-[36px] min-h-[36px] h-9 w-9">
-                                    <span className="block w-2 h-2 rounded-full bg-red-600 animate-pulse shadow-[0_0_8px_#dc2626]"></span>
-                                    <span className="text-[9px] font-black text-red-500 mt-1 scale-90 tracking-tighter">LIVE</span>
+                                  {getFolderSportAndBadge(f, bet).element}
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-white text-xs font-bold font-sans tracking-tight">
+                                      {f.game}
+                                    </span>
+                                    {(f.matchTime || f.dateTime || f.match?.dateTime) && (
+                                       <span className="text-neutral-500 text-[10px] font-mono whitespace-nowrap">
+                                         경기일시: {f.matchTime || f.dateTime || f.match?.dateTime}
+                                       </span>
+                                    )}
                                   </div>
-                                  <span className="text-white text-xs font-bold font-sans tracking-tight">
-                                    {f.game}
-                                  </span>
                                 </div>
                               </td>
 
@@ -578,9 +741,19 @@ export default function BetHistoryView({ currentUserData }: BetHistoryViewProps)
                         const layout = getBetSelectionLayout(f);
                         return (
                           <div key={idx} className="border-b border-neutral-800/20 last:border-0 pb-3.5 last:pb-0 flex flex-col gap-2">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-white text-[13px]">{f.game}</span>
-                              <span className="text-amber-500 font-black text-xs text-right">
+                            <div className="flex justify-between items-center gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {getFolderSportAndBadge(f, bet).element}
+                                <div className="flex flex-col gap-0.5 w-full">
+                                  <span className="font-bold text-white text-[13px] truncate">{f.game}</span>
+                                  {(f.matchTime || f.dateTime || f.match?.dateTime) && (
+                                    <span className="text-neutral-500 text-[10px] font-mono">
+                                      경기일시: {f.matchTime || f.dateTime || f.match?.dateTime}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-amber-500 font-black text-xs text-right shrink-0">
                                 {renderSingleFolderScore(f, bet.status === 'pending')}
                               </span>
                             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { addDoc, collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Save, AlertCircle, Trash2, CheckCircle2, ChevronRight, HelpCircle, Activity } from 'lucide-react';
 
@@ -113,6 +113,13 @@ export function normalizeDateString(dateTimeStr: string): string {
   return dateTimeStr.replace(/[\.\-/]/g, '-').replace(/\s+/g, ' ').trim();
 }
 
+export function getMatchKey(home: string, away: string, dateTime: string): string {
+  const homeVal = cleanTeamName(home || '');
+  const awayVal = cleanTeamName(away || '');
+  const dateVal = normalizeDateString(dateTime || '');
+  return `${homeVal}_${awayVal}_${dateVal}`;
+}
+
 export function isMatchAlreadyStarted(dateTimeStr: string): boolean {
   if (!dateTimeStr) return false;
   try {
@@ -221,10 +228,223 @@ const areMarketsDifferent = (m1: any, m2: any): boolean => {
 
 export default function AdminMatchRegistration() {
   const [inputText, setInputText] = useState('');
+  const [resultInputText, setResultInputText] = useState('');
   const [selectedSport, setSelectedSport] = useState<'soccer' | 'baseball' | 'basketball' | 'volleyball'>('soccer');
   const [isParsing, setIsParsing] = useState(false);
+  const [isResultParsing, setIsResultParsing] = useState(false);
   const [registeredMatches, setRegisteredMatches] = useState<any[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+
+  const handleBulkResolve = async () => {
+    if (!resultInputText.trim()) {
+      alert('결과 데이터를 입력해주세요.');
+      return;
+    }
+    if (!window.confirm('입력한 텍스트를 바탕으로 경기 결과를 일괄 정산하시겠습니까? (팀명, 스코어 기반)')) return;
+
+    setIsResultParsing(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'matches'), where('status', '==', 'pending')));
+      const pendingMatches = snap.docs.map(d => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          ...data,
+          cleanHome: cleanTeamName(data.homeTeam || ''),
+          cleanAway: cleanTeamName(data.awayTeam || '')
+        };
+      });
+
+      if (pendingMatches.length === 0) {
+        alert('대기 중인 경기가 없습니다.');
+        setIsResultParsing(false);
+        return;
+      }
+
+      let resolvedCount = 0;
+      const lines = resultInputText.split('\n').filter(l => l.trim().length > 0);
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('종료')) continue;
+        
+        let pH = '';
+        let pA = '';
+        let homeScoreD = -1;
+        let awayScoreD = -1;
+
+        // Tab-based Multiline logic (e.g., Basketball, Baseball)
+        let headerLine = line;
+        let homeLine = lines[i+1];
+        let awayLine = lines[i+2];
+
+        const parseLineTokens = (l: string) => l.split(/\t/).map(s => s.trim());
+        let headerTokens = parseLineTokens(headerLine);
+        
+        let tIndex = headerTokens.indexOf('T') !== -1 ? headerTokens.indexOf('T') : headerTokens.indexOf('R');
+        let oneIndex = headerTokens.indexOf('1');
+
+        if (tIndex === -1 && i + 1 < lines.length) {
+            headerLine = lines[i+1];
+            headerTokens = parseLineTokens(headerLine);
+            tIndex = headerTokens.indexOf('T') !== -1 ? headerTokens.indexOf('T') : headerTokens.indexOf('R');
+            oneIndex = headerTokens.indexOf('1');
+            homeLine = lines[i+2];
+            awayLine = lines[i+3];
+        }
+
+        if (tIndex > -1 && oneIndex > -1 && homeLine && homeLine.trim().length > 0 && awayLine && awayLine.trim().length > 0) {
+            const distance = tIndex - oneIndex;
+
+            const parseTeamLine = (teamLine: string) => {
+                const parts = parseLineTokens(teamLine);
+                let firstValIndex = -1;
+                for (let k = 1; k < parts.length; k++) {
+                    if (parts[k] === 'X' || /^\d+$/.test(parts[k])) {
+                        firstValIndex = k;
+                        break;
+                    }
+                }
+                
+                if (firstValIndex > -1) {
+                    const scoreIndex = firstValIndex + distance;
+                    let teamName = parts[0] ? parts[0] : parts[1];
+                    teamName = teamName.replace(/\[.*?\]/g, '').trim();
+                    const score = Number(parts[scoreIndex]);
+                    return { teamName, score };
+                }
+                return null;
+            };
+
+            const home = parseTeamLine(homeLine);
+            const away = parseTeamLine(awayLine);
+
+            if (home !== null && away !== null) {
+                pH = cleanTeamName(home.teamName);
+                homeScoreD = home.score;
+                pA = cleanTeamName(away.teamName);
+                awayScoreD = away.score;
+                i += (headerLine !== line ? 3 : 2); // skip lines
+            }
+        }
+        
+        // Volleyball Multiline logic
+        if (line.includes('종료') && homeScoreD === -1 && awayScoreD === -1) {
+            let hc = '', ac = '';
+            let hs = -1, as = -1;
+            let j = i + 1;
+            while(j < lines.length && !lines[j].includes('문자중계') && !(lines[j].includes('종료') && !lines[j].includes('문자중계')) && j < i + 20) {
+                 let cl = lines[j].trim();
+                 if (cl.length > 0 && !cl.startsWith('세트') && !cl.startsWith('전체') && !cl.startsWith('(') && !cl.match(/^\d+/) && !cl.startsWith('첫득점')) {
+                     if (!hc) {
+                         hc = cl;
+                         for (let k = j+1; k <= j+3 && k < lines.length; k++) {
+                             if (lines[k] && lines[k].trim().startsWith('(')) {
+                                 let scoreMatch = lines[k].split(/\t|\s{2,}/);
+                                 // Often the string after ) is the score. Or it's the second split part.
+                                 if (scoreMatch.length > 1) {
+                                     const p1 = scoreMatch[1].trim(); 
+                                     if (/^\d+$/.test(p1)) hs = parseInt(p1, 10);
+                                     else {
+                                        const m = lines[k].match(/\)\s+(\d+)\s+/);
+                                        if (m) hs = parseInt(m[1], 10);
+                                     }
+                                 }
+                                 break;
+                             }
+                         }
+                     } else if (!ac) {
+                         ac = cl;
+                         for (let k = j+1; k <= j+3 && k < lines.length; k++) {
+                             if (lines[k] && lines[k].trim().startsWith('(')) {
+                                 let scoreMatch = lines[k].split(/\t|\s{2,}/);
+                                 if (scoreMatch.length > 1) {
+                                     const p1 = scoreMatch[1].trim(); 
+                                     if (/^\d+$/.test(p1)) as = parseInt(p1, 10);
+                                     else {
+                                        const m = lines[k].match(/\)\s+(\d+)\s+/);
+                                        if (m) as = parseInt(m[1], 10);
+                                     }
+                                 }
+                                 break;
+                             }
+                         }
+                     }
+                 }
+                 j++;
+            }
+            if (hc && ac && hs !== -1 && as !== -1) {
+                 pH = cleanTeamName(hc.replace(/\(세계랭킹.*?\)/g, ''));
+                 pA = cleanTeamName(ac.replace(/\(세계랭킹.*?\)/g, ''));
+                 homeScoreD = hs;
+                 awayScoreD = as;
+                 i = j - 1; // skip checked lines
+            }
+        }
+
+        // Single line logic fallback (e.g., Soccer)
+        if (homeScoreD === -1 || awayScoreD === -1) {
+            let m = line.match(/종료\s+(.*?)\s+(\d+\s*-\s*\d+)\s+(.*?)(?:\s+[\d-]+\s*|\s*$|\t)/);
+            if (!m) continue;
+
+            pH = cleanTeamName(m[1].replace(/^[0-9]+\s*/, '')).trim();
+            const scoreStr = m[2];
+            pA = cleanTeamName(m[3].replace(/^[0-9]+\s*/, '')).trim();
+
+            const scores = scoreStr.split('-').map(s => parseInt(s.trim(), 10));
+            homeScoreD = scores[0];
+            awayScoreD = scores[1];
+        }
+
+        if (isNaN(homeScoreD) || isNaN(awayScoreD)) continue;
+
+        // Try to match with pending matches
+        const match = pendingMatches.find(pm => {
+            const hw = pm.cleanHome.replace(/\s+/g, '');
+            const aw = pm.cleanAway.replace(/\s+/g, '');
+            const phw = pH.replace(/\s+/g, '');
+            const paw = pA.replace(/\s+/g, '');
+            // Simple subset check or exact
+            return (hw.includes(phw) || phw.includes(hw)) && (aw.includes(paw) || paw.includes(aw));
+        });
+
+        if (match) {
+            let outcome: 'home' | 'draw' | 'away' = 'draw';
+            if (homeScoreD > awayScoreD) outcome = 'home';
+            else if (homeScoreD < awayScoreD) outcome = 'away';
+
+            await updateDoc(doc(db, 'matches', match.id), {
+                status: outcome,
+                homeScore: homeScoreD,
+                awayScore: awayScoreD,
+                outcome
+            });
+
+            await addDoc(collection(db, 'gameResultsTTL'), {
+                matchId: match.id,
+                homeTeam: match.homeTeam,
+                awayTeam: match.awayTeam,
+                homeScore: homeScoreD,
+                awayScore: awayScoreD,
+                outcome,
+                timestamp: new Date().toISOString()
+            });
+
+            resolvedCount++;
+            pendingMatches.splice(pendingMatches.indexOf(match), 1);
+        }
+      }
+
+      alert(`총 ${resolvedCount}개의 경기 결과가 성공적으로 등록 및 정산(TTL 파이프라인 전송) 처리되었습니다.`);
+      setResultInputText('');
+      fetchRegisteredMatches();
+    } catch (e) {
+      console.error(e);
+      alert('정산 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsResultParsing(false);
+    }
+  };
 
   const fetchRegisteredMatches = async () => {
     setLoadingMatches(true);
@@ -268,10 +488,7 @@ export default function AdminMatchRegistration() {
       const existingList = snap.docs.map(d => ({ docId: d.id, ...d.data() } as any));
       const existingMap = new Map<string, any>();
       for (const m of existingList) {
-        const homeVal = cleanTeamName(m.homeTeam || '');
-        const awayVal = cleanTeamName(m.awayTeam || '');
-        const dateVal = normalizeDateString(m.dateTime || '');
-        const key = `${homeVal}_${awayVal}_${dateVal}`;
+        const key = getMatchKey(m.homeTeam || '', m.awayTeam || '', m.dateTime || '');
         existingMap.set(key, m);
       }
 
@@ -467,7 +684,7 @@ export default function AdminMatchRegistration() {
                           overUnders: [{ value: threshold, over: overOdds, under: underOdds }]
                       };
 
-                      const key = `${h.teamName.trim()}_${a.teamName.trim()}_${matchTime.trim()}`;
+                      const key = getMatchKey(h.teamName, a.teamName, matchTime);
                       const existingMatch = existingMap.get(key);
 
                       if (existingMatch) {
@@ -734,7 +951,7 @@ export default function AdminMatchRegistration() {
                   overUnders: []
               };
               
-              const key = `${homeTeam.trim()}_${awayTeam.trim()}_${matchTime.trim()}`;
+              const key = getMatchKey(homeTeam, awayTeam, matchTime);
               const existingMatch = existingMap.get(key);
               
               if (existingMatch) {
@@ -1103,7 +1320,7 @@ export default function AdminMatchRegistration() {
             continue;
           }
 
-          const key = `${homeTeam.trim()}_${awayTeam.trim()}_${block.dateTime.trim()}`;
+          const key = getMatchKey(homeTeam, awayTeam, block.dateTime);
           const existingMatch = existingMap.get(key);
 
           if (existingMatch) {
@@ -1329,8 +1546,36 @@ export default function AdminMatchRegistration() {
         </div>
       </div>
 
-      {/* 2. Settle &Settle List Block */}
-      <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xl space-y-4">
+      {/* 2. Bulk Match Resolution Block */}
+      <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xl mt-6">
+        <h3 className="text-md font-black text-white mb-2 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
+          경기 결과 일괄 등록 (텍스트 기반)
+        </h3>
+        
+        <p className="text-xs text-neutral-400 mb-4">"종료" 상태인 경기 결과 텍스트를 붙여넣으세요. 이름과 스코어 차이로 승무패를 판별하여 대기 중인 경기를 일괄 정산합니다.</p>
+        
+        <textarea
+          className="w-full h-32 bg-black text-white p-4 rounded-xl border border-neutral-800 focus:border-emerald-500/50 mb-4 font-mono text-[11px] outline-none"
+          placeholder="00:00 종료 카자흐스탄 U19 2 - 4 그리스 U19..."
+          value={resultInputText}
+          onChange={(e) => setResultInputText(e.target.value)}
+        />
+        
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            onClick={handleBulkResolve}
+            disabled={isResultParsing}
+            className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 hover:from-emerald-400 to-emerald-600 hover:to-emerald-500 text-black px-6 py-2.5 rounded-xl font-black text-xs transition cursor-pointer"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            {isResultParsing ? '정산 중...' : '결과 일괄 정산 처리'}
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Settle &Settle List Block */}
+      <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xl space-y-4 mt-6">
         <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
           <h3 className="text-md font-black text-white flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
