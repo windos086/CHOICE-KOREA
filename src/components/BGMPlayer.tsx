@@ -10,13 +10,25 @@ export default function BGMPlayer() {
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = 0.3; // Lower volume by default
-      // Attempt to play on mount to support auto-playback
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(e => {
-        console.warn("Autoplay was blocked by browser policy, user interaction required:", e);
-      });
+      audioRef.current.volume = 0.3;
+      
+      // Attempt auto-play
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          setIsPlaying(true);
+        }).catch(error => {
+          console.log("Autoplay prevented:", error);
+          // Auto-play prevented, wait for first user interaction to play
+          const startAudio = () => {
+            audioRef.current?.play().then(() => setIsPlaying(true));
+            document.removeEventListener('click', startAudio);
+            document.removeEventListener('keydown', startAudio);
+          };
+          document.addEventListener('click', startAudio);
+          document.addEventListener('keydown', startAudio);
+        });
+      }
     }
   }, []);
 
@@ -37,20 +49,22 @@ export default function BGMPlayer() {
   };
 
   return (
-    <div className="fixed bottom-20 right-4 md:bottom-4 md:right-4 z-[9999] flex items-center gap-2 bg-black/60 backdrop-blur-md p-2 rounded-full border border-neutral-700">
+    <>
       <audio ref={audioRef} src={BGM_URL} loop />
-      <button 
-        onClick={togglePlayPause}
-        className="text-white hover:text-amber-400 p-1"
-      >
-        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-      </button>
-      <button 
-        onClick={toggleMute}
-        className="text-white hover:text-amber-400 p-1"
-      >
-        {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-      </button>
-    </div>
+      <div className="fixed bottom-4 right-4 z-[9999] hidden md:flex items-center gap-2 bg-black/60 backdrop-blur-md p-2 rounded-full border border-neutral-700">
+        <button 
+          onClick={togglePlayPause}
+          className="text-white hover:text-amber-400 p-1"
+        >
+          {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+        </button>
+        <button 
+          onClick={toggleMute}
+          className="text-white hover:text-amber-400 p-1"
+        >
+          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+        </button>
+      </div>
+    </>
   );
 }
