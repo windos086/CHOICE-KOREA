@@ -241,12 +241,13 @@ export default function SportsContainer({
   setUserBalance,
   setUserPoints,
   setMobileBetSlipOpen,
-  mobileBetSlipOpen
-}: SportsContainerProps) {
+  mobileBetSlipOpen,
+  initialSportTab = '전체'
+}: SportsContainerProps & { initialSportTab?: '전체' | '축구' | '농구' | '야구' | '배구' | '아이스하키' }) {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeLeagueTab, setActiveLeagueTab] = useState<string>('전체');
-  const [activeSportTab, setActiveSportTab] = useState<'전체' | '축구' | '농구' | '야구' | '배구' | '아이스하키'>('전체');
+  const [activeSportTab, setActiveSportTab] = useState<'전체' | '축구' | '농구' | '야구' | '배구' | '아이스하키'>(initialSportTab);
   const [leagueSearch, setLeagueSearch] = useState<string>('');
   const [isLeaguesExpanded, setIsLeaguesExpanded] = useState<boolean>(false);
   

@@ -7,6 +7,8 @@ import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
 import PartnerMenuView from './components/PartnerMenuView';
 import { TelegramBanner, VerticalTelegramBanner } from './components/TelegramBanner';
+import { VerticalDepositBanner } from './components/DepositBanner';
+import { VerticalWithdrawalBanner } from './components/WithdrawalBanner';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
@@ -86,6 +88,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showBetHistory, setShowBetHistory] = useState(false);
   const [showPointsHistory, setShowPointsHistory] = useState(false);
   const [showSports, setShowSports] = useState(false);
+  const [selectedSport, setSelectedSport] = useState<'전체' | '축구' | '농구' | '야구' | '배구' | '아이스하키'>('전체');
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
   const [mobileBetSlipOpen, setMobileBetSlipOpen] = useState(false);
@@ -348,6 +351,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'pointshistory' | 'support' | 'mypage' | 'event' | 'notice' | 'tetherguide') => {
     setShowSports(false);
+    setSelectedSport('전체');
     setShowBetHistory(false);
     setShowPointsHistory(false);
     setShowSupportScreen(false);
@@ -3971,7 +3975,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
 
       {/* Top GNB Bar */}
-      <header className="bg-gradient-to-b from-[#111215] via-[#090a0c] to-[#040405] border-b border-rose-950/40 px-6 py-5 flex flex-col items-center gap-5 relative z-50 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+      <header className="bg-gradient-to-b from-[#111215] via-[#090a0c] to-[#040405] border-b border-rose-950/40 px-6 pt-5 pb-[1px] flex flex-col items-center gap-5 relative z-50 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
         {/* Decorative corner light bands */}
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-40"></div>
         <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40"></div>
@@ -4065,8 +4069,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
             </div>
 
+            <div className="border-t border-red-600/50 my-1"></div>
+
             {/* Bottom info bar for mobile: simple tier & wallet holdings */}
-            <div className="grid grid-cols-2 gap-2 text-[10px] font-sans pt-1">
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-sans pt-1 px-0 pb-1 mx-0 -mt-[15px]">
               {/* Balance Box */}
               <div 
                 onClick={() => navigateTo('deposit')}
@@ -4132,46 +4138,44 @@ export default function MainPage({ onLogout }: MainPageProps) {
               )}
             </div>
 
-            {/* Logo */}
-            <button 
-              onClick={() => navigateTo('home')}
-              className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300"
-            >
-              <span className="inline-flex items-center font-sans">
-                <span className="relative inline-block mr-1">
-                  {/* Dynamic 3D Sparkling Floating Crown */}
-                  <motion.div 
-                    animate={{ y: [0, -6, 0], rotate: [0, -6, 6, 0], scale: [1, 1.05, 0.95, 1] }}
-                    transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute -top-[32px] left-1/2 -ml-4 w-8 h-8 text-amber-400 group-hover:text-yellow-300 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.95)]"
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" style={{ marginTop: '16px', paddingBottom: '0px', paddingRight: '0px', paddingLeft: '0px', marginRight: '0px', marginLeft: '0px' }}>
-                      {/* Highly polished crown silhouette */}
-                      <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
-                      <circle cx="5" cy="9" r="1" className="fill-white animate-pulse" />
-                      <circle cx="12" cy="4" r="1.2" className="fill-white animate-pulse" />
-                      <circle cx="19" cy="9" r="1" className="fill-white animate-pulse" />
-                    </svg>
-                  </motion.div>
-                  {/* Luxury Deep Gothic Bold C with premium gradient & intense shadow */}
-                  <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-tight transition-transform group-hover:scale-105 block">
-                    C
+            
+            {/* Navigation Menus (Centered) */}
+            <nav className="flex flex-wrap justify-center items-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300 pt-0 mt-0 -mb-10">
+              {/* Logo */}
+              <button 
+                onClick={() => navigateTo('home')}
+                className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300 hover:scale-105 active:scale-95 hidden md:block"
+              >
+                <span className="inline-flex items-center font-sans ml-[-325px]">
+                  <span className="relative inline-block mr-1">
+                    {/* Dynamic 3D Sparkling Floating Crown */}
+                    <motion.div 
+                      animate={{ y: [0, -6, 0], rotate: [0, -6, 6, 0], scale: [1, 1.05, 0.95, 1] }}
+                      transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute -top-[32px] left-1/2 -ml-4 w-8 h-8 text-amber-400 group-hover:text-yellow-300 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.95)]"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ marginTop: '16px', paddingBottom: '0px', paddingRight: '0px', paddingLeft: '0px', marginRight: '0px', marginLeft: '0px' }}>
+                        {/* Highly polished crown silhouette */}
+                        <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
+                        <circle cx="5" cy="9" r="1" className="fill-white animate-pulse" />
+                        <circle cx="12" cy="4" r="1.2" className="fill-white animate-pulse" />
+                        <circle cx="19" cy="9" r="1" className="fill-white animate-pulse" />
+                      </svg>
+                    </motion.div>
+                    {/* Luxury Deep Gothic Bold C with premium gradient & intense shadow */}
+                    <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-tight transition-transform group-hover:scale-105 block">
+                      C
+                    </span>
+                  </span>
+                  <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-505 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-wide transition-all group-hover:text-red-400">
+                    HOICE
+                  </span>
+                  <span className="text-[10px] font-black text-amber-400/90 not-italic uppercase ml-5 border-l border-neutral-800 pl-5 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
+                    <span>SPORTS</span>
+                    <span className="text-gray-400 text-[8px] tracking-[0.3em] font-normal">& CASINO</span>
                   </span>
                 </span>
-                <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-505 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-wide transition-all group-hover:text-red-400">
-                  HOICE
-                </span>
-                <span className="text-[10px] font-black text-amber-400/90 not-italic uppercase ml-5 border-l border-neutral-800 pl-5 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
-                  <span>SPORTS</span>
-                  <span className="text-gray-400 text-[8px] tracking-[0.3em] font-normal">& CASINO</span>
-                </span>
-              </span>
-              {/* Neon shimmer underline on hover */}
-              <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-red-600 via-amber-500 to-red-600 group-hover:w-full transition-all duration-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
-            </button>
-
-            {/* Navigation Menus (Centered) */}
-            <nav className="flex flex-wrap justify-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300">
+              </button>
               {['테더가이드', '스포츠', '미니게임', '폴리마켓', '경기결과', '베팅내역', '포인트내역', '입금신청', '출금신청', '이벤트', '공지사항'].map((item) => {
                 if (item === '테더가이드') {
                   return (
@@ -4250,7 +4254,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </div>
                   );
                 }
-                
                 if (item === '입금신청') {
                   return (
                     <button 
@@ -4365,7 +4368,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </nav>
 
             {/* User Stats and Actions (VIP Polished Tones & High-contrast Luxury Cards) */}
-            <div className="flex flex-wrap items-center justify-center gap-3 text-xs w-full max-w-full my-1.5 select-none font-sans">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-xs w-full max-w-full my-4 select-none font-sans border-t-2 border-red-900/50 pt-4">
               {/* Level & Nickname Box */}
               <div className="flex items-center gap-2 bg-neutral-950/90 px-4 py-2 rounded-lg border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)] transition-transform hover:scale-105 duration-250">
                 <span className="bg-gradient-to-r from-amber-400 to-amber-600 text-black font-extrabold px-1.5 py-0.5 rounded text-[10px] tracking-tight uppercase shadow-inner">
@@ -4573,7 +4576,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 px-1">
                   GAME TYPE & COMMUNITY
                 </div>
-                <div className="grid grid-cols-3 gap-1 bg-[#101216] p-1 rounded-xl border border-red-900">
+                <div className="grid grid-cols-4 gap-1 bg-[#101216] p-1 rounded-xl border border-red-900">
                   
 
 
@@ -5405,6 +5408,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         </div>
       ) : showSports ? (
         <SportsContainer 
+          key={selectedSport}
+          initialSportTab={selectedSport}
           currentUserData={currentUserData} 
           userBalance={userBalance} 
           setUserBalance={setUserBalance} 
@@ -7446,9 +7451,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 bg-gradient-to-tr from-red-950/10 via-amber-950/10 to-transparent rounded-[100px] blur-[140px] pointer-events-none z-0"></div>
 
             {/* Premium Gold/Red Dual Slotted Dashboard Panel */}
-            <div className="relative z-10 w-full rounded-3xl bg-gradient-to-b from-[#0c0d12]/95 via-[#06070a]/98 to-[#030304]/100 border border-red-500/15 p-6 md:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden">
+            <div 
+              className="relative z-10 w-full rounded-3xl border border-red-500/15 p-6 md:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden"
+              style={{
+                backgroundImage: "linear-gradient(to bottom, rgba(12, 13, 18, 0.5), rgba(6, 7, 10, 0.5), rgba(3, 3, 4, 0.7)), url('/고화질.jpg')",
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'sepia(0.3) saturate(2) brightness(1.1) drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))',
+              }}
+            >
               {/* Subtle tech grid motif lines */}
               <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+              
+              {/* Gold Shimmer Overlay */}
+              <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-yellow-200/20 to-transparent skew-x-[-25deg] animate-gold-shine" />
               
               {/* Corner decorative golden metal brackets */}
               <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-amber-500/20 rounded-tl-xl pointer-events-none"></div>
@@ -7476,30 +7492,38 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </motion.h1>
                     <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2.5 text-xs font-black tracking-widest text-amber-400">
                       <span>HIGH-STAKES SPORTS & CASINO</span>
-                      <span className="w-1.5 h-1.5 bg-neutral-800 rounded-full hidden sm:inline-block"></span>
-                      <span className="text-gray-400 font-sans tracking-normal font-semibold bg-black/40 px-2 py-0.5 rounded border border-neutral-900">SEASON V</span>
                     </div>
                   </div>
 
-                  <p className="text-gray-400 text-xs md:text-[13px] leading-relaxed font-sans font-medium xl:pr-4">
-                    CHOICE 는 회원님들과 클럽의 안전을 최우선으로 USDT 테더 충전방식을 도입하고있습니다. 회원님들께서는 안심하시고 이용해주시면 감사하겠습니다.<br/><br/>
-                    CHOICE 는 VIP 회원들을 엄선하여 초청하며 문제가될만한 부분과 회원에 대해서는 엄격하게 통제하고있습니다.
-                  </p>
-
                   {/* Horizontal dividers & micro badges */}
-                  <div className="grid grid-cols-3 gap-3 pt-3.5 border-t border-neutral-900/80">
-                    <div className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-3 backdrop-blur-sm transition-transform hover:scale-105 duration-200">
-                      <div className="text-[9px] text-gray-500 uppercase font-black tracking-wider">FERRARI REBATE</div>
-                      <div className="text-xs font-black text-red-500 font-mono mt-0.5">COMBO +5%</div>
-                    </div>
-                    <div className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-3 backdrop-blur-sm transition-transform hover:scale-105 duration-200">
-                      <div className="text-[9px] text-gray-500 uppercase font-black tracking-wider">DAILY CASHBACK</div>
-                      <div className="text-xs font-black text-amber-400 font-mono mt-0.5">UNLIMITED</div>
-                    </div>
-                    <div className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-3 backdrop-blur-sm transition-transform hover:scale-105 duration-200">
-                      <div className="text-[9px] text-gray-400 uppercase font-black tracking-wider">WITHDRAW SPEED</div>
-                      <div className="text-xs font-black text-white font-mono mt-0.5">⚡ RAPID 1M</div>
-                    </div>
+                  <div className="grid grid-cols-4 gap-2 pt-3.5 border-t border-neutral-900/80">
+                    {[
+                      { name: '축구', count: 76, emoji: '⚽', route: 'soccer' },
+                      { name: '농구', count: 37, emoji: '🏀', route: 'basketball' },
+                      { name: '야구', count: 1, emoji: '⚾', route: 'baseball' },
+                      { name: '배구', count: 4, emoji: '🏐', route: 'volleyball' },
+                    ].map((item, index) => (
+                      <div 
+                        key={index} 
+                        onClick={() => {
+                          setSelectedSport(item.name as any);
+                          navigateTo('sports');
+                        }}
+                        className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-2 flex flex-col items-center justify-center gap-1 transition-transform hover:scale-[1.1] duration-200 cursor-pointer animate-pulse"
+                      >
+                        <div className="relative w-10 h-10 flex items-center justify-center text-3xl">
+                          <motion.div 
+                            animate={{ rotate: 360 }} 
+                            transition={{ repeat: Infinity, duration: 8, ease: "linear" }} 
+                            className="w-full h-full flex items-center justify-center"
+                          >
+                            {item.emoji}
+                          </motion.div>
+                          <div className="absolute -top-1 -right-1 bg-neutral-800 text-[8px] text-white px-1 rounded-sm border border-neutral-700">{item.count}</div>
+                        </div>
+                        <div className="text-[9px] text-gray-300 font-bold">{item.name}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 {/* Laser separation Line for Desktop layout */}
@@ -7510,78 +7534,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 {/* Right Side - Immersive Integrated Casino & Sports Premium Tri-Showcase */}
                 <div className="hidden md:grid md:grid-cols-3 gap-5 w-full xl:max-w-[850px]">
                   
-                  {/* 1. Golden Luxury Roulette Frame */}
-                  <motion.div
-                    whileHover={{ y: -8, scale: 1.03 }}
-                    transition={{ duration: 0.3 }}
-                    className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-amber-500/25 bg-neutral-950 shadow-[0_20px_40px_rgba(0,0,0,0.9)] cursor-pointer group"
-                  >
-                    {/* Golden Sweep light */}
-                    <motion.div
-                      animate={{ x: ['-100%', '200%'] }}
-                      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent skew-x-12 z-20 pointer-events-none"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
-                    
-                    {/* BET365 Picture */}
-                    <img
-                      src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"
-                      alt="BET365"
-                      className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-
-                    {/* Stamp */}
-                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/30 shadow-lg">
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-                      <span className="text-amber-400 text-[9px] font-black tracking-widest uppercase">BET365</span>
-                    </div>
-
-                    {/* Bottom glass panel */}
-                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-amber-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-amber-300 tracking-wider uppercase">BET365 SPORTS</span>
-                      <span className="text-[8.5px] font-bold font-mono text-gray-400">OPTIMAL PLATFORM 🌐</span>
-                    </div>
-                  </motion.div>
-
-                  {/* 2. High-Stakes Flying Dice Frame */}
-                  <motion.div
-                    whileHover={{ y: -8, scale: 1.03 }}
-                    transition={{ duration: 0.3 }}
-                    className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-red-500/25 bg-neutral-950 shadow-[0_20px_40px_rgba(0,0,0,0.9)] cursor-pointer group"
-                  >
-                    {/* Red Sweep light */}
-                    <motion.div
-                      animate={{ x: ['-100%', '200%'] }}
-                      transition={{ duration: 4.5, repeat: Infinity, repeatDelay: 1, ease: "easeInOut" }}
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/25 to-transparent skew-x-12 z-20 pointer-events-none"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent z-10" />
-
-                    {/* Tether Picture */}
-                    <img
-                      src="https://images.unsplash.com/photo-1622630998477-20aa696ecb05?q=80&w=800"
-                      alt="Tether"
-                      className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-
-                    {/* Stamp */}
-                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-red-500/30 shadow-lg">
-                      <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-                      <span className="text-rose-450 text-[9px] font-black tracking-widest uppercase">TETHER (USDT)</span>
-                    </div>
-
-                    {/* Bottom glass panel */}
-                    <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 flex flex-col gap-0.5 bg-black/85 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-red-500/10 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
-                      <span className="text-[10px] font-black text-red-450 tracking-wider uppercase">TETHER TRADING</span>
-                      <span className="text-[8.5px] font-bold font-mono text-gray-400 font-black text-rose-300">JACKPOT ENABLED ✨</span>
-                    </div>
-                  </motion.div>
-
                   {/* 3. Luxury Telegram Customer Center Card */}
-                  <VerticalTelegramBanner />
+                  <div>
+                    <VerticalTelegramBanner />
+                  </div>
+
+                  {/* 4. Luxury Deposit Request Card */}
+                  <div>
+                    <VerticalDepositBanner onClick={() => setShowDepositScreen(true)} />
+                  </div>
+
+                  {/* 5. Luxury Withdrawal Request Card */}
+                  <div>
+                    <VerticalWithdrawalBanner onClick={() => setShowWithdrawalScreen(true)} />
+                  </div>
                   
                 </div>
 
@@ -7626,10 +7592,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           alert(`${cat.label} 기능은 준비 중입니다.`);
                         }
                       }}
-                      className={`relative h-40 bg-gray-900 border border-gray-800 rounded overflow-hidden shadow-lg group ${
-                        isDisabled ? 'cursor-default opacity-50 grayscale' : 'cursor-pointer'
+                      className={`relative h-40 bg-gray-900 border rounded overflow-hidden shadow-lg group ${
+                        isDisabled 
+                          ? 'cursor-default opacity-50 grayscale border-gray-800' 
+                          : 'cursor-pointer border-amber-500/50 shadow-[0_0_15px_rgba(255,215,0,0.3)]'
                       }`}
                     >
+                      {!isDisabled && (
+                        <div className="absolute inset-0 z-20 bg-gradient-to-r from-transparent via-yellow-200/20 to-transparent skew-x-[-25deg] animate-gold-shine" />
+                      )}
                       <div 
                         className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-cover bg-center"
                         style={{ backgroundImage: `url(${cat.img})` }}
