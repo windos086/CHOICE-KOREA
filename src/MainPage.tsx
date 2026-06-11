@@ -12,6 +12,7 @@ import { VerticalWithdrawalBanner } from './components/WithdrawalBanner';
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
+import BGMControls from './components/BGMControls';
 import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout } from 'lucide-react';
 
 enum OperationType {
@@ -7591,9 +7592,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
           {/* Main Categories Section */}
           <main className="flex-1 p-8 max-w-7xl w-full mx-auto space-y-10">
             <div>
-              <div className="flex items-center gap-3 mb-6">
-                <span className="w-1.5 h-6 bg-red-500 rounded"></span>
-                <h2 className="text-2xl font-black text-white tracking-wider">주요 게임 장르</h2>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <span className="w-1.5 h-6 bg-red-500 rounded"></span>
+                  <h2 className="text-2xl font-black text-white tracking-wider">주요 게임 장르</h2>
+                </div>
+                <div className="flex md:hidden items-center gap-2 text-white">
+                  <span className="text-sm">BGM</span>
+                  <BGMControls />
+                </div>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
