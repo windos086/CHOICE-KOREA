@@ -261,6 +261,7 @@ export default function SportsContainer({
   const [visibleCount, setVisibleCount] = useState<number>(30);
   
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const isAdmin = currentUserData?.username === 'windo086' || currentUserData?.username === 'windos086' || currentUserData?.isAdmin || currentUserData?.role === 'admin';
   
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('favoriteGames');
@@ -940,7 +941,7 @@ function isMatchActive(dateTimeStr: string): boolean {
       return;
     }
 
-    if (estimatedPayout > globalMaxPayoutLimit) {
+    if (estimatedPayout > globalMaxPayoutLimit && !isAdmin) {
       alert(`최대 당첨 가능 금액은 ${globalMaxPayoutLimit.toLocaleString()}원입니다.\n배팅 금액을 조절해주세요.`);
       return;
     }
@@ -2019,11 +2020,11 @@ function isMatchActive(dateTimeStr: string): boolean {
                 <span className="text-neutral-300 font-black flex items-center gap-1">
                   <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
                 </span>
-                <span className={`text-sm font-black font-sans tracking-tight ${estimatedPayout > globalMaxPayoutLimit ? 'text-red-400' : 'text-emerald-400'}`}>
+                <span className={`text-sm font-black font-sans tracking-tight ${(estimatedPayout > globalMaxPayoutLimit && !isAdmin) ? 'text-red-400' : 'text-emerald-400'}`}>
                   {estimatedPayout.toLocaleString()}원
                 </span>
               </div>
-              {estimatedPayout > globalMaxPayoutLimit && (
+              {(estimatedPayout > globalMaxPayoutLimit && !isAdmin) && (
                 <div className="text-right text-[10px] text-red-500/90 font-bold bg-red-950/30 p-1.5 rounded border border-red-900/50">
                   최대 적중 상한금액 ({globalMaxPayoutLimit.toLocaleString()}원) 초과
                 </div>

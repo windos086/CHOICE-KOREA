@@ -830,7 +830,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       return;
     }
 
-    if (betAmount > 2000000) {
+    if (betAmount > 2000000 && !isAdmin) {
       alert('최대 배팅 가능 금액은 2,000,000원입니다.');
       return;
     }
@@ -838,7 +838,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const totalDividendForCheck = selectedOptions.reduce((acc, opt) => acc * opt.dividend, 1);
     const formattedTotalDividendForCheck = Math.round(totalDividendForCheck * 100) / 100;
 
-    if (betAmount * formattedTotalDividendForCheck > 4000000) {
+    if (betAmount * formattedTotalDividendForCheck > 4000000 && !isAdmin) {
       alert('최대 당첨 가능 금액은 4,000,000원입니다.');
       return;
     }
@@ -3916,11 +3916,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <span className="text-neutral-300 font-black flex items-center gap-1">
                         <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
                       </span>
-                      <span className={`text-sm font-black font-sans tracking-tight ${estimatedPay > 4000000 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      <span className={`text-sm font-black font-sans tracking-tight ${(estimatedPay > 4000000 && !isAdmin) ? 'text-red-400' : 'text-emerald-400'}`}>
                         {estimatedPay.toLocaleString()}원
                       </span>
                     </div>
-                    {estimatedPay > 4000000 && (
+                    {(estimatedPay > 4000000 && !isAdmin) && (
                       <div className="text-right text-[10px] text-red-500/90 font-bold bg-red-950/30 p-1.5 rounded border border-red-900/50">
                         미니게임 최대 적중 상한금액 (4,000,000원) 초과
                       </div>
@@ -7339,11 +7339,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
                             <span className="text-neutral-300 font-black flex items-center gap-1">
                               <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
                             </span>
-                            <span className={`text-sm font-black font-sans tracking-tight ${estimatedPay > 4000000 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            <span className={`text-sm font-black font-sans tracking-tight ${(estimatedPay > 4000000 && !isAdmin) ? 'text-red-400' : 'text-emerald-400'}`}>
                               {estimatedPay.toLocaleString()}원
                             </span>
                           </div>
-                          {estimatedPay > 4000000 && (
+                          {(estimatedPay > 4000000 && !isAdmin) && (
                             <div className="text-right text-[10px] text-red-500/90 font-bold bg-red-950/30 p-1.5 rounded border border-red-900/50">
                               미니게임 최대 적중 상한금액 (4,000,000원) 초과
                             </div>
