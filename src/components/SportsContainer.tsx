@@ -415,23 +415,30 @@ export default function SportsContainer({
                   rollResultLabel = isWinFolder ? '승무패 적중' : '승무패 낙첨';
                 } else if (mkt === 'handicap') {
                   const hVal = parseHandicapValue(f.lineValue);
-                  // Perspective of home team
-                  const homeFinal = homeScore + hVal;
-
-                  if (Math.abs(homeFinal - awayScore) < 0.001) {
-                    // VOID when handicap tie
-                    foldersUpdated.push({
-                      ...f,
-                      status: 'void',
-                      rollResult: '적중특례'
-                    });
-                    continue;
-                  }
-                  
                   if (f.type === 'home') {
+                    const homeFinal = homeScore + hVal;
+                    if (Math.abs(homeFinal - awayScore) < 0.001) {
+                      // VOID when handicap tie
+                      foldersUpdated.push({
+                        ...f,
+                        status: 'void',
+                        rollResult: '적중특례'
+                      });
+                      continue;
+                    }
                     isWinFolder = homeFinal > awayScore;
                   } else {
-                    isWinFolder = homeFinal < awayScore;
+                    const awayFinal = awayScore + hVal;
+                    if (Math.abs(awayFinal - homeScore) < 0.001) {
+                      // VOID when handicap tie
+                      foldersUpdated.push({
+                        ...f,
+                        status: 'void',
+                        rollResult: '적중특례'
+                      });
+                      continue;
+                    }
+                    isWinFolder = awayFinal > homeScore;
                   }
                   rollResultLabel = isWinFolder ? '핸디캡 적중' : '핸디캡 낙첨';
                 } else if (mkt === 'overUnder') {

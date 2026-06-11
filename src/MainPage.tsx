@@ -3306,12 +3306,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
       // 2. [핸디캡] (Handicap) - 만약 핸디캡 데이터가 있다면 (배구는 제외)
       const handicap = match.markets?.handicap || {};
       if (sportName !== '배구' && handicap && (handicap.home || handicap.away || handicap.value)) {
+        const baseLineValue = formatHandicapDisplay(
+          handicap.value, 
+          match.markets?.matchWinner?.home, 
+          match.markets?.matchWinner?.away
+        );
+
         // 핸디캡 결과 판정
         let handiWinner = 'none';
         if (rawStatus !== 'pending') {
           const homeScoreVal = Number(match.homeScore ?? 0);
           const awayScoreVal = Number(match.awayScore ?? 0);
-          const hVal = parseHandicapValue(handicap.value);
+          const hVal = parseHandicapValue(baseLineValue);
           const homeFinal = homeScoreVal + hVal;
           if (homeFinal > awayScoreVal) {
             handiWinner = 'home';
@@ -3321,12 +3327,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
             handiWinner = 'draw';
           }
         }
-
-        const baseLineValue = formatHandicapDisplay(
-          handicap.value, 
-          match.markets?.matchWinner?.home, 
-          match.markets?.matchWinner?.away
-        );
 
         sportsRowsList.push({
           id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_handicap`,
@@ -6657,7 +6657,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               ) : row.winner === 'away' ? (
                                 <span className="text-amber-500 font-black">{row.score} [승]</span>
                               ) : row.winner === 'draw' ? (
-                                <span className="text-gray-300 font-bold">{row.score} [무]</span>
+                                <span className="text-gray-300 font-bold">
+                                  {row.score} {row.id?.endsWith('_handicap') || row.id?.endsWith('_overUnder') ? '[적특]' : '[무]'}
+                                </span>
                               ) : (
                                 <span className="text-gray-400">{row.score}</span>
                               )}
