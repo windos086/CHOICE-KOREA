@@ -794,7 +794,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [currentUserData]);
+  }, [currentUserData, gameResults]);
 
 
   useEffect(() => {
@@ -1306,6 +1306,49 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
   }, []);
 
+  // Synchronize gameResultsTTL in real-time to allow immediate minigame settlement
+  useEffect(() => {
+    console.log("Setting up real-time listener for gameResultsTTL...");
+    const q = query(
+      collection(db, 'gameResultsTTL'),
+      orderBy('createdAt', 'desc'),
+      limit(200)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'];
+      const latestByGame: Record<string, any[]> = {};
+      minigameNames.forEach(name => {
+        latestByGame[name] = [];
+      });
+
+      snapshot.forEach(docSnap => {
+        const data = { id: docSnap.id, ...docSnap.data() } as any;
+        const gName = (data.gameName || '').trim();
+        if (minigameNames.includes(gName)) {
+          if (latestByGame[gName].length < 30) {
+            latestByGame[gName].push(data);
+          }
+        }
+      });
+
+      const results = Object.values(latestByGame).flat();
+
+      results.sort((a: any, b: any) => {
+        const timeA = (a.createdAt && typeof a.createdAt.toMillis === 'function') ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
+        const timeB = (b.createdAt && typeof b.createdAt.toMillis === 'function') ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+
+      console.log("Real-time game results synced (latest 30 per game):", results);
+      setGameResults(results);
+    }, (error) => {
+      console.warn("Real-time gameResultsTTL sync failed:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Synchronize 1:1 inquiries in real-time
   useEffect(() => {
     const activeUsername = currentUserData?.username || currentUser?.username;
@@ -1814,6 +1857,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   const getOfficialRoundResultOnly = async (gameType: string, roundNum: number) => {
     const docId = `${gameType}_${roundNum}`;
+    const cachedResult = gameResults.find(r => r.id === docId || (r.gameType === gameType && r.round === roundNum));
+    if (cachedResult) {
+      return cachedResult;
+    }
     const docRef = doc(db, 'gameResultsTTL', docId);
     try {
       const snap = await getDoc(docRef);
@@ -3697,38 +3744,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           {/* Selections Section */}
           <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none">
-            {selectedOptions.length === 0 ? (
+            {selectedOptions.length === 0 && (
               <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
                 <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
                 <p className="text-xs font-black">선택된 배팅 옵션이 없습니다.</p>
                 <p className="text-[10px] text-gray-500 leading-tight">게임 배당 버튼을 클릭하여<br />배팅 카트에 추가하십시오.</p>
               </div>
-            ) : (
-              selectedOptions.map((opt, idx) => (
-                <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
-                  <button
-                    onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
-                    className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
-                    title="제거"
-                  >
-                    &times;
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
-                      [{opt.round}회차] {opt.game}
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-black text-neutral-250 pr-5 truncate">
-                    구분: {opt.group}
-                  </div>
-                  <div className="flex items-center justify-between text-xs bg-neutral-900 border border-neutral-850/40 p-2 rounded-lg mt-0.5">
-                    <span className="font-extrabold text-amber-500 flex items-center gap-1">
-                      선택: <span className="text-white underline decoration-amber-500">{opt.name}</span>
-                    </span>
-                    <span className="font-mono font-black text-neutral-200">{(opt.dividend || 0).toFixed(2)} 배당</span>
-                  </div>
-                </div>
-              ))
             )}
           </div>
 
@@ -3740,13 +3761,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <div className="bg-neutral-950/80 p-3.5 rounded-xl border border-neutral-850 space-y-2.5 border-l-2 border-l-amber-500">
                   <div className="flex flex-col gap-1.5">
                     <span className="text-neutral-400 font-extrabold text-[11px]">선택된 옵션 상세</span>
-                    <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto no-scrollbar pr-0.5">
+                    <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto no-scrollbar pr-0.5">
                       {selectedOptions.map((opt, i) => (
-                        <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60">
-                          <span className="text-neutral-200 font-bold truncate max-w-[125px] md:max-w-[150px]">
-                            [{opt.round}회] {opt.name}
+                        <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1.5 rounded border border-neutral-850/60 gap-1.5">
+                          <span className="text-neutral-250 font-bold truncate max-w-[170px]" title={`${opt.game} - ${opt.name}`}>
+                            [{opt.round}회] {opt.game} - {opt.name}
                           </span>
-                          <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
+                            <button
+                              onClick={() => setSelectedOptions(prev => prev.filter((_, idx) => idx !== i))}
+                              className="text-neutral-500 hover:text-red-400 font-bold cursor-pointer transition text-xs px-1"
+                              title="삭제"
+                            >
+                              &times;
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -3802,7 +3832,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBetAmount(0)}
+                  onClick={() => { setBetAmount(0); setSelectedOptions([]); }}
                   className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 p-2 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
                 >
                   초기화
@@ -6643,7 +6673,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               {isMobile && renderMinigameCart(true)}
 
               {/* Mobile Bottom Float Trigger button */}
-              {isMobile && (
+              {isMobile && !mobileBetSlipOpen && (
                 <div className="fixed bottom-16 left-4 right-4 z-40">
                   <button
                     onClick={() => setMobileBetSlipOpen(!mobileBetSlipOpen)}

@@ -8,7 +8,7 @@ interface PointHistoryViewProps {
 export default function PointHistoryView({ currentUserData }: PointHistoryViewProps) {
   const pointsHistory = currentUserData?.pointsHistory || [];
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 7;
 
   const totalItems = pointsHistory.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
