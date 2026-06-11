@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useRef, useEffect } from 'r
 const BGMContext = createContext<any>(null);
 
 export const BGMProvider = ({ children }: { children: React.ReactNode }) => {
+  const playlist = ['/buzz.mp3', '/bgm.mp3'];
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -10,6 +12,7 @@ export const BGMProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = 0.3;
+      audioRef.current.src = playlist[currentTrackIndex];
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise.then(() => setIsPlaying(true)).catch(() => {
@@ -21,7 +24,11 @@ export const BGMProvider = ({ children }: { children: React.ReactNode }) => {
         });
       }
     }
-  }, []);
+  }, [currentTrackIndex]);
+
+  const handleEnded = () => {
+    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+  };
 
   const togglePlayPause = () => {
     if (isPlaying) audioRef.current?.pause();
@@ -38,7 +45,7 @@ export const BGMProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <BGMContext.Provider value={{ isPlaying, isMuted, togglePlayPause, toggleMute }}>
-      <audio ref={audioRef} src="/bgm.mp3" loop />
+      <audio ref={audioRef} onEnded={handleEnded} />
       {children}
     </BGMContext.Provider>
   );
