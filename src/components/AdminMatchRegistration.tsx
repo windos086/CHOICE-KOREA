@@ -705,13 +705,14 @@ export default function AdminMatchRegistration() {
                               league: currentLeague,
                               homeTeam: h.teamName,
                               awayTeam: a.teamName,
-                              homeScore: 0,
-                              awayScore: 0,
                               sport: selectedSport,
                               markets: markets,
                               status: 'pending',
+                              homeScore: 0,
+                              awayScore: 0,
                               createdAt: new Date().toISOString()
                           };
+                          console.log("Adding new match:", newMatchDoc);
 
                           await addDoc(collection(db, 'matches'), newMatchDoc);
                           addedCount++;
@@ -1000,10 +1001,10 @@ export default function AdminMatchRegistration() {
                       league: currentLeague,
                       homeTeam: homeTeam,
                       awayTeam: awayTeam,
-                      homeScore: 0,
-                      awayScore: 0,
                       sport: 'volleyball',
                       markets: markets,
+                      homeScore: 0,
+                      awayScore: 0,
                       status: 'pending',
                       createdAt: new Date().toISOString()
                   };
@@ -1369,10 +1370,10 @@ export default function AdminMatchRegistration() {
               league: matchLeague,
               homeTeam: homeTeam.trim(),
               awayTeam: awayTeam.trim(),
-              homeScore: 0,
-              awayScore: 0,
               markets: parsedMarkets,
               status: 'pending',
+              homeScore: 0,
+              awayScore: 0,
               sport: selectedSport,
               createdAt: new Date().toISOString()
             };
@@ -1406,11 +1407,12 @@ export default function AdminMatchRegistration() {
   };
 
   const handleDeleteAllMatches = async () => {
-    if (!window.confirm('정말로 모든 경기 데이터를 삭제하시겠습니까?')) return;
+    if (!window.confirm('정말로 모든 "대기 중인" 경기 데이터를 삭제하시겠습니까?')) return;
     try {
       const snap = await getDocs(collection(db, 'matches'));
-      await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'matches', d.id))));
-      alert('모든 경기 데이터가 삭제되었습니다.');
+      const pendingMatches = snap.docs.filter(d => d.data().status === 'pending');
+      await Promise.all(pendingMatches.map(d => deleteDoc(doc(db, 'matches', d.id))));
+      alert(`대기 중인 모든 경기 데이터(${pendingMatches.length}건)가 삭제되었습니다.`);
       fetchRegisteredMatches();
     } catch (e) {
       console.error(e);
@@ -1420,12 +1422,12 @@ export default function AdminMatchRegistration() {
 
   const handleDeleteMatchesBySport = async (sport: 'soccer' | 'baseball' | 'basketball' | 'volleyball') => {
     const sportName = sport === 'soccer' ? '축구' : sport === 'baseball' ? '야구' : sport === 'basketball' ? '농구' : '배구';
-    if (!window.confirm(`정말로 모든 ${sportName} 경기 데이터를 삭제하시겠습니까?`)) return;
+    if (!window.confirm(`정말로 모든 대기 중인 ${sportName} 경기 데이터를 삭제하시겠습니까?`)) return;
     try {
       const snap = await getDocs(collection(db, 'matches'));
-      const toDelete = snap.docs.filter(d => d.data().sport === sport);
+      const toDelete = snap.docs.filter(d => d.data().sport === sport && d.data().status === 'pending');
       await Promise.all(toDelete.map(d => deleteDoc(doc(db, 'matches', d.id))));
-      alert(`${sportName} 경기 데이터가 삭제되었습니다.`);
+      alert(`대기 중인 ${sportName} 경기 데이터(${toDelete.length}건)가 삭제되었습니다.`);
       fetchRegisteredMatches();
     } catch (e) {
       console.error(e);

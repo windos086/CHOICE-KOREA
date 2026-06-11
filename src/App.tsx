@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LoginScreen from './LoginScreen';
 import RegistrationScreen from './RegistrationScreen';
 import MainPage from './MainPage';
+import BGMPlayer from './components/BGMPlayer';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'login' | 'register' | 'main'>(() => {
@@ -15,6 +16,7 @@ export default function App() {
 
   return (
     <>
+      <BGMPlayer />
       {currentScreen === 'login' && <LoginScreen onNavigate={setCurrentScreen} />}
       {currentScreen === 'register' && <RegistrationScreen onNavigate={setCurrentScreen} />}
       {currentScreen === 'main' && <MainPage onLogout={() => setCurrentScreen('login')} />}

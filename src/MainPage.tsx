@@ -123,6 +123,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [isLoadingGameResults, setIsLoadingGameResults] = useState(false);
   const [gameResultFilter, setGameResultFilter] = useState('전체');
   const [gameResultPage, setGameResultPage] = useState(1);
+  const [gameResultSearch, setGameResultSearch] = useState('');
 
   // State for Admin Deposit & Withdrawal Requests panel
   const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames'>('users');
@@ -3403,7 +3404,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return combined;
   };
 
-  const allExpandedRows = getGameResultRows();
+  const allExpandedRowsRaw = getGameResultRows();
+  const allExpandedRows = allExpandedRowsRaw.filter(row => {
+    if (!gameResultSearch.trim()) return true;
+    
+    // Normalize and lower case for search term for better Hangul matching
+    const search = gameResultSearch.trim().toLowerCase().normalize('NFC');
+    
+    // Helper to normalize and lowercase values
+    const normalizeValue = (val: string | undefined | null) => 
+      val ? val.toLowerCase().normalize('NFC') : '';
+
+    return (
+      normalizeValue(row.league).includes(search) ||
+      normalizeValue(row.homeTeam).includes(search) ||
+      normalizeValue(row.awayTeam).includes(search)
+    );
+  });
   const itemsPerPage = 30;
   const totalPages = Math.ceil(allExpandedRows.length / itemsPerPage);
   const maxPage = totalPages > 0 ? totalPages : 1;
@@ -6527,6 +6544,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
             <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 mb-6 font-sans">
               경기 결과 <span className="text-amber-500 text-[10px] font-black tracking-wider uppercase bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">GAME RESULT</span>
             </h2>
+
+            {/* Game Result Search */}
+            <div className="relative mb-6">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
+                <Search size={16} />
+              </span>
+              <input
+                type="text"
+                value={gameResultSearch}
+                onChange={(e) => setGameResultSearch(e.target.value)}
+                placeholder="리그명/팀명 검색..."
+                className="w-full md:w-64 pl-10 pr-4 py-2 bg-black/40 border border-neutral-800 rounded-lg text-sm text-neutral-200 focus:outline-none focus:border-amber-500/60 placeholder-neutral-500"
+              />
+            </div>
 
             {/* Game Result Categories */}
             <div 
