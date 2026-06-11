@@ -10,7 +10,7 @@ import { TelegramBanner, VerticalTelegramBanner } from './components/TelegramBan
 import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
-import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info } from 'lucide-react';
+import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -157,6 +157,87 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [showCreateInquiryModal, setShowCreateInquiryModal] = useState(false);
   const [selectedInquiryDetail, setSelectedInquiryDetail] = useState<any | null>(null);
   const [adminReplyText, setAdminReplyText] = useState('');
+
+  // Layout Management State for Minigames (Fully customizable by administrator via Drag & Drop or Position toggle buttons)
+  const [minigameLayout, setMinigameLayout] = useState<{
+    leftColumn: string[];
+    rightColumn: string[];
+    flexDirection: string;
+  }>({
+    leftColumn: ['video', 'board'],
+    rightColumn: ['cart'],
+    flexDirection: 'lg:flex-row'
+  });
+
+  const handleLayoutDragStart = (e: React.DragEvent, item: string, sourceCol: 'left' | 'right', index: number) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ item, sourceCol, index }));
+  };
+
+  const handleLayoutDrop = (e: React.DragEvent, targetCol: 'left' | 'right') => {
+    e.preventDefault();
+    try {
+      const dataStr = e.dataTransfer.getData('text/plain');
+      if (!dataStr) return;
+      const { item, sourceCol, index } = JSON.parse(dataStr);
+      
+      if (sourceCol === targetCol) {
+        return;
+      }
+
+      const sourceList = [...(sourceCol === 'left' ? minigameLayout.leftColumn : minigameLayout.rightColumn)];
+      const targetList = [...(targetCol === 'left' ? minigameLayout.leftColumn : minigameLayout.rightColumn)];
+
+      const itemIndex = sourceList.indexOf(item);
+      if (itemIndex > -1) {
+        sourceList.splice(itemIndex, 1);
+        targetList.push(item);
+      }
+
+      setMinigameLayout({
+        ...minigameLayout,
+        leftColumn: sourceCol === 'left' ? sourceList : targetList,
+        rightColumn: sourceCol === 'right' ? sourceList : targetList
+      });
+    } catch (err) {
+      console.error("Error dropping layout widget:", err);
+    }
+  };
+
+  const handleMoveColumn = (item: string, sourceCol: 'left' | 'right', targetCol: 'left' | 'right') => {
+    const sourceList = [...(sourceCol === 'left' ? minigameLayout.leftColumn : minigameLayout.rightColumn)];
+    const targetList = [...(targetCol === 'left' ? minigameLayout.leftColumn : minigameLayout.rightColumn)];
+
+    const idx = sourceList.indexOf(item);
+    if (idx > -1) {
+      sourceList.splice(idx, 1);
+      targetList.push(item);
+    }
+
+    setMinigameLayout({
+      ...minigameLayout,
+      leftColumn: sourceCol === 'left' ? sourceList : targetList,
+      rightColumn: sourceCol === 'right' ? sourceList : targetList
+    });
+  };
+
+  const handleMoveItem = (column: 'left' | 'right', index: number, direction: 'up' | 'down') => {
+    const list = [...(column === 'left' ? minigameLayout.leftColumn : minigameLayout.rightColumn)];
+    if (direction === 'up' && index > 0) {
+      const temp = list[index];
+      list[index] = list[index - 1];
+      list[index - 1] = temp;
+    } else if (direction === 'down' && index < list.length - 1) {
+      const temp = list[index];
+      list[index] = list[index + 1];
+      list[index + 1] = temp;
+    }
+
+    setMinigameLayout({
+      ...minigameLayout,
+      leftColumn: column === 'left' ? list : minigameLayout.leftColumn,
+      rightColumn: column === 'right' ? list : minigameLayout.rightColumn
+    });
+  };
 
   // States for Referrer System
   const [isReferrerModalOpen, setIsReferrerModalOpen] = useState(false);
@@ -309,7 +390,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   };
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -1661,6 +1742,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
         if (data.usdtToKrwRate !== undefined) {
           setExchangeRate(data.usdtToKrwRate);
         }
+        if (data.minigameLayout) {
+          setMinigameLayout({
+            leftColumn: data.minigameLayout.leftColumn || ['video', 'board'],
+            rightColumn: data.minigameLayout.rightColumn || ['cart'],
+            flexDirection: data.minigameLayout.flexDirection || 'lg:flex-row'
+          });
+        }
         if (data.minigameModes) {
           const loadedModes = { ...data.minigameModes };
           // Enforce that only authorized real-time games can ever be set to 'api' mode
@@ -2265,13 +2353,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
   };
 
   useEffect(() => {
-    if (showGameResultScreen) {
+    if (showGameResultScreen || showBetHistory) {
       if (isAdmin) {
         autoInsertRecentGameResults();
       }
       loadGameResults();
     }
-  }, [showGameResultScreen, isAdmin]);
+  }, [showGameResultScreen, showBetHistory, isAdmin]);
 
   useEffect(() => {
     if (showWithdrawalScreen && currentUserData?.id) {
@@ -3207,6 +3295,577 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const currentPage = Math.min(gameResultPage, maxPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedRows = allExpandedRows.slice(startIndex, startIndex + itemsPerPage);
+
+  // Modular widgets for customizable minigame layout
+  const renderMinigameVideo = () => (
+    <div key="video-widget" className="w-full bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+          <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
+            {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
+             activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
+             activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
+             activeMiniGameTab === 'powerladder3min' ? '실시간 N파워사다리 (3분)' :
+             activeMiniGameTab === 'redpowerladder5' ? '실시간 레드파워사다리 (5분)' : ''}
+          </span>
+          {(() => {
+            const mode = minigameModes[activeMiniGameTab] || 
+              (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(activeMiniGameTab) ? 'api' : 'manual');
+            return (
+              <span className={`text-[9px] md:text-[10px] px-1.5 py-0.5 rounded font-black tracking-wide border whitespace-nowrap ${
+                mode === 'api' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-900/40' : 
+                mode === 'rng' ? 'bg-blue-950/70 text-blue-400 border-blue-900/40' : 
+                'bg-amber-950/70 text-amber-500 border-amber-900/40'
+              }`}>
+                {mode === 'api' ? '● API정산' : 
+                 mode === 'rng' ? '● RNG독립' : 
+                 '● 자체정산'}
+              </span>
+            );
+          })()}
+        </div>
+        <button 
+          onClick={() => setShowMiniGame(false)} 
+          className="text-gray-400 hover:text-white text-[10px] md:text-xs bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800 transition shrink-0"
+        >
+          나가기
+        </button>
+      </div>
+
+      {/* 모바일 전용 게임 선택기 */}
+      {isMobile && (
+        <div className="flex overflow-x-auto gap-2 pb-2 mb-2 bg-[#0c0e15]/80 p-2">
+          {[
+            { key: 'powerball5', name: 'N파워볼(5분)' },
+            { key: 'powerball3', name: 'N파워볼(3분)' },
+            { key: 'powerladder5', name: 'N파워사다리(5분)' },
+            { key: 'powerladder3min', name: 'N파워사다리(3분)' },
+            { key: 'redpowerladder5', name: '레드파워사다리(5분)' }
+          ].map(game => (
+            <button 
+              key={game.key}
+              onClick={() => setActiveMiniGameTab(game.key)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition ${activeMiniGameTab === game.key ? 'bg-amber-600 text-white' : 'bg-neutral-800 text-gray-400'}`}
+            >
+              {game.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="p-0.5 md:p-4 bg-[#0a0e17] flex flex-col justify-center items-center overflow-hidden w-full max-w-full">
+        <div className="w-full max-w-full overflow-hidden flex justify-center items-center">
+          {activeMiniGameTab === 'powerball5' ? (
+            <iframe 
+              key="pb5"
+              src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball5/pc"}
+              width="100%"
+              height={isMobile ? "360" : "640"}
+              scrolling="no" 
+              frameBorder="0"
+              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : activeMiniGameTab === 'powerball3' ? (
+            <iframe 
+              key="pb3"
+              src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
+              width="100%"
+              height={isMobile ? "360" : "640"}
+              scrolling="no" 
+              frameBorder="0"
+              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : activeMiniGameTab === 'powerladder5' ? (
+            <iframe 
+              key="powerladder5"
+              src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
+              width="100%"
+              height={isMobile ? "360" : "640"}
+              scrolling="no" 
+              frameBorder="0"
+              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : activeMiniGameTab === 'redpowerladder5' ? (
+            <iframe 
+              key="redpowerladder5"
+              src={isMobile ? "https://xn--950bo4em5v.co/minigame/redball/powerladder/mobile" : "https://xn--950bo4em5v.co/minigame/redball/powerladder/pc"}
+              width="100%"
+              height={isMobile ? "360" : "640"}
+              scrolling="no" 
+              frameBorder="0"
+              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : activeMiniGameTab === 'powerladder3min' ? (
+            <iframe 
+              key="powerladder3min"
+              src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder3/pc"}
+              width="100%"
+              height={isMobile ? "360" : "640"}
+              scrolling="no" 
+              frameBorder="0"
+              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : activeMiniGameTab === 'speedladder1' ? (
+            <iframe 
+              key="speedladder1"
+              src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
+              width="100%"
+              height={isMobile ? "360" : "640"}
+              scrolling="no" 
+              frameBorder="0"
+              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : (
+            <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMinigameBoard = () => (
+    <div key="board-widget" className="w-full bg-[#04060b] border border-red-600/30 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
+      {/* 스포츠 경기 리스트 스타일의 배팅 옵션 셀렉터 - 가로 폭 전체 사용 */}
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-2 md:pb-3 gap-1 px-1">
+          <h3 className="text-xs md:text-sm font-bold text-gray-200 flex items-center gap-1.5">
+            <span className="w-1 h-3.5 bg-red-600 rounded"></span>
+            실시간 회차별 배팅 보드
+          </h3>
+          <span className="text-[10px] md:text-[11px] text-amber-500 font-semibold animate-pulse">
+            * 현재 회차 + 5회차까지 실시간 배팅 보드가 활성화됩니다.
+          </span>
+        </div>
+      </div>
+
+      {/* 회차 빠른 필터 단축 탭 */}
+      <div className="flex overflow-x-auto gap-1.5 bg-[#0f1118]/80 p-2 rounded-lg border border-neutral-850 scrollbar-none whitespace-nowrap w-full">
+        <button
+          onClick={() => setSelectedRoundFilter('all')}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition cursor-pointer shrink-0 ${
+            selectedRoundFilter === 'all'
+              ? 'bg-[#d97706] text-white shadow-md'
+              : 'bg-neutral-900 border border-neutral-800 text-gray-400 hover:text-white'
+          }`}
+        >
+          전체보기
+        </button>
+        {getUpcomingRounds(activeMiniGameTab).map((rObj) => {
+          const isFiltered = selectedRoundFilter === rObj.round;
+          return (
+            <button
+              key={rObj.round}
+              onClick={() => setSelectedRoundFilter(rObj.round)}
+              className={`px-2.5 py-1.5 rounded text-xs font-bold transition cursor-pointer shrink-0 ${
+                isFiltered
+                  ? 'bg-[#d97706] text-white shadow-md'
+                  : 'bg-neutral-900 border border-neutral-800 text-gray-400 hover:text-white'
+              }`}
+            >
+              {rObj.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 스포츠 배팅식 컴팩트 보드 테이블 */}
+      <div className="w-full">
+        {/* 모바일 전용 카드 리스트 */}
+        <div className="md:hidden">
+          <MobileBettingList 
+            sportsRows={sportsRows}
+            handleToggleOption={handleToggleOption}
+            activeMiniGameTab={activeMiniGameTab}
+            selectedOptions={selectedOptions}
+            secondsLeft={secondsLeft}
+            getRoundAndSecondsRemaining={getRoundAndSecondsRemaining}
+          />
+        </div>
+        {/* 데스크톱 전용 테이블 */}
+        <div className="hidden md:block overflow-x-auto w-full border border-neutral-900 rounded-xl shadow-2xl">
+          <table className="w-full text-center border-collapse text-sm min-w-[750px]">
+            <thead>
+              <tr className="bg-[#181a21] text-gray-400 font-bold border-b border-neutral-900">
+                <th className="py-2.5 px-3 text-left w-24">경기일시</th>
+                <th className="py-2.5 px-3 text-left w-48">리그 (구분)</th>
+                <th className="py-2.5 px-3 text-right">승 (홈)</th>
+                <th className="py-2.5 px-2 w-20 text-center">무 / 기준값</th>
+                <th className="py-2.5 px-3 text-left">패 (원정)</th>
+                <th className="py-2.5 px-3 w-20 text-center">스코어</th>
+                <th className="py-2.5 px-3 w-24 text-center">결과</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-900 bg-[#0c0e15]/90">
+              {sportsRows.map((row, idx) => {
+                const isLeftSelected = selectedOptions.some(opt =>
+                  opt.round === row.round &&
+                  opt.group === row.left.group &&
+                  opt.name === row.left.value &&
+                  opt.game === row.league &&
+                  opt.gameType === activeMiniGameTab
+                );
+
+                const isRightSelected = selectedOptions.some(opt =>
+                  opt.round === row.round &&
+                  opt.group === row.right.group &&
+                  opt.name === row.right.value &&
+                  opt.game === row.league &&
+                  opt.gameType === activeMiniGameTab
+                );
+
+                const isMiddleSelected =
+                  row.middle &&
+                  typeof row.middle === 'object' &&
+                  selectedOptions.some(opt =>
+                    opt.round === row.round &&
+                    opt.group === (row.middle as any).group &&
+                    opt.name === (row.middle as any).value &&
+                    opt.game === row.league &&
+                    opt.gameType === activeMiniGameTab
+                  );
+
+                const { currentRound } = getRoundAndSecondsRemaining(activeMiniGameTab);
+                const isClosed = row.round < currentRound || (row.round === currentRound && secondsLeft <= 10);
+
+                return (
+                  <tr key={`${row.round}-${idx}`} className="hover:bg-neutral-900/40 transition-colors">
+                    {/* 경기일시 */}
+                    <td className="py-2.5 px-3 text-left font-mono text-[11px] text-gray-400">
+                      <div className="font-semibold text-gray-500">2026-06-03</div>
+                      <div className="text-amber-500/85 font-black">{row.time}</div>
+                    </td>
+
+                    {/* 리그 (구분) */}
+                    <td className="py-2.5 px-3 text-left">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] bg-red-950 border border-red-900 text-red-400 font-extrabold px-1 py-0.5 rounded">
+                          🔴 LIVE
+                        </span>
+                        <span className="font-black text-gray-200">
+                          [{row.round}회차] {row.marketName}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* 승 (왼쪽 베팅 피스) */}
+                    <td className="py-2 px-1">
+                      <button
+                        disabled={isClosed}
+                        onClick={isClosed ? undefined : () => handleToggleOption(row.left.group, row.left.value, row.left.dividend, row.round, row.league)}
+                        className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
+                          isClosed
+                            ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                            : isLeftSelected
+                            ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
+                            : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
+                        }`}
+                      >
+                        <span className="font-semibold">{row.left.label}{row.left.suffix || ''}</span>
+                        <span className={`font-black ${isLeftSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{row.left.dividend}</span>
+                      </button>
+                    </td>
+
+                    {/* 무 / 중간 구분값 */}
+                    <td className="py-2 px-1 align-middle">
+                      {row.middle && typeof row.middle === 'object' ? (
+                        <button
+                          disabled={isClosed}
+                          onClick={isClosed ? undefined : () => handleToggleOption((row.middle as any).group, (row.middle as any).value, (row.middle as any).dividend, row.round, row.league)}
+                          className={`w-full py-2 px-2 rounded flex items-center justify-between transition text-xs group ${
+                            isClosed
+                              ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                              : isMiddleSelected
+                              ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
+                              : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
+                          }`}
+                        >
+                          <span className="font-semibold">{(row.middle as any).label}</span>
+                          <span className={`font-black ${isMiddleSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{(row.middle as any).dividend}</span>
+                        </button>
+                      ) : (
+                        <div className={`bg-neutral-950 border border-neutral-900 py-1.5 px-2 rounded font-black text-center select-none font-mono ${
+                          row.middle !== 'VS' ? 'text-amber-400 bg-amber-950/30 text-xs border-amber-900/30' : 'text-gray-500 text-[10px]'
+                        }`}>
+                          {row.middle as string}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* 패 (오른쪽 베팅 피스) */}
+                    <td className="py-2 px-1">
+                      <button
+                        disabled={isClosed}
+                        onClick={isClosed ? undefined : () => handleToggleOption(row.right.group, row.right.value, row.right.dividend, row.round, row.league)}
+                        className={`w-full py-2 px-3 rounded flex items-center justify-between transition text-xs group ${
+                          isClosed
+                            ? 'bg-neutral-950/80 border border-neutral-900 text-gray-600 cursor-not-allowed opacity-40'
+                            : isRightSelected
+                            ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold border border-amber-500 shadow-md shadow-amber-900/40 cursor-pointer'
+                            : 'bg-neutral-900/50 hover:bg-neutral-800 border border-neutral-800 text-gray-300 cursor-pointer'
+                        }`}
+                      >
+                        <span className="font-semibold">{row.right.label}{row.right.suffix || ''}</span>
+                        <span className={`font-black ${isRightSelected ? 'text-white' : 'text-amber-500 group-hover:text-amber-400'}`}>{row.right.dividend}</span>
+                      </button>
+                    </td>
+
+                    {/* 스코어 */}
+                    <td className="py-2.5 px-2 text-center text-gray-500 font-semibold font-mono text-[11px]">
+                      대기 중
+                    </td>
+
+                    {/* 결과 및 모션 상태 */}
+                    <td className="py-2 px-2 text-center">
+                      {isClosed ? (
+                        <div className="bg-[#450a0a]/80 border border-red-950 text-red-500 font-extrabold text-[10px] px-2.5 py-1 rounded inline-block select-none font-mono animate-pulse">
+                          배팅마감
+                        </div>
+                      ) : (
+                        <div className="bg-[#064e3b]/80 border border-emerald-900 text-emerald-400 font-extrabold text-[10px] px-2 py-1 rounded inline-block select-none animate-pulse">
+                          배팅가능
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMinigameCart = (forceMobile: boolean = false) => {
+    const isMobileCtx = forceMobile || isMobile;
+    return (
+      <div 
+        key="cart-widget"
+        style={{
+          paddingBottom: '20px',
+          marginBottom: '0px'
+        }}
+        className={`${
+          isMobileCtx 
+            ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[72vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+            : 'xl:w-[325px] w-full shrink-0 xl:sticky lg:sticky top-6 order-2'
+        } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[694px] lg:max-h-[694px] xl:h-[694px] overflow-y-auto`}
+      >
+        <div className="space-y-4 flex flex-col flex-1">
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-amber-500" />
+              <h3 className="text-md font-black tracking-tight text-white">미니게임 배팅 카트</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedOptions.length > 0 && (
+                <button 
+                  onClick={() => setSelectedOptions([])}
+                  className="text-[10px] bg-neutral-950 hover:bg-neutral-800 border border-neutral-850 text-neutral-450 hover:text-white px-2 py-1 rounded transition whitespace-nowrap cursor-pointer"
+                >
+                  비우기
+                </button>
+              )}
+              {isMobileCtx && (
+                <button 
+                  onClick={() => setMobileBetSlipOpen(false)} 
+                  className="text-amber-500 text-xs font-black bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 rounded-lg active:scale-95 transition flex items-center gap-1 shrink-0 cursor-pointer"
+                >
+                  접기 ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 실시간 마감 시간 타이머 */}
+          <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 font-mono space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">배팅 마감시간</span>
+              <span className={`text-xs font-black flex items-center gap-1.5 ${secondsLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
+                {secondsLeft <= 10 ? (
+                  <span className="bg-red-950 border border-red-800 text-red-400 px-1.5 py-0.5 rounded text-[9px] font-black mr-1 animate-pulse">
+                    배팅 마감
+                  </span>
+                ) : (
+                  <span>
+                    {Math.floor(secondsLeft / 60)}분 {(secondsLeft % 60)}초
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Selections Section */}
+          <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none">
+            {selectedOptions.length === 0 ? (
+              <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
+                <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
+                <p className="text-xs font-black">선택된 배팅 옵션이 없습니다.</p>
+                <p className="text-[10px] text-gray-500 leading-tight">게임 배당 버튼을 클릭하여<br />배팅 카트에 추가하십시오.</p>
+              </div>
+            ) : (
+              selectedOptions.map((opt, idx) => (
+                <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
+                  <button
+                    onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
+                    className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
+                    title="제거"
+                  >
+                    &times;
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
+                      [{opt.round}회차] {opt.game}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-black text-neutral-250 pr-5 truncate">
+                    구분: {opt.group}
+                  </div>
+                  <div className="flex items-center justify-between text-xs bg-neutral-900 border border-neutral-850/40 p-2 rounded-lg mt-0.5">
+                    <span className="font-extrabold text-amber-500 flex items-center gap-1">
+                      선택: <span className="text-white underline decoration-amber-500">{opt.name}</span>
+                    </span>
+                    <span className="font-mono font-black text-neutral-200">{(opt.dividend || 0).toFixed(2)} 배당</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Fixed Footer Content (Multiplier + Amount + Submit) */}
+          <div className="flex-shrink-0 space-y-4 pt-4 border-t border-neutral-800">
+            {selectedOptions.length > 0 && (() => {
+              const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * (current.dividend || 1), 1).toFixed(2));
+              return (
+                <div className="bg-neutral-950/80 p-3.5 rounded-xl border border-neutral-850 space-y-2.5 border-l-2 border-l-amber-500">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-neutral-400 font-extrabold text-[11px]">선택된 옵션 상세</span>
+                    <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto no-scrollbar pr-0.5">
+                      {selectedOptions.map((opt, i) => (
+                        <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60">
+                          <span className="text-neutral-200 font-bold truncate max-w-[125px] md:max-w-[150px]">
+                            [{opt.round}회] {opt.name}
+                          </span>
+                          <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
+                    <span className="text-neutral-400 font-extrabold">합계 총 배당률 ({selectedOptions.length}폴더)</span>
+                    <span className="font-mono font-black text-amber-500 text-sm">{(totalDiv || 0).toFixed(2)}배</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Betting Amount Entry */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-neutral-400 font-black">배팅금액 (원)</span>
+                <span className="text-[10px] text-amber-500 font-bold font-mono">
+                  보유머니: {userBalance.toLocaleString()}원
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={betAmount === 0 ? '' : betAmount}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setBetAmount(val);
+                  }}
+                  placeholder="배팅액 입력"
+                  className="w-full bg-neutral-950 border border-neutral-800/80 focus:border-amber-500/55 text-white p-3 rounded-xl font-black font-mono text-sm shadow-inner transition outline-none"
+                />
+                <span className="absolute right-3.5 top-3 text-[10px] font-black text-neutral-500 select-none">KRW</span>
+              </div>
+
+              {/* Quick Multipliers Buttons Grid */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {[10000, 30000, 50000, 100000, 500000, 1000000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setBetAmount(prev => (prev || 0) + amt)}
+                    className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 p-2 rounded-lg text-[10px] font-bold text-neutral-400 hover:text-white transition cursor-pointer select-none"
+                  >
+                    +{amt >= 1000000 ? `${amt / 1000000}M` : amt >= 10000 ? `${amt / 10000}만` : amt}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setBetAmount(userBalance)}
+                  className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 p-2 rounded-lg text-[10px] font-bold text-amber-500 hover:text-white transition cursor-pointer select-none"
+                >
+                  최대
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBetAmount(0)}
+                  className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 p-2 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
+                >
+                  초기화
+                </button>
+              </div>
+            </div>
+
+            {/* Expected Revenue Summary Block */}
+            {selectedOptions.length > 0 && (() => {
+              const totalDiv = parseFloat(selectedOptions.reduce((acc, current) => acc * (current.dividend || 1), 1).toFixed(2));
+              const estimatedPay = Math.floor(betAmount * totalDiv);
+              return (
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850 shadow-inner space-y-1.5">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-neutral-500 font-extrabold">최종 수렴 배당</span>
+                    <span className="text-zinc-200 font-black font-mono">{totalDiv.toFixed(2)} 배</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5 pt-1.5 border-t border-neutral-900">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-neutral-300 font-black flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5 text-amber-500" /> 예상 적중금액
+                      </span>
+                      <span className={`text-sm font-black font-sans tracking-tight ${estimatedPay > 4000000 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {estimatedPay.toLocaleString()}원
+                      </span>
+                    </div>
+                    {estimatedPay > 4000000 && (
+                      <div className="text-right text-[10px] text-red-500/90 font-bold bg-red-950/30 p-1.5 rounded border border-red-900/50">
+                        미니게임 최대 적중 상한금액 (4,000,000원) 초과
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Core Submission Trigger */}
+            <button
+              onClick={handlePlaceBet}
+              disabled={selectedOptions.length === 0 || !betAmount}
+              className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
+            >
+              {betAmount > userBalance ? (
+                '잔액이 부족합니다'
+              ) : (
+                '배팅하기 (Place Stake)'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMinigameWidget = (item: string, overrideMobile: boolean = false) => {
+    if (item === 'video') return renderMinigameVideo();
+    if (item === 'board') return renderMinigameBoard();
+    if (item === 'cart') {
+      if (isMobile && !overrideMobile) return null;
+      return renderMinigameCart(overrideMobile);
+    }
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-[#030304] text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-amber-500 selection:text-black pb-20 md:pb-0">
@@ -5948,14 +6607,69 @@ export default function MainPage({ onLogout }: MainPageProps) {
           </div>
         </div>
       ) : showMiniGame ? (
-        <div className="flex-1 px-1 py-3 md:p-8 w-full mx-auto max-w-[1550px] overflow-hidden">
-          <div className="mb-3 text-xs md:text-sm text-gray-400 px-1">
-            <button onClick={() => setShowMiniGame(false)} className="hover:text-white">홈</button> &gt; 미니게임
-          </div>
-          <div className="flex flex-row flex-nowrap gap-4 md:gap-6 items-start justify-center relative w-full max-w-full overflow-hidden">
+        <div className="flex-1 px-1 py-3 md:p-6 w-full mx-auto max-w-[1500px] overflow-hidden">
+          <div className="mb-3 text-xs md:text-sm text-gray-400 px-1 flex justify-between items-center">
+            <div>
+              <button onClick={() => setShowMiniGame(false)} className="hover:text-white">홈</button> &gt; 미니게임
+            </div>
             
-            {/* 왼쪽 영역: 영상 및 배팅 판넬 (빨간색 테두리와 검정색 배경의 프레임) */}
-            <div className="order-1 flex-1 max-w-[1120px] w-full min-w-0 bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+          </div>
+
+          {/* New Admin-Customizable Dynamic Layout */}
+          {true ? (
+            <div className={`flex flex-col ${minigameLayout.flexDirection || 'lg:flex-row'} items-start justify-center gap-4 lg:gap-6 relative w-full max-w-full overflow-hidden`}>
+              
+              {/* Left Column Stack */}
+              <div className="flex-1 min-w-0 w-full flex flex-col gap-4 lg:gap-6 order-1">
+                {minigameLayout.leftColumn.map(item => (
+                  <div key={item}>
+                    {renderMinigameWidget(item, false)}
+                  </div>
+                ))}
+              </div>
+
+              {/* Right Column Stack */}
+              {!isMobile && minigameLayout.rightColumn.length > 0 && (
+                <div className="xl:w-[325px] w-full shrink-0 xl:sticky lg:sticky top-6 flex flex-col gap-4 lg:gap-6 order-2">
+                  {minigameLayout.rightColumn.map(item => (
+                    <div key={item}>
+                      {renderMinigameWidget(item, false)}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Mobile-only Floating Bet Slip drawer rendering (rendered explicitly for mobile) */}
+              {isMobile && renderMinigameCart(true)}
+
+              {/* Mobile Bottom Float Trigger button */}
+              {isMobile && (
+                <div className="fixed bottom-16 left-4 right-4 z-40">
+                  <button
+                    onClick={() => setMobileBetSlipOpen(!mobileBetSlipOpen)}
+                    className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-amber-500 to-amber-650 hover:from-amber-455 hover:to-amber-555 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(245,158,11,0.3)] cursor-pointer border-0"
+                  >
+                    <span className="flex items-center gap-2">
+                      🎰 배팅 슬립 열기 ▼
+                    </span>
+                    <span className="bg-white text-amber-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
+                      {selectedOptions.length}개 선택됨
+                    </span>
+                  </button>
+                </div>
+              )}
+
+            </div>
+          ) : null}
+          {false && (
+            <>
+            <div className="flex flex-col xl:flex-row items-start justify-center gap-4 lg:gap-6 relative w-full max-w-full overflow-hidden">
+            
+            {/* 왼쪽 영역: 영상 프레임 및 배팅 영역 통합 감싸개 (데스크톱에서 좌측 칼럼 정렬) */}
+            <div className="flex-1 min-w-0 xl:max-w-[830px] w-full flex flex-col gap-4 lg:gap-6 order-1">
+              
+              {/* 왼쪽 영역: 영상 프레임 (빨간색 테두리와 검정색 배경의 프레임) */}
+              <div className="w-full bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
               <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
                   <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
@@ -6018,69 +6732,70 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       key="pb5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball5/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "630"}
+                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
                     />
                   ) : activeMiniGameTab === 'powerball3' ? (
                     <iframe 
                       key="pb3"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "630"}
+                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
                     />
                   ) : activeMiniGameTab === 'powerladder5' ? (
                     <iframe 
                       key="powerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "630"}
+                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
                     />
                   ) : activeMiniGameTab === 'redpowerladder5' ? (
                     <iframe 
                       key="redpowerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/redball/powerladder/mobile" : "https://xn--950bo4em5v.co/minigame/redball/powerladder/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "630"}
+                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
                     />
                   ) : activeMiniGameTab === 'powerladder3min' ? (
                     <iframe 
                       key="powerladder3min"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder3/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "630"}
+                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
                     />
                   ) : activeMiniGameTab === 'speedladder1' ? (
                     <iframe 
                       key="speedladder1"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "630"}
+                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full"
+                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
                     />
                   ) : (
                     <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
                   )}
                 </div>
               </div>
+            </div> {/* 영상 프레임 닫기 */}
 
-              {/* 실시간 배팅 판넬 */}
-              <div className="bg-[#04060b] border-t border-neutral-900 p-2 md:p-6 space-y-4 md:space-y-6">
+            {/* 실시간 배팅 판넬 */}
+            <div className="w-full bg-[#04060b] border border-red-600/30 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
                 
                 {/* 스포츠 경기 리스트 스타일의 배팅 옵션 셀렉터 - 가로 폭 전체 사용 */}
                 <div className="space-y-3">
@@ -6294,17 +7009,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
                 </div>
 
+              </div> {/* 실시간 배팅 판넬 div 닫기 */}
+            </div> {/* 왼쪽 칼럼 통합 감싸개 닫기 */}
 
-              </div>
-            </div>
-
-            {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 적용 */}
+            {/* 오른쪽 영역: 배팅 슬립 및 전광판 정보 - 모바일 플로팅 슬라이딩 드로어 및 데스크톱 우측 고정 사이드바 적용 */}
             <div 
               style={{
                 paddingBottom: '20px',
                 marginBottom: '0px'
               }}
-              className={`${isMobile ? 'w-full' : 'order-2 w-80 shrink-0'} bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col max-h-[calc(100vh-100px)] overflow-y-auto`}>
+              className={`${
+                isMobile 
+                  ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[72vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+                  : 'xl:w-[325px] w-full shrink-0 xl:sticky top-6 order-2'
+              } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[694px] xl:h-[694px] overflow-y-auto`}>
               <div className="space-y-4 flex flex-col flex-1">
                 <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
                   <div className="flex items-center gap-2">
@@ -6526,6 +7244,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
             )}
 
           </div>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -7136,28 +7856,246 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
                 </div>
               ) : adminActiveTab === 'settings' ? (
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">
-                  <h3 className="text-sm font-bold text-white mb-4">환율 설정</h3>
-                  <div className="flex gap-4 items-center">
-                    <input
-                      type="number"
-                      value={newExchangeRate || ''}
-                      onChange={(e) => setNewExchangeRate(e.target.value)}
-                      placeholder={String(exchangeRate)}
-                      className="bg-black border border-neutral-700 text-white px-3 py-2 rounded text-sm w-40"
-                    />
-                    <button
-                      onClick={async () => {
-                         const rate = Number(newExchangeRate);
-                         if(rate <= 0) { alert("올바른 환율을 입력하세요."); return; }
-                         await setDoc(doc(db, 'appSettings', 'general'), { usdtToKrwRate: rate });
-                         setExchangeRate(rate);
-                         alert("환율이 업데이트되었습니다.");
-                      }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold"
-                    >
-                      저장
-                    </button>
+                <div className="space-y-6">
+                  {/* 환율 설정 블록 */}
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">
+                    <h3 className="text-sm font-black text-white mb-2 flex items-center gap-1.5 border-b border-neutral-800 pb-2">
+                      <Coins className="w-4 h-4 text-rose-500" />
+                      USDT / KRW 환율 설정
+                    </h3>
+                    <div className="flex gap-4 items-center">
+                      <input
+                        type="number"
+                        value={newExchangeRate || ''}
+                        onChange={(e) => setNewExchangeRate(e.target.value)}
+                        placeholder={String(exchangeRate)}
+                        className="bg-black border border-neutral-700 text-white px-3 py-2 rounded text-sm w-44"
+                      />
+                      <button
+                        onClick={async () => {
+                           const rate = Number(newExchangeRate);
+                           if(rate <= 0) { alert("올바른 환율을 입력하세요."); return; }
+                           await setDoc(doc(db, 'appSettings', 'general'), { usdtToKrwRate: rate }, { merge: true });
+                           setExchangeRate(rate);
+                           alert("환율 수치정보가 온전하게 업데이트되었습니다.");
+                        }}
+                        className="bg-amber-600 hover:bg-amber-500 text-black px-4 py-2 rounded text-sm font-bold transition whitespace-nowrap cursor-pointer"
+                      >
+                        저장하기
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 미니게임 레이아웃 설정 블록 */}
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-6">
+                    <div className="border-b border-neutral-800 pb-3">
+                      <h3 className="text-sm font-black text-rose-500 flex items-center gap-1.5">
+                        <Layout className="w-4 h-4 text-rose-500" />
+                        미니게임 화면 레이아웃 및 배치 설정
+                      </h3>
+                      <p className="text-gray-400 text-[11px] mt-1 leading-relaxed">
+                        미니게임 상세 화면에서 영상 중계, 배팅 보드, 배팅 카트 위젯의 배치와 기기 해상도별 한 줄/두 줄 줄바꿈 기준을 정합니다.
+                        아래 위젯들을 마우스로 드래그하여 원하는 칼럼영역에 떨어뜨리거나(Drag & Drop), 좌측/우측 정치 버튼을 이용해 간편하게 칼럼 간 분할 구성을 정의하십시오.
+                      </p>
+                    </div>
+
+                    {/* 레이아웃 구성 미리보기 및 상호작용 */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      
+                      {/* 1. Left Column Layout Area */}
+                      <div 
+                        className="bg-black/50 border-2 border-dashed border-neutral-700/60 p-4 rounded-xl space-y-3"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => handleLayoutDrop(e, 'left')}
+                      >
+                        <div className="flex items-center justify-between border-b border-neutral-850 pb-2">
+                          <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
+                            왼쪽 칼럼 영역 (메인 영역)
+                          </span>
+                          <span className="text-[10px] text-neutral-500 font-mono">Drag here</span>
+                        </div>
+                        <div className="space-y-2 min-h-[160px] flex flex-col justify-start">
+                          {minigameLayout.leftColumn.length === 0 ? (
+                            <div className="text-xs text-neutral-600 text-center py-12">비어 있음 (위젯을 드래그하세요)</div>
+                          ) : (
+                            minigameLayout.leftColumn.map((item, idx) => (
+                              <div 
+                                key={item}
+                                draggable
+                                onDragStart={(e) => handleLayoutDragStart(e, item, 'left', idx)}
+                                className="bg-[#121420] border border-neutral-800 rounded-lg p-3.5 flex items-center justify-between shadow cursor-move hover:border-neutral-600 hover:bg-[#161a2c] transition active:scale-[0.99] select-none"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Menu className="w-3.5 h-3.5 text-neutral-500 cursor-grab" />
+                                  <span className="text-xs font-black text-white">
+                                    {item === 'video' ? '📺 게임 중계 영상 프레임' : 
+                                     item === 'board' ? '📋 실시간 회차별 배팅 보드' : 
+                                     item === 'cart' ? '🛒 미니게임 배팅 카트' : item}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {/* 정렬 버튼 */}
+                                  {idx > 0 && (
+                                    <button 
+                                      onClick={() => handleMoveItem('left', idx, 'up')}
+                                      className="p-1 text-gray-400 hover:text-white hover:bg-neutral-800 rounded transition text-xs font-bold"
+                                      title="위로 이동"
+                                    >
+                                      ▲
+                                    </button>
+                                  )}
+                                  {idx < minigameLayout.leftColumn.length - 1 && (
+                                    <button 
+                                      onClick={() => handleMoveItem('left', idx, 'down')}
+                                      className="p-1 text-gray-400 hover:text-white hover:bg-neutral-800 rounded transition text-xs font-bold"
+                                      title="아래로 이동"
+                                    >
+                                      ▼
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={() => handleMoveColumn(item, 'left', 'right')}
+                                    className="ml-2 bg-neutral-900 border border-neutral-800 text-[10px] text-amber-500 font-bold px-2 py-1 rounded hover:bg-neutral-800 transition whitespace-nowrap cursor-pointer"
+                                  >
+                                    우측으로 이동 ➔
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 2. Right Column Layout Area */}
+                      <div 
+                        className="bg-black/50 border-2 border-dashed border-neutral-700/60 p-4 rounded-xl space-y-3"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => handleLayoutDrop(e, 'right')}
+                      >
+                        <div className="flex items-center justify-between border-b border-neutral-850 pb-2">
+                          <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span>
+                            오른쪽 칼럼 영역 (사이드바)
+                          </span>
+                          <span className="text-[10px] text-neutral-500 font-mono">Drag here</span>
+                        </div>
+                        <div className="space-y-2 min-h-[160px] flex flex-col justify-start">
+                          {minigameLayout.rightColumn.length === 0 ? (
+                            <div className="text-xs text-neutral-600 text-center py-12">비어 있음 (1열 레이아웃으로 동작)</div>
+                          ) : (
+                            minigameLayout.rightColumn.map((item, idx) => (
+                              <div 
+                                key={item}
+                                draggable
+                                onDragStart={(e) => handleLayoutDragStart(e, item, 'right', idx)}
+                                className="bg-[#121420] border border-neutral-800 rounded-lg p-3.5 flex items-center justify-between shadow cursor-move hover:border-neutral-600 hover:bg-[#161a2c] transition active:scale-[0.99] select-none"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Menu className="w-3.5 h-3.5 text-neutral-500 cursor-grab" />
+                                  <span className="text-xs font-black text-white">
+                                    {item === 'video' ? '📺 게임 중계 영상 프레임' : 
+                                     item === 'board' ? '📋 실시간 회차별 배팅 보드' : 
+                                     item === 'cart' ? '🛒 미니게임 배팅 카트' : item}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {/* 정렬 버튼 */}
+                                  {idx > 0 && (
+                                    <button 
+                                      onClick={() => handleMoveItem('right', idx, 'up')}
+                                      className="p-1 text-gray-400 hover:text-white hover:bg-neutral-800 rounded transition text-xs font-bold"
+                                      title="위로 이동"
+                                    >
+                                      ▲
+                                    </button>
+                                  )}
+                                  {idx < minigameLayout.rightColumn.length - 1 && (
+                                    <button 
+                                      onClick={() => handleMoveItem('right', idx, 'down')}
+                                      className="p-1 text-gray-400 hover:text-white hover:bg-neutral-800 rounded transition text-xs font-bold"
+                                      title="아래로 이동"
+                                    >
+                                      ▼
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={() => handleMoveColumn(item, 'right', 'left')}
+                                    className="ml-2 bg-neutral-900 border border-neutral-800 text-[10px] text-amber-500 font-bold px-2 py-1 rounded hover:bg-neutral-800 transition whitespace-nowrap cursor-pointer"
+                                  >
+                                    ← 좌측으로 이동
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 해상도 가로 나란히 여부 선택 기준 */}
+                    <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850 space-y-3">
+                      <h4 className="text-xs font-extrabold text-white flex items-center gap-1">
+                        <span className="inline-block w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>
+                        사이드바와 메인보드가 좌우 나란히 배치될 해상도 기준 (Responsive Breakpoint)
+                      </h4>
+                      <p className="text-[11px] text-gray-400">
+                        설정된 디스플레이 해상도보다 가로폭이 넓으면 구성된 2열 형태가 나란히 제공되며, 작을 경우 기본 수직 단일 열 형태로 스택됩니다. (※ 모바일에서는 항상 최적의 1열 세로형 스태킹이 고수됩니다.)
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1">
+                        {[
+                          { key: 'md:flex-row', label: '768px 이상 (md)', desc: '태블릿부터 항상 좌우 배치' },
+                          { key: 'lg:flex-row', label: '1024px 이상 (lg)', desc: '일반 랩톱부터 좌우 배치' },
+                          { key: 'xl:flex-row', label: '1280px 이상 (xl)', desc: '큰 데스크톱부터 좌우 배치' },
+                          { key: 'flex-col', label: '수평 배치 안 함 (flex-col)', desc: '언제나 1줄 수직 정렬' }
+                        ].map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => setMinigameLayout(prev => ({ ...prev, flexDirection: opt.key }))}
+                            className={`p-3 rounded-xl border text-left transition text-xs flex flex-col gap-1 cursor-pointer select-none ${
+                              minigameLayout.flexDirection === opt.key
+                                ? 'bg-amber-950/40 border-amber-500 text-amber-400 font-extrabold shadow-md'
+                                : 'bg-neutral-950 border-neutral-850 text-gray-400 hover:border-neutral-700'
+                            }`}
+                          >
+                            <span className="font-bold">{opt.label}</span>
+                            <span className="text-[10px] text-neutral-500 font-medium">{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 제어 버튼 */}
+                    <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
+                      <button
+                        onClick={() => {
+                          setMinigameLayout({
+                            leftColumn: ['video', 'board'],
+                            rightColumn: ['cart'],
+                            flexDirection: 'lg:flex-row'
+                          });
+                          alert("레이아웃이 기본 초기 배치값(왼쪽:영상+보드, 오른쪽:카트)으로 재설정되었습니다. 저장 버튼을 클릭하면 반영됩니다.");
+                        }}
+                        className="bg-neutral-850 hover:bg-neutral-800 text-gray-400 font-bold text-xs px-4 py-2.5 rounded-lg border border-neutral-800 transition cursor-pointer select-none"
+                      >
+                        기본값으로 복원
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await setDoc(doc(db, 'appSettings', 'general'), {
+                              minigameLayout: minigameLayout
+                            }, { merge: true });
+                            alert("미니게임 화면 배치 설정이 성공적으로 저장되었습니다!");
+                          } catch (error) {
+                            alert("설정 저장 중 에러가 발생했습니다: " + error);
+                          }
+                        }}
+                        className="bg-rose-700 hover:bg-rose-600 text-white font-extrabold text-xs px-6 py-2.5 rounded-lg border border-rose-650 shadow-lg tracking-wide transition cursor-pointer select-none"
+                      >
+                        💾 레이아웃 설정 영구 저장하기
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (

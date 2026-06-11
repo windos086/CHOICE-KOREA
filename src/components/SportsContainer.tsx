@@ -974,6 +974,19 @@ function isMatchActive(dateTimeStr: string): boolean {
           optionStr = sf.type === 'home' ? `홈(승): ${sf.match.homeTeam}` : sf.type === 'draw' ? '무승부' : `원정(패): ${sf.match.awayTeam}`;
         }
 
+        let hOdds = '';
+        let aOdds = '';
+        if (sf.marketType === 'handicap') {
+          hOdds = sf.match?.markets?.handicap?.home ? String(sf.match.markets.handicap.home) : '';
+          aOdds = sf.match?.markets?.handicap?.away ? String(sf.match.markets.handicap.away) : '';
+        } else if (sf.marketType === 'overUnder' || sf.marketType === 'underOver') {
+          hOdds = sf.match?.markets?.overUnder?.over ? String(sf.match.markets.overUnder.over) : '';
+          aOdds = sf.match?.markets?.overUnder?.under ? String(sf.match.markets.overUnder.under) : '';
+        } else if (sf.marketType === 'matchWinner') {
+          hOdds = sf.match?.markets?.matchWinner?.home ? String(sf.match.markets.matchWinner.home) : '';
+          aOdds = sf.match?.markets?.matchWinner?.away ? String(sf.match.markets.matchWinner.away) : '';
+        }
+
         return {
           game: sf.marketType === 'bonus' ? '다폴더 보너스 추가 배당' : `${sf.match.homeTeam} VS ${sf.match.awayTeam}`,
           gameType: sf.marketType === 'bonus' ? 'bonus' : 'sports',
@@ -984,6 +997,8 @@ function isMatchActive(dateTimeStr: string): boolean {
           dateTime: sf.match?.dateTime || sf.match?.matchTime || sf.matchTime || sf.dateTime || '',
           option: optionStr,
           dividend: sf.odds,
+          homeOdds: hOdds,
+          awayOdds: aOdds,
           matchId: sf.matchId,
           marketType: sf.marketType || 'matchWinner',
           type: sf.type,

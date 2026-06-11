@@ -248,6 +248,7 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
 
     // Determine option layout for Sports
     if (bet.gameType === 'sports') {
+      const match = sportsResults?.find(m => m.id === bet.matchId);
       const parts = bet.game ? bet.game.split(/ vs /i) : [];
       const homeTeam = parts[0] ? parts[0].trim() : '홈';
       const awayTeam = parts[1] ? parts[1].trim() : '원정';
@@ -263,26 +264,36 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
         }
       }
 
-
-      homeOdds = String(bet.dividend || '1.95');
-      awayOdds = String(bet.dividend || '1.95');
+      const dividend = String(bet.dividend || '1.95');
 
       if (mkt === 'underOver' || mkt === 'overUnder') {
         const threshold = bet.lineValue || '2.5';
         homeName = `${homeTeam} (오버)`;
         awayName = `${awayTeam} (언더)`;
         selectedSide = bet.type === 'over' ? 'home' : 'away';
+        
+        homeOdds = bet.homeOdds ? String(bet.homeOdds) : (match?.markets?.overUnder?.over ? String(match.markets.overUnder.over) : dividend);
+        awayOdds = bet.awayOdds ? String(bet.awayOdds) : (match?.markets?.overUnder?.under ? String(match.markets.overUnder.under) : dividend);
+        
         midStandard = threshold;
       } else if (mkt === 'handicap') {
         const hVal = bet.lineValue || '0';
         homeName = homeTeam;
         awayName = awayTeam;
         selectedSide = bet.type === 'home' ? 'home' : 'away';
+        
+        homeOdds = bet.homeOdds ? String(bet.homeOdds) : (match?.markets?.handicap?.home ? String(match.markets.handicap.home) : dividend);
+        awayOdds = bet.awayOdds ? String(bet.awayOdds) : (match?.markets?.handicap?.away ? String(match.markets.handicap.away) : dividend);
+        
         midStandard = hVal;
       } else {
         // matchWinner
         homeName = homeTeam;
         awayName = awayTeam;
+        
+        homeOdds = bet.homeOdds ? String(bet.homeOdds) : (match?.markets?.matchWinner?.home ? String(match.markets.matchWinner.home) : dividend);
+        awayOdds = bet.awayOdds ? String(bet.awayOdds) : (match?.markets?.matchWinner?.away ? String(match.markets.matchWinner.away) : dividend);
+
         if (bet.type === 'home') {
           selectedSide = 'home';
         } else if (bet.type === 'away') {
