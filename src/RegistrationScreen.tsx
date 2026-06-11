@@ -85,36 +85,30 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
       let resolvedReferrerCode = enteredCode;
       let isCodeValid = false;
 
-      try {
-        const codeRef = doc(db, 'referralCodes', enteredCode);
-        const codeDoc = await getDoc(codeRef);
-        if (codeDoc.exists()) {
-          const codeData = codeDoc.data();
-          if (codeData.status === 'active') {
-            isCodeValid = true;
-            // Save the active custom code itself as the applied referral code
-            resolvedReferrerCode = enteredCode;
+      // Special exemption for the legacy/general recruitment code '5882'
+      if (enteredCode === '5882') {
+        isCodeValid = true;
+        resolvedReferrerCode = '5882';
+      } else {
+        try {
+          const codeRef = doc(db, 'referralCodes', enteredCode);
+          const codeDoc = await getDoc(codeRef);
+          if (codeDoc.exists()) {
+            const codeData = codeDoc.data();
+            if (codeData.status === 'active') {
+              isCodeValid = true;
+              resolvedReferrerCode = enteredCode;
+            } else {
+              alert('비활성화되었거나 정지된 가입코드입니다. 올바른 최신 코드를 사용해 주세요.');
+              return;
+            }
           } else {
-            alert('비활성화되었거나 정지된 추천가입코드입니다. 올바른 코드를 사용해 주세요.');
+            alert('존재하지 않거나 발급되지 않은 정식 가입코드입니다. 임의의 가입코드로는 가입하실 수 없으며, 반드시 공식적으로 발급받으신 코드만 사용 가능합니다.');
             return;
           }
-        } else {
-          // 백업 폴백: 4자리 대소 구분 없는 숫자인 경우 (기존 일반 5882 등 가입 허용)
-          if (/^\d{4}$/.test(enteredCode)) {
-            isCodeValid = true;
-            resolvedReferrerCode = enteredCode;
-          } else {
-            alert('존재하지 않거나 발급되지 않은 추천가입코드입니다. 올바른 코드를 확인 후 다시 가입해 주세요.');
-            return;
-          }
-        }
-      } catch (checkErr) {
-        console.warn('Code verification failed, falling back to basic checks', checkErr);
-        if (/^\d{4}$/.test(enteredCode)) {
-          isCodeValid = true;
-          resolvedReferrerCode = enteredCode;
-        } else {
-          alert('가입 추천코드 검증 중 알 수 없는 시스템 오류가 발생했습니다.');
+        } catch (checkErr) {
+          console.warn('Code verification failed', checkErr);
+          alert('가입코드 검증 중 알 수 없는 데이터베이스 오류가 발생했습니다.');
           return;
         }
       }
