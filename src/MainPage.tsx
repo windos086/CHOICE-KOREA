@@ -3481,7 +3481,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               key="pb3"
               src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerball3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerball3/pc"}
               width="100%"
-              height={isMobile ? "360" : "640"}
+              height={isMobile ? "420" : "640"}
               scrolling="no" 
               frameBorder="0"
               className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
@@ -3491,30 +3491,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
               key="powerladder5"
               src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
               width="100%"
-              height={isMobile ? "360" : "640"}
               scrolling="no" 
               frameBorder="0"
-              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+              className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[420px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
             />
           ) : activeMiniGameTab === 'redpowerladder5' ? (
             <iframe 
               key="redpowerladder5"
               src={isMobile ? "https://xn--950bo4em5v.co/minigame/redball/powerladder/mobile" : "https://xn--950bo4em5v.co/minigame/redball/powerladder/pc"}
               width="100%"
-              height={isMobile ? "360" : "640"}
               scrolling="no" 
               frameBorder="0"
-              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+              className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
             />
           ) : activeMiniGameTab === 'powerladder3min' ? (
             <iframe 
               key="powerladder3min"
               src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder3/pc"}
               width="100%"
-              height={isMobile ? "360" : "640"}
               scrolling="no" 
               frameBorder="0"
-              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+              className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
             />
           ) : activeMiniGameTab === 'speedladder1' ? (
             <iframe 
@@ -4110,6 +4107,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
              DESKTOP ORIGINAL HEADER (Untouched!)
              ======================================================== */
           <>
+            {/* Sports & Ladder Premium Specialist Logo/Badge (Top Left on Desktop) */}
+
+
             {/* Admin & Partner Menu Switches (Top Right on desktop) */}
             <div className="sm:absolute sm:top-6 sm:right-6 mt-1 sm:mt-0 z-30 flex items-center gap-2">
               {(currentUserData?.isPartner || isAdmin) && (
@@ -6936,30 +6936,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       key="powerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder5/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder5/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+                      className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
                     />
                   ) : activeMiniGameTab === 'redpowerladder5' ? (
                     <iframe 
                       key="redpowerladder5"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/redball/powerladder/mobile" : "https://xn--950bo4em5v.co/minigame/redball/powerladder/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+                      className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[420px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
                     />
                   ) : activeMiniGameTab === 'powerladder3min' ? (
                     <iframe 
                       key="powerladder3min"
                       src={isMobile ? "https://xn--950bo4em5v.co/minigame/nball/powerladder3/mobile" : "https://xn--950bo4em5v.co/minigame/nball/powerladder3/pc"}
                       width="100%"
-                      height={isMobile ? "360" : "640"}
                       scrolling="no" 
                       frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+                      className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[420px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
                     />
                   ) : activeMiniGameTab === 'speedladder1' ? (
                     <iframe 
