@@ -812,9 +812,17 @@ export default function AdminMatchRegistration() {
               }
               
               const now = new Date();
-              const month = String(now.getMonth() + 1).padStart(2, '0');
-              const day = String(now.getDate()).padStart(2, '0');
-              const dateTime = `${month}-${day} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+              const matchDate = new Date();
+              matchDate.setHours(hours, minutes, 0, 0);
+
+              // 현재 시각보다 6시간 이상 이전 시간이면 "내일" 경기일 가능성이 매우 높음
+              if (matchDate.getTime() < now.getTime() - (6 * 60 * 60 * 1000)) {
+                  matchDate.setDate(matchDate.getDate() + 1);
+              }
+              
+              const month = String(matchDate.getMonth() + 1).padStart(2, '0');
+              const day = String(matchDate.getDate()).padStart(2, '0');
+              const dateTime = `${month}-${day} ${String(matchDate.getHours()).padStart(2, '0')}:${String(matchDate.getMinutes()).padStart(2, '0')}`;
               
               return { league: rawLeague, dateTime };
           };
@@ -874,6 +882,8 @@ export default function AdminMatchRegistration() {
               let awayTeam = '';
               let homeOdds = 1.0;
               let awayOdds = 1.0;
+              let handicapValue = '';
+              let ouValue = '';
 
               if (j_indices.length === 2) {
                   // --- 첫 번째 팀 (홈팀) 파싱 ---
@@ -901,9 +911,14 @@ export default function AdminMatchRegistration() {
                           if (!isNaN(val)) homeOddsCandidates.push(val);
                       }
                   }
-                  // 첫 번째 만난 숫자가 승무패 배당률이 됨
+                  
                   if (homeOddsCandidates.length > 0) {
                       homeOdds = homeOddsCandidates[0];
+                      for (let k = 1; k < homeOddsCandidates.length; k++) {
+                          const val = homeOddsCandidates[k];
+                          if (val > 50) ouValue = val.toString();
+                          else handicapValue = val.toString();
+                      }
                   }
 
                   // --- 두 번째 팀 (원정팀) 파싱 ---
@@ -929,11 +944,22 @@ export default function AdminMatchRegistration() {
                   }
                   if (awayOddsCandidates.length > 0) {
                       awayOdds = awayOddsCandidates[0];
+                      for (let k = 1; k < awayOddsCandidates.length; k++) {
+                          const val = awayOddsCandidates[k];
+                          if (Math.abs(val) > 50) ouValue = Math.abs(val).toString();
+                          else handicapValue = val.toString();
+                      }
                   }
               }
 
-              if (!homeTeam || !awayTeam || homeOdds <= 1.01 || awayOdds <= 1.01) {
-                  console.log(`Skipping volleyball match due to missing teams or odds: ${homeTeam} vs ${awayTeam}, Odds: ${homeOdds}/${awayOdds}`);
+              if (!homeTeam || !awayTeam) {
+                  console.log(`Skipping volleyball match due to missing teams: ${homeTeam} vs ${awayTeam}`);
+                  i = nextIdx - 1;
+                  continue;
+              }
+              
+              if (homeOdds <= 1.01 || awayOdds <= 1.01) {
+                  console.log(`Skipping volleyball match due to missing ML odds: ${homeTeam} vs ${awayTeam}`);
                   i = nextIdx - 1;
                   continue;
               }
@@ -943,7 +969,8 @@ export default function AdminMatchRegistration() {
                   i = nextIdx - 1;
                   continue;
               }
-              
+
+              // 배구 언오버, 핸디캡은 당분간 등록 제외 (추후 예정)
               const markets = {
                   matchWinner: { home: homeOdds, draw: 0, away: awayOdds },
                   handicap: { value: '0', home: 1.0, away: 1.0 },
@@ -962,6 +989,7 @@ export default function AdminMatchRegistration() {
                       await updateDoc(doc(db, 'matches', existingMatch.docId), {
                           markets: markets,
                           league: currentLeague,
+                          dateTime: matchTime,
                           updatedAt: new Date().toISOString()
                       });
                       updatedCount++;
