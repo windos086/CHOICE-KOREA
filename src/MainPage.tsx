@@ -858,7 +858,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
 
     const nextBalance = userBalance - betAmount;
-    const pointsToAward = currentUserData?.isPartner ? 0 : Math.floor(betAmount * 0.05);
+    const pointsToAward = currentUserData?.isPartner ? 0 : Math.floor(betAmount * 0.03);
 
     setUserBalance(nextBalance);
     setUserPoints(prev => prev + pointsToAward);
@@ -3819,23 +3819,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <div className="flex flex-col gap-1.5">
                     <span className="text-neutral-400 font-extrabold text-[11px]">선택된 옵션 상세</span>
                     <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto no-scrollbar pr-0.5">
-                      {selectedOptions.map((opt, i) => (
-                        <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1.5 rounded border border-neutral-850/60 gap-1.5">
-                          <span className="text-neutral-250 font-bold truncate max-w-[170px]" title={`${opt.game} - ${opt.name}`}>
-                            [{opt.round}회] {opt.game} - {opt.name}
-                          </span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
-                            <button
-                              onClick={() => setSelectedOptions(prev => prev.filter((_, idx) => idx !== i))}
-                              className="text-neutral-500 hover:text-red-400 font-bold cursor-pointer transition text-xs px-1"
-                              title="삭제"
-                            >
-                              &times;
-                            </button>
+                      {selectedOptions.map((opt, i) => {
+                        const groupPrefix = opt.group === '일반볼홀짝' || opt.group === '일반볼언오버' || opt.group === '일반볼' ? '[일반볼] ' :
+                                            opt.group === '파워볼홀짝' || opt.group === '파워볼언오버' || opt.group === '파워볼' ? '[파워볼] ' : '';
+                        return (
+                          <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1.5 rounded border border-neutral-850/60 gap-1.5">
+                            <span className="text-neutral-250 font-bold truncate max-w-[170px]" title={`${opt.game} - ${groupPrefix}${opt.name}`}>
+                              [{opt.round}회] {opt.game} - {groupPrefix}{opt.name}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
+                              <button
+                                onClick={() => setSelectedOptions(prev => prev.filter((_, idx) => idx !== i))}
+                                className="text-neutral-500 hover:text-red-400 font-bold cursor-pointer transition text-xs px-1"
+                                title="삭제"
+                              >
+                                &times;
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">
@@ -4003,23 +4007,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   onClick={() => navigateTo('home')}
                   className="pointer-events-auto flex items-center font-sans select-none active:scale-95 transition-all"
                 >
-                  <span className="relative inline-block mr-1 pb-1">
+                  <span className="relative inline-flex items-center pb-0.5">
                     {/* Small crown icon for mobile */}
                     <motion.div 
                       animate={{ y: [0, -2, 0], rotate: [0, -3, 3, 0], scale: [1, 1.02, 0.98, 1] }}
                       transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute -top-[10px] left-1/2 -ml-2 w-4 h-4 text-amber-400 filter drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]"
+                      className="absolute -top-[11px] left-1/2 -ml-2 w-4 h-4 text-amber-400 filter drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]"
                     >
                       <svg viewBox="0 0 24 24" fill="currentColor">
                         <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
                       </svg>
                     </motion.div>
-                    <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-xl tracking-tight block mt-[1px]">
-                      C
+                    <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-xl tracking-wide">
+                      초이스
                     </span>
-                  </span>
-                  <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-505 to-red-950 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-xl tracking-wide">
-                    HOICE
                   </span>
                   <span className="text-[6px] font-black text-amber-400/90 not-italic uppercase ml-2 border-l border-neutral-800 pl-2 tracking-[0.15em] self-center flex flex-col items-start gap-0 leading-none opacity-80">
                     <span>SPORTS</span>
@@ -4716,6 +4717,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <span className="text-[7.5px] text-teal-500">Notice</span>
                   </button>
 
+                  {/* 경기결과 */}
+                  <button
+                    type="button"
+                    onClick={() => { navigateTo('gameresult'); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-amber-400 block">경기결과</span>
+                    <span className="text-[7.5px] text-amber-500">Results</span>
+                  </button>
+
                   {/* 스포츠 */}
                   <button
                     type="button"
@@ -5272,7 +5283,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
               <div className="p-3 bg-neutral-950/60 rounded-lg border border-neutral-850">
                 <p className="text-[10px] text-gray-400 leading-normal">
-                  * 롤링 계산 시, 지급받은 충전 보너스를 모두 포함하여 롤링 제한 요율이 충족되어야 정상 정산됩니다. 단, 무한 페이백 포인트(5%) 환급건은 롤링 요율 제한에서 우대 제외 처리 완료됩니다.
+                  * 롤링 계산 시, 지급받은 충전 보너스를 모두 포함하여 롤링 제한 요율이 충족되어야 정상 정산됩니다. 단, 무한 페이백 포인트(스포츠 5% / 미니게임 3%) 환급건은 롤링 요율 제한에서 우대 제외 처리 완료됩니다.
                 </p>
               </div>
             </div>
@@ -5401,7 +5412,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <div className="flex items-start gap-1.5 border-t border-neutral-900 pt-2 mt-2">
                     <span className="text-amber-400 font-bold">②</span>
                     <div>
-                      <strong className="text-white">무한 베팅 페이백 5%:</strong> 모든 스포츠/미니게임 페어 베팅 참여 시 <strong className="text-amber-400">무한 +5% 페이백포인트</strong> 지급!
+                      <strong className="text-white">무한 베팅 페이백:</strong> 모든 스포츠 베팅 참여 시 <strong className="text-amber-400">무한 +5% 페이백</strong>, 미니게임 베팅 시 <strong className="text-amber-400">무한 +3% 페이백</strong> 포인트 자동 지급!
                     </div>
                   </div>
                 </div>
@@ -5490,7 +5501,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
                 <div className="flex justify-between border-b border-neutral-850 pb-2">
                   <span className="text-gray-400 font-medium">베팅 페이백</span>
-                  <span className="font-extrabold text-emerald-400">베팅 완료 시 무한 +5% 페이백 포인트 지급</span>
+                  <span className="font-extrabold text-emerald-400 text-right">스포츠 5% / 미니게임 3% 즉시 지급</span>
                 </div>
                 <div className="flex justify-between border-b border-neutral-850 pb-2">
                   <span className="text-gray-400 font-medium">이벤트 기한</span>
@@ -5607,7 +5618,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </h4>
             <ul className="list-disc pl-5 text-xs text-gray-400 leading-relaxed space-y-1.5">
                   <li>충전 신청 승인이 완료되면 별도의 신청 접수 없이 <strong className="text-gray-350">10% 충전 보너스 포인트가 완전 자동 계산</strong>되어 즉시 합산 처리됩니다.</li>
-                  <li>모든 베팅 참여 시 <strong className="text-gray-350">무한 +5% 페이백 포인트(지정 보상)</strong> 조항에 따라 당첨/낙첨 결과에 무관하게 베팅 마감 후 즉시 페이백이 정산됩니다.</li>
+                  <li>모든 베팅 참여 시 <strong className="text-gray-350">무한 페이백 포인트(스포츠 5% / 미니게임 3%)</strong> 조항에 따라 당첨/낙첨 결과에 무관하게 베팅 마감 후 즉시 페이백이 정산됩니다.</li>
                   <li>지급된 모든 보너스 및 페이백 포인트는 CHOICE에서 제공하는 모든 시뮬레이터 미니게임 및 스포츠 베팅에 100% 동일하게 사용될 수 있습니다.</li>
               <li>동일인 다중 IP 접속 및 의도적인 중복 가입을 통해 보너스 포인트를 편취하려는 시도나 매칭 어뷰징 행위 발생 시, 시스템 적발 프로그램을 통해 불이익(계정 영구 제한 및 자산 몰수 처리)이 부여되므로 정직한 베팅 스포츠 매칭을 즐겨주시길 당부 드립니다.</li>
             </ul>
@@ -6462,23 +6473,43 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </h2>
 
             {/* Game Result Categories */}
-            <div className="flex flex-wrap gap-2 mb-6 border-b border-neutral-800/80 pb-6">
-              {['전체', '축구', '농구', '야구', '배구', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'].map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => {
-                    setGameResultFilter(cat);
-                    setGameResultPage(1);
-                  }}
-                  className={`px-4 py-2 rounded text-xs font-bold transition cursor-pointer border ${
-                    gameResultFilter === cat 
-                      ? 'bg-amber-500 text-black border-amber-500 shadow font-black' 
-                      : 'bg-neutral-900 hover:bg-neutral-800 text-gray-400 border-neutral-800/80'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            <div 
+              className="flex overflow-x-auto md:flex-wrap items-center gap-1.5 mb-6 border-b border-neutral-800/80 pb-4 no-scrollbar -mx-5 px-5 md:mx-0 md:px-0 whitespace-nowrap scroll-smooth" 
+              id="game-result-categories-container"
+            >
+              {['전체', '축구', '농구', '야구', '배구', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'].map(cat => {
+                const mapping: Record<string, { label: string; emoji: string }> = {
+                  '전체': { label: '전체', emoji: '✨' },
+                  '축구': { label: '축구', emoji: '⚽' },
+                  '농구': { label: '농구', emoji: '🏀' },
+                  '야구': { label: '야구', emoji: '⚾' },
+                  '배구': { label: '배구', emoji: '🏐' },
+                  'N파워볼(5분)': { label: '파워볼 5분', emoji: '🟢' },
+                  'N파워볼(3분)': { label: '파워볼 3분', emoji: '🔵' },
+                  'N파워사다리(5분)': { label: '사다리 5분', emoji: '🪜' },
+                  'N파워사다리(3분)': { label: '사다리 3분', emoji: '🪜' },
+                  '레드파워사다리(5분)': { label: '레드사다리', emoji: '🔴' }
+                };
+                const info = mapping[cat] || { label: cat, emoji: '🎮' };
+                const isActive = gameResultFilter === cat;
+                return (
+                  <button 
+                    key={cat} 
+                    onClick={() => {
+                      setGameResultFilter(cat);
+                      setGameResultPage(1);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[11px] md:text-xs font-bold transition cursor-pointer border shrink-0 ${
+                      isActive 
+                        ? 'bg-amber-500 text-black border-amber-500 shadow-md font-extrabold shadow-amber-500/10' 
+                        : 'bg-[#10121a]/80 hover:bg-neutral-800 text-gray-400 border-neutral-800/80 hover:text-white'
+                    }`}
+                  >
+                    <span>{info.emoji}</span>
+                    <span>{info.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
 
@@ -6651,10 +6682,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                 {/* Beautiful Pagination Control */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 bg-neutral-950/20 py-4 rounded-xl border border-neutral-800/40">
-                  <span className="text-[11px] font-mono text-gray-400">
-                    전체 {allExpandedRows.length}개 중 {startIndex + 1}~{Math.min(startIndex + itemsPerPage, allExpandedRows.length)}개 표시 (페이지 {currentPage} / {maxPage})
-                  </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="text-[11px] font-mono text-gray-400 whitespace-nowrap shrink-0">
+                    전체 {allExpandedRows.length.toLocaleString()}개 중 {(startIndex + 1).toLocaleString()}~{Math.min(startIndex + itemsPerPage, allExpandedRows.length).toLocaleString()}개 표시 (페이지 {currentPage} / {maxPage})
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
                     {/* Previous Button */}
                     <button
                       onClick={() => setGameResultPage(p => Math.max(1, p - 1))}
@@ -6664,8 +6695,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       이전
                     </button>
 
-                    {/* Numeric page buttons */}
-                    {[...Array(maxPage)].map((_, i) => i + 1).map(p => (
+                    {/* Numeric page buttons with sliding window */}
+                    {(() => {
+                      const pages = [];
+                      const startPage = Math.max(1, currentPage - 2);
+                      const endPage = Math.min(maxPage, startPage + 4);
+                      const adjustedStartPage = Math.max(1, endPage - 4);
+                      
+                      for (let i = adjustedStartPage; i <= endPage; i++) {
+                        if (i >= 1 && i <= maxPage) {
+                          pages.push(i);
+                        }
+                      }
+                      
+                      return pages.map(p => (
                         <button
                           key={p}
                           onClick={() => setGameResultPage(p)}
@@ -6677,7 +6720,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         >
                           {p}
                         </button>
-                    ))}
+                      ));
+                    })()}
 
                     {/* Next Button */}
                     <button
@@ -7163,31 +7207,37 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <p className="text-[10px] text-gray-500 leading-tight">게임 배당 버튼을 클릭하여<br />배팅 카트에 추가하십시오.</p>
                     </div>
                   ) : (
-                    selectedOptions.map((opt, idx) => (
-                      <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
-                        <button
-                          onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
-                          className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
-                          title="제거"
-                        >
-                          &times;
-                        </button>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
-                            [{opt.round}회차] {opt.game}
-                          </span>
+                    selectedOptions.map((opt, idx) => {
+                      const friendlyGroup = opt.group === '일반볼홀짝' ? '일반볼 홀짝' :
+                                            opt.group === '파워볼홀짝' ? '파워볼 홀짝' :
+                                            opt.group === '일반볼언오버' ? '일반볼 언더오버' :
+                                            opt.group === '파워볼언오버' ? '파워볼 언더오버' : opt.group;
+                      return (
+                        <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
+                          <button
+                            onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
+                            className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
+                            title="제거"
+                          >
+                            &times;
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
+                              [{opt.round}회차] {opt.game}
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-black text-neutral-250 pr-5 truncate">
+                            구분: {friendlyGroup}
+                          </div>
+                          <div className="flex items-center justify-between text-xs bg-neutral-900 border border-neutral-850/40 p-2 rounded-lg mt-0.5">
+                            <span className="font-extrabold text-amber-500 flex items-center gap-1">
+                              선택: <span className="text-white underline decoration-amber-500">{opt.name}</span>
+                            </span>
+                            <span className="font-mono font-black text-neutral-200">{(opt.dividend || 0).toFixed(2)} 배당</span>
+                          </div>
                         </div>
-                        <div className="text-[11px] font-black text-neutral-250 pr-5 truncate">
-                          구분: {opt.group}
-                        </div>
-                        <div className="flex items-center justify-between text-xs bg-neutral-900 border border-neutral-850/40 p-2 rounded-lg mt-0.5">
-                          <span className="font-extrabold text-amber-500 flex items-center gap-1">
-                            선택: <span className="text-white underline decoration-amber-500">{opt.name}</span>
-                          </span>
-                          <span className="font-mono font-black text-neutral-200">{(opt.dividend || 0).toFixed(2)} 배당</span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -7201,14 +7251,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         <div className="flex flex-col gap-1.5">
                           <span className="text-neutral-400 font-extrabold text-[11px]">선택된 옵션 상세</span>
                           <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto no-scrollbar pr-0.5">
-                            {selectedOptions.map((opt, i) => (
-                              <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60">
-                                <span className="text-neutral-200 font-bold truncate max-w-[125px] md:max-w-[150px]">
-                                  [{opt.round}회] {opt.name}
-                                </span>
-                                <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
-                              </div>
-                            ))}
+                            {selectedOptions.map((opt, i) => {
+                              const groupPrefix = opt.group === '일반볼홀짝' || opt.group === '일반볼언오버' || opt.group === '일반볼' ? '[일반볼] ' :
+                                                  opt.group === '파워볼홀짝' || opt.group === '파워볼언오버' || opt.group === '파워볼' ? '[파워볼] ' : '';
+                              return (
+                                <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60">
+                                  <span className="text-neutral-200 font-bold truncate max-w-[125px] md:max-w-[150px]">
+                                    [{opt.round}회] {groupPrefix}{opt.name}
+                                  </span>
+                                  <span className="text-amber-500 font-black font-mono">{(opt.dividend || 0).toFixed(2)}배</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                         <div className="flex justify-between items-center text-xs pt-1.5 border-t border-neutral-900">

@@ -56,7 +56,7 @@ export default function PointHistoryView({ currentUserData }: PointHistoryViewPr
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 w-full mx-auto max-w-[1550px]" id="point-history-view-id">
+    <div className="flex-1 p-4 md:p-8 pb-16 md:pb-8 w-full mx-auto max-w-[1550px] overflow-y-auto" id="point-history-view-id">
       <div className="mb-4 text-sm text-gray-400 font-sans" id="point-history-breadcrumb">
         <span className="text-gray-500">홈</span> &gt; 포인트 내역
       </div>

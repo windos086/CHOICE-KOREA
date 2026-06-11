@@ -237,6 +237,19 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
     '레드파워사다리(5분)'
   ];
 
+  const categoryMapping: Record<string, { label: string; emoji: string }> = {
+    '전체': { label: '전체', emoji: '✨' },
+    '축구': { label: '축구', emoji: '⚽' },
+    '농구': { label: '농구', emoji: '🏀' },
+    '야구': { label: '야구', emoji: '⚾' },
+    '배구': { label: '배구', emoji: '🏐' },
+    'N파워볼(5분)': { label: '파워볼 5분', emoji: '🟢' },
+    'N파워볼(3분)': { label: '파워볼 3분', emoji: '🔵' },
+    'N파워사다리(5분)': { label: '사다리 5분', emoji: '🪜' },
+    'N파워사다리(3분)': { label: '사다리 3분', emoji: '🪜' },
+    '레드파워사다리(5분)': { label: '레드사다리', emoji: '🔴' }
+  };
+
   // Helper to map option choices to Home (Left) vs Away (Right) column
   function getBetSelectionLayout(bet: any) {
     let homeName = '';
@@ -308,45 +321,105 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
     // Resolve chosen option string for Minigames
     const optionStr = (bet.folders && bet.folders.length === 1) ? bet.folders[0].option : (bet.option || '');
     const dividend = bet.dividend || '1.95';
+    const groupVal = bet.group || '';
 
-    if (optionStr.includes('홀') || optionStr.includes('짝')) {
-      homeName = '홀';
+    if (groupVal === '일반볼홀짝' || groupVal === '일반볼') {
+      homeName = '[일반볼] 홀';
       homeOdds = String(dividend);
       midStandard = 'VS';
-      awayName = '짝';
+      awayName = '[일반볼] 짝';
       awayOdds = String(dividend);
       selectedSide = optionStr.includes('홀') ? 'home' : 'away';
-    } else if (optionStr.includes('언더') || optionStr.includes('오버')) {
-      const bracketMatch = optionStr.match(/\[([\d.]+)\]/);
-      const threshold = bracketMatch ? bracketMatch[1] : 'VS';
-      
-      homeName = `언더 [${threshold}]`;
+    } else if (groupVal === '파워볼홀짝' || groupVal === '파워볼') {
+      homeName = '[파워볼] 홀';
       homeOdds = String(dividend);
-      midStandard = threshold;
-      awayName = `오버 [${threshold}]`;
+      midStandard = 'VS';
+      awayName = '[파워볼] 짝';
+      awayOdds = String(dividend);
+      selectedSide = optionStr.includes('홀') ? 'home' : 'away';
+    } else if (groupVal === '일반볼언오버') {
+      homeName = '[일반볼] 언더';
+      homeOdds = String(dividend);
+      midStandard = '72.5';
+      awayName = '[일반볼] 오버';
       awayOdds = String(dividend);
       selectedSide = optionStr.includes('언더') ? 'home' : 'away';
-    } else if (optionStr.includes('좌') || optionStr.includes('우')) {
-      homeName = '좌';
+    } else if (groupVal === '파워볼언오버') {
+      homeName = '[파워볼] 언더';
+      homeOdds = String(dividend);
+      midStandard = '4.5';
+      awayName = '[파워볼] 오버';
+      awayOdds = String(dividend);
+      selectedSide = optionStr.includes('언더') ? 'home' : 'away';
+    } else if (groupVal === '일반볼 대중소') {
+      homeName = '[일반볼] 대';
+      homeOdds = String(dividend);
+      midStandard = '중 / 소';
+      awayName = '[일반볼] 소';
+      awayOdds = String(dividend);
+      selectedSide = optionStr.includes('대') ? 'home' : optionStr.includes('소') ? 'away' : null;
+    } else if (groupVal === '출발지') {
+      homeName = '[사다리] 좌';
       homeOdds = String(dividend);
       midStandard = 'VS';
-      awayName = '우';
+      awayName = '[사다리] 우';
       awayOdds = String(dividend);
       selectedSide = optionStr.includes('좌') ? 'home' : 'away';
-    } else if (optionStr.includes('3줄') || optionStr.includes('4줄')) {
-      homeName = '3줄';
+    } else if (groupVal === '줄개수') {
+      homeName = '[사다리] 3줄';
       homeOdds = String(dividend);
       midStandard = 'VS';
-      awayName = '4줄';
+      awayName = '[사다리] 4줄';
       awayOdds = String(dividend);
       selectedSide = optionStr.includes('3줄') ? 'home' : 'away';
-    } else {
-      homeName = optionStr;
+    } else if (groupVal === '최종결과') {
+      homeName = '[사다리] 홀';
       homeOdds = String(dividend);
       midStandard = 'VS';
-      awayName = '';
-      awayOdds = '';
-      selectedSide = 'home';
+      awayName = '[사다리] 짝';
+      awayOdds = String(dividend);
+      selectedSide = optionStr.includes('홀') ? 'home' : 'away';
+    } else {
+      // Fallback below
+      if (optionStr.includes('홀') || optionStr.includes('짝')) {
+        homeName = '홀';
+        homeOdds = String(dividend);
+        midStandard = 'VS';
+        awayName = '짝';
+        awayOdds = String(dividend);
+        selectedSide = optionStr.includes('홀') ? 'home' : 'away';
+      } else if (optionStr.includes('언더') || optionStr.includes('오버')) {
+        const bracketMatch = optionStr.match(/\[([\d.]+)\]/);
+        const threshold = bracketMatch ? bracketMatch[1] : 'VS';
+        
+        homeName = `언더 [${threshold}]`;
+        homeOdds = String(dividend);
+        midStandard = threshold;
+        awayName = `오버 [${threshold}]`;
+        awayOdds = String(dividend);
+        selectedSide = optionStr.includes('언더') ? 'home' : 'away';
+      } else if (optionStr.includes('좌') || optionStr.includes('우')) {
+        homeName = '좌';
+        homeOdds = String(dividend);
+        midStandard = 'VS';
+        awayName = '우';
+        awayOdds = String(dividend);
+        selectedSide = optionStr.includes('좌') ? 'home' : 'away';
+      } else if (optionStr.includes('3줄') || optionStr.includes('4줄')) {
+        homeName = '3줄';
+        homeOdds = String(dividend);
+        midStandard = 'VS';
+        awayName = '4줄';
+        awayOdds = String(dividend);
+        selectedSide = optionStr.includes('3줄') ? 'home' : 'away';
+      } else {
+        homeName = optionStr;
+        homeOdds = String(dividend);
+        midStandard = 'VS';
+        awayName = '';
+        awayOdds = '';
+        selectedSide = 'home';
+      }
     }
 
     return { homeName, homeOdds, midStandard, awayName, awayOdds, selectedSide };
@@ -493,24 +566,32 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
         </h2>
 
         {/* Game Result Categories */}
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-neutral-800/80 pb-6" id="bet-history-categories-container">
-          {categories.map(cat => (
-            <button 
-              key={cat} 
-              onClick={() => {
-                setSelectedCategory(cat);
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-2 rounded text-xs font-bold transition cursor-pointer border ${
-                selectedCategory === cat 
-                  ? 'bg-amber-500 text-black border-amber-500 shadow font-black' 
-                  : 'bg-[#0a0c10] hover:bg-neutral-800 text-gray-400 border-neutral-800/80'
-              }`}
-              id={`category-btn-${cat}`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div 
+          className="flex overflow-x-auto md:flex-wrap items-center gap-1.5 mb-6 border-b border-neutral-800/80 pb-4 no-scrollbar -mx-5 px-5 md:mx-0 md:px-0 whitespace-nowrap scroll-smooth" 
+          id="bet-history-categories-container"
+        >
+          {categories.map(cat => {
+            const info = categoryMapping[cat] || { label: cat, emoji: '🎮' };
+            const isActive = selectedCategory === cat;
+            return (
+              <button 
+                key={cat} 
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  setCurrentPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[11px] md:text-xs font-bold transition cursor-pointer border shrink-0 ${
+                  isActive 
+                    ? 'bg-amber-500 text-black border-amber-500 shadow-md font-extrabold shadow-amber-500/10' 
+                    : 'bg-[#0a0c10]/80 hover:bg-neutral-800 text-gray-400 border-neutral-800/80 hover:text-white'
+                }`}
+                id={`category-btn-${cat}`}
+              >
+                <span>{info.emoji}</span>
+                <span>{info.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {filteredBets.length === 0 ? (
@@ -771,24 +852,24 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
                             </div>
 
                     <div className="flex justify-between items-center bg-[#0b0c10] p-1 rounded border border-neutral-800/60 gap-1.5">
-                              <div className={`flex items-center justify-between p-1 rounded border transition w-full text-[11px] truncate flex-1 px-2 ${
+                              <div className={`flex items-center justify-between p-1 rounded border transition w-full text-[11px] min-w-0 flex-1 px-2 ${
                                 layout.selectedSide === 'home' 
                                   ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
                                   : 'bg-transparent border-transparent'
                               }`}>
-                                <span className={`font-bold truncate ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
-                                <span className="text-amber-500 font-bold ml-1">{layout.homeOdds}</span>
+                                <span className={`font-bold whitespace-nowrap ${layout.selectedSide === 'home' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.homeName}</span>
+                                <span className="text-amber-500 font-bold ml-1 shrink-0">{layout.homeOdds}</span>
                               </div>
 
                               <span className="text-gray-500 font-bold text-[10px] uppercase shrink-0 px-1">{layout.midStandard}</span>
 
-                              <div className={`flex items-center justify-between p-1 rounded border transition w-full text-[11px] truncate flex-1 px-2 ${
+                              <div className={`flex items-center justify-between p-1 rounded border transition w-full text-[11px] min-w-0 flex-1 px-2 ${
                                 layout.selectedSide === 'away' 
                                   ? 'bg-amber-950/40 border-amber-500/80 shadow-[inset_0_0_8px_rgba(245,158,11,0.25)]' 
                                   : 'bg-transparent border-transparent'
                               }`}>
-                                <span className={`font-bold truncate ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
-                                <span className="text-amber-500 font-bold ml-1">{layout.awayOdds}</span>
+                                <span className={`font-bold whitespace-nowrap ${layout.selectedSide === 'away' ? 'text-amber-400' : 'text-gray-400'}`}>{layout.awayName}</span>
+                                <span className="text-amber-500 font-bold ml-1 shrink-0">{layout.awayOdds}</span>
                               </div>
                             </div>
                           </div>
