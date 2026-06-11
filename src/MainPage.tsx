@@ -3214,6 +3214,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const num = parseFloat(cleaned);
       if (isNaN(num) || num === 0) return '0';
       
+      if (cleaned.startsWith('+') || cleaned.startsWith('-')) {
+        return cleaned;
+      }
+      
       const withoutSign = cleaned.replace(/[+-]/g, '').trim();
       if (homeOdds !== undefined && awayOdds !== undefined && homeOdds !== 0 && awayOdds !== 0) {
         if (homeOdds < awayOdds) {
@@ -3300,7 +3304,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         midStandard: midStandard,
         winner: winner,
         score: score,
-        statusText: statusText
+        statusText: statusText,
+        marketType: 'matchWinner'
       });
 
       // 2. [핸디캡] (Handicap) - 만약 핸디캡 데이터가 있다면 (배구는 제외)
@@ -3341,7 +3346,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
           midStandard: baseLineValue || '0',
           winner: handiWinner,
           score: score,
-          statusText: statusText
+          statusText: statusText,
+          marketType: 'handicap'
         });
       }
 
@@ -3377,7 +3383,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
           midStandard: cleanLineValue(overUnder.value) || '2.5',
           winner: ouWinner,
           score: score,
-          statusText: statusText
+          statusText: statusText,
+          marketType: 'overUnder'
         });
       }
     });
@@ -5319,6 +5326,50 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           </div>
 
+          {/* Sports specific Rules */}
+          <div className="bg-neutral-900 border border-sky-500/20 rounded-xl p-5 md:p-6 space-y-4 shadow-lg hover:border-sky-500/35 transition-all">
+            <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+              <div className="w-7 h-7 rounded bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                <Gamepad2 className="w-4 h-4" />
+              </div>
+              <h4 className="text-xs font-black text-white uppercase tracking-wider">종목별 스포츠 규정</h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Soccer */}
+              <div className="p-4 rounded-xl bg-black/40 border border-neutral-850 space-y-2">
+                <div className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
+                  ⚽ 스포츠 축구 규정
+                </div>
+                <p className="text-[11px] text-gray-400 leading-normal font-medium">
+                  90분 정규이닝 경기의 대한 결과를 적용합니다.<br/>
+                  <span className="text-rose-400 font-bold mt-1 inline-block">(연장전 미적용)</span>
+                </p>
+              </div>
+
+              {/* Baseball */}
+              <div className="p-4 rounded-xl bg-black/40 border border-neutral-850 space-y-2">
+                <div className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
+                  ⚾ 스포츠 야구 규정
+                </div>
+                <p className="text-[11px] text-gray-400 leading-normal font-medium">
+                  정규이닝 연장이 포함된 결과를 적용합니다.<br/>
+                  <span className="text-emerald-400 font-bold mt-1 inline-block">핸디 / 언오버 연장포함</span>
+                </p>
+              </div>
+
+              {/* Volleyball */}
+              <div className="p-4 rounded-xl bg-black/40 border border-neutral-850 space-y-2">
+                <div className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
+                  🏐 스포츠 배구 규정
+                </div>
+                <p className="text-[11px] text-gray-400 leading-normal font-medium">
+                  정규이닝의 대한 결과를 적용합니다.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Feedback & Error Report Program (Deep Purple/Sunset Card) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
@@ -6658,7 +6709,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                 <span className="text-amber-500 font-black">{row.score} [승]</span>
                               ) : row.winner === 'draw' ? (
                                 <span className="text-gray-300 font-bold">
-                                  {row.score} {row.id?.endsWith('_handicap') || row.id?.endsWith('_overUnder') ? '[적특]' : '[무]'}
+                                  {row.score} {row.marketType === 'handicap' || row.marketType === 'overUnder' || row.id?.endsWith('_handicap') || row.id?.endsWith('_overUnder') ? '[적특]' : '[무]'}
                                 </span>
                               ) : (
                                 <span className="text-gray-400">{row.score}</span>

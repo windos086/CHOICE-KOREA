@@ -723,6 +723,10 @@ function isMatchActive(dateTimeStr: string): boolean {
     const num = parseFloat(cleaned);
     if (isNaN(num) || num === 0) return '0';
     
+    if (cleaned.startsWith('+') || cleaned.startsWith('-')) {
+      return cleaned;
+    }
+    
     const withoutSign = cleaned.replace(/[+-]/g, '').trim();
     if (homeOdds !== undefined && awayOdds !== undefined && homeOdds !== 0 && awayOdds !== 0) {
       if (homeOdds < awayOdds) {
