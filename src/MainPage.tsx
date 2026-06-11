@@ -542,6 +542,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
 
+          if (['powerladder5', 'redpowerladder5', 'powerladder3min', 'speedladder1'].includes(gType)) {
+            if (!details.start || !details.lines || !details.outcome) {
+              return { isWinFolder: false, folderOutcome: '대기 중' };
+            }
+          }
+
           if (gType === 'powerball5' || gType === 'powerball3') {
             const grp = (folder.group || '').trim();
             const opt = (folder.option || '').trim();
@@ -603,7 +609,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
         for (let i = 0; i < updatedBets.length; i++) {
           const bet = { ...updatedBets[i] };
           
-          if (bet.status === 'win' || bet.status === 'lose') continue;
+          const isSettled = bet.status === 'win' || bet.status === 'lose';
+          const isRecentBet = bet.createdAt && (Date.now() - (typeof bet.createdAt.toDate === 'function' ? bet.createdAt.toDate() : new Date(bet.createdAt)).getTime() < 2 * 24 * 60 * 60 * 1000);
+          if (isSettled && !isRecentBet) continue;
           
           // Only check minigame bets to avoid touching sports bets accidentally
           const isMinigame = bet.gameType && [
@@ -641,7 +649,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           if (bet.folders && bet.folders.length > 0) {
             for (const f of bet.folders) {
               // Get official results representing the "Game Results" (경기결과) screen database
-              const gameRes = await getOfficialRoundResultOnly(f.gameType, f.round);
+              const gameRes = await getOfficialRoundResultOnly(f.gameType, f.round, bet.createdAt);
               if (!gameRes) {
                 // "경기결과" 메뉴에 활성화 회차가 아직 업데이트되지 않았으므로 정산을 보류하고 대기합니다.
                 console.log(`[정산 대기] ${f.gameType} ${f.round}회차가 경기결과 메뉴에 업데이트되지 않았습니다. 업데이트를 대기 중입니다.`);
@@ -664,7 +672,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             winningOutcome = verifiedFolders.map((f: any) => `${f.option}➔[${f.rollResult}]`).join(', ');
           } else {
             // Get official results representing the "Game Results" (경기결과) screen database
-            const gameRes = await getOfficialRoundResultOnly(bet.gameType, bet.round || 0);
+            const gameRes = await getOfficialRoundResultOnly(bet.gameType, bet.round || 0, bet.createdAt);
             if (!gameRes) {
               // "경기결과" 메뉴에 활성화 회차가 아직 업데이트되지 않았으므로 정산을 보류하고 대기합니다.
               console.log(`[정산 대기] ${bet.gameType} ${bet.round}회차가 경기결과 메뉴에 업데이트되지 않았습니다. 업데이트를 대기 중입니다.`);
@@ -1812,6 +1820,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
   };
 
+  const getKstDateCompact = (timestampInput?: any) => {
+    let dateObjObj = new Date();
+    if (timestampInput) {
+      if (typeof timestampInput.toDate === 'function') {
+        dateObjObj = timestampInput.toDate();
+      } else {
+        dateObjObj = new Date(timestampInput);
+      }
+    }
+    const kstTime = new Date(dateObjObj.getTime() + (9 * 60 * 60 * 1000));
+    const year = kstTime.getUTCFullYear();
+    const month = String(kstTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(kstTime.getUTCDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  };
+
   useEffect(() => {
     loadExchangeRate();
   }, []);
@@ -1855,13 +1879,20 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return { resultStr, details };
   };
 
-  const getOfficialRoundResultOnly = async (gameType: string, roundNum: number) => {
-    const docId = `${gameType}_${roundNum}`;
-    const cachedResult = gameResults.find(r => r.id === docId || (r.gameType === gameType && r.round === roundNum));
+  const getOfficialRoundResultOnly = async (gameType: string, roundNum: number, betCreatedAt?: any) => {
+    const dateCompact = getKstDateCompact(betCreatedAt);
+    const docId = `${gameType}_${dateCompact}_${roundNum}`;
+
+    const cachedResult = gameResults.find(r => 
+      r.id === docId || 
+      (r.gameType === gameType && r.round === roundNum && getKstDateCompact(r.createdAt) === dateCompact)
+    );
     if (cachedResult) {
       return cachedResult;
     }
-    const docRef = doc(db, 'gameResultsTTL', docId);
+
+    // Try segment ID first
+    let docRef = doc(db, 'gameResultsTTL', docId);
     try {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -1870,12 +1901,62 @@ export default function MainPage({ onLogout }: MainPageProps) {
     } catch (err) {
       console.error("Error reading doc in getOfficialRoundResultOnly:", err);
     }
+
     return null;
   };
 
+  const isItemDateAndRoundMatch = (item: any, r: number, dateString: string) => {
+    if (!item) return false;
+
+    // 1. Verify round matches r (daily round 1-288) or full round matching
+    const itemRound = parseInt(item.round, 10);
+    const itemDateRound = parseInt(item.date_round, 10);
+    const itemFixedDateRound = item.fixed_date_round ? parseInt(item.fixed_date_round, 10) : NaN;
+
+    const roundMatches = 
+      itemRound === r || 
+      itemDateRound === r || 
+      (!isNaN(itemFixedDateRound) && (itemFixedDateRound % 1000 === r || itemFixedDateRound % 100 === r || itemFixedDateRound === r));
+
+    if (!roundMatches) return false;
+
+    // 2. Safely verify KST date of draw to prevent matching yesterday's same-round results
+    const targetDateCompact = dateString.replace(/-/g, ''); // e.g. "20260608"
+    
+    // Check if fixed_date_round explicitly matches or starts with today's compact date
+    if (item.fixed_date_round && item.fixed_date_round.toString().includes(targetDateCompact)) {
+      return true;
+    }
+
+    // Secondary scan across dates/timestamps keys inside item
+    let hasDateMatch = false;
+    const dateKeys = Object.keys(item).filter(k => 
+      k.toLowerCase().includes('date') || 
+      k.toLowerCase().includes('time') || 
+      k.toLowerCase().includes('created')
+    );
+
+    for (const key of dateKeys) {
+      const val = String(item[key] || '');
+      if (val.includes(dateString) || val.includes(targetDateCompact) || val.includes(dateString.replace(/-/g, '/'))) {
+        hasDateMatch = true;
+        break;
+      }
+    }
+
+    // If date-related fields exist, enforce they match our target KST date
+    if (dateKeys.length > 0 && !hasDateMatch) {
+      return false;
+    }
+
+    return true;
+  };
+
   const getOrInsertAuthoritativeRoundResult = async (gameType: string, roundNum: number) => {
-    const docId = `${gameType}_${roundNum}`;
-    const docRef = doc(db, 'gameResultsTTL', docId);
+    const dateCompact = getKstDateCompact();
+    const docId = `${gameType}_${dateCompact}_${roundNum}`;
+    
+    let docRef = doc(db, 'gameResultsTTL', docId);
     try {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -1884,7 +1965,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     } catch (err) {
       console.error("Error reading doc in getOrInsertAuthoritativeRoundResult:", err);
     }
-    
+
     // Determine active game operation mode
     const activeMode = minigameModesRef.current[gameType] || 
       (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(gameType) ? 'api' : 'manual');
@@ -1927,15 +2008,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
             const recentList = await recentRes.json();
             if (Array.isArray(recentList)) {
               const matchedItem = recentList.find(item => {
-                const rNum = parseInt(item.fixed_date_round || item.date_round, 10);
-                const fullRound = parseInt(item.round, 10);
-                const isMatch = rNum === roundNum || fullRound === roundNum;
-                if (isMatch) console.log(`[DEBUG] API Match Found: ${gameType} Round ${roundNum} (API DateRound: ${rNum}, FullRound: ${fullRound})`);
-                else console.log(`[DEBUG] API No Match: ${gameType} API DateRound: ${rNum}, FullRound: ${fullRound} vs App Round ${roundNum}`);
-                return isMatch;
+                return isItemDateAndRoundMatch(item, roundNum, dateString);
               });
               
-              if (matchedItem && matchedItem.sum_odd_even && matchedItem.powerball_odd_even) {
+              if (matchedItem && matchedItem.sum_odd_even && matchedItem.sum_unover && matchedItem.sum_size && matchedItem.powerball_odd_even && matchedItem.powerball_unover) {
+                // Ensure data correctness
+                const isValidOddEven = ['ODD', 'EVEN'].includes(matchedItem.sum_odd_even);
+                const isValidUnover = ['UNDER', 'OVER'].includes(matchedItem.sum_unover);
+                const isValidSize = ['S', 'M', 'L'].includes(matchedItem.sum_size);
+                const isValidPbOddEven = ['ODD', 'EVEN'].includes(matchedItem.powerball_odd_even);
+                const isValidPbUnover = ['UNDER', 'OVER'].includes(matchedItem.powerball_unover);
+
+                if (!isValidOddEven || !isValidUnover || !isValidSize || !isValidPbOddEven || !isValidPbUnover) {
+                  console.error(`[Data Error] Invalid data received for ${gameType} Round ${roundNum}:`, matchedItem);
+                  return null;
+                }
+
                 const rolledOddEven = matchedItem.sum_odd_even === 'EVEN' ? '짝' : '홀';
                 const rolledUnderOver = matchedItem.sum_unover === 'UNDER' ? '언더' : '오버';
                 const size = matchedItem.sum_size === 'S' ? '소' : matchedItem.sum_size === 'L' ? '대' : '중';
@@ -1962,11 +2050,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
             const recentList = await recentRes.json();
             if (Array.isArray(recentList)) {
               const matchedItem = recentList.find(item => {
-                const rNum = parseInt(item.fixed_date_round || item.date_round, 10);
-                return rNum === roundNum;
+                return isItemDateAndRoundMatch(item, roundNum, dateString);
               });
 
               if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
+                const isValidStart = ['LEFT', 'RIGHT'].includes(matchedItem.start_point);
+                const isValidLines = ['3', '4', 3, 4].includes(matchedItem.line_count);
+                const isValidOddEven = ['ODD', 'EVEN'].includes(matchedItem.odd_even);
+
+                if (!isValidStart || !isValidLines || !isValidOddEven) {
+                  console.error(`[Data Error] Invalid data received for powerladder5 Round ${roundNum}:`, matchedItem);
+                  return null;
+                }
+
                 const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                 const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                 const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
@@ -1990,11 +2086,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
             const recentList = await recentRes.json();
             if (Array.isArray(recentList)) {
               const matchedItem = recentList.find(item => {
-                const rNum = parseInt(item.fixed_date_round || item.date_round, 10);
-                return rNum === roundNum;
+                return isItemDateAndRoundMatch(item, roundNum, dateString);
               });
 
               if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
+                const isValidStart = ['LEFT', 'RIGHT'].includes(matchedItem.start_point);
+                const isValidLines = ['3', '4', 3, 4].includes(matchedItem.line_count);
+                const isValidOddEven = ['ODD', 'EVEN'].includes(matchedItem.odd_even);
+
+                if (!isValidStart || !isValidLines || !isValidOddEven) {
+                  console.error(`[Data Error] Invalid data received for redpowerladder5 Round ${roundNum}:`, matchedItem);
+                  return null;
+                }
+
                 const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
                 const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
                 const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
@@ -2018,8 +2122,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             const recentList = await recentRes.json();
             if (Array.isArray(recentList)) {
               const matchedItem = recentList.find(item => {
-                const rNum = parseInt(item.fixed_date_round || item.date_round, 10);
-                return rNum === roundNum;
+                return isItemDateAndRoundMatch(item, roundNum, dateString);
               });
 
               if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
@@ -2069,53 +2172,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
       console.error("Error setting doc in getOrInsertAuthoritativeRoundResult:", err);
     }
     return docData;
-  };
-
-  const isItemDateAndRoundMatch = (item: any, r: number, dateString: string) => {
-    if (!item) return false;
-
-    // 1. Verify round matches r (daily round 1-288) or full round matching
-    const itemRound = parseInt(item.round, 10);
-    const itemDateRound = parseInt(item.date_round, 10);
-    const itemFixedDateRound = item.fixed_date_round ? parseInt(item.fixed_date_round, 10) : NaN;
-
-    const roundMatches = 
-      itemRound === r || 
-      itemDateRound === r || 
-      (!isNaN(itemFixedDateRound) && (itemFixedDateRound % 1000 === r || itemFixedDateRound % 100 === r || itemFixedDateRound === r));
-
-    if (!roundMatches) return false;
-
-    // 2. Safely verify KST date of draw to prevent matching yesterday's same-round results
-    const targetDateCompact = dateString.replace(/-/g, ''); // e.g. "20260608"
-    
-    // Check if fixed_date_round explicitly matches or starts with today's compact date
-    if (item.fixed_date_round && item.fixed_date_round.toString().includes(targetDateCompact)) {
-      return true;
-    }
-
-    // Secondary scan across dates/timestamps keys inside item
-    let hasDateMatch = false;
-    const dateKeys = Object.keys(item).filter(k => 
-      k.toLowerCase().includes('date') || 
-      k.toLowerCase().includes('time') || 
-      k.toLowerCase().includes('created')
-    );
-
-    for (const key of dateKeys) {
-      const val = String(item[key] || '');
-      if (val.includes(dateString) || val.includes(targetDateCompact) || val.includes(dateString.replace(/-/g, '/'))) {
-        hasDateMatch = true;
-        break;
-      }
-    }
-
-    // If date-related fields exist, enforce they match our target KST date
-    if (dateKeys.length > 0 && !hasDateMatch) {
-      return false;
-    }
-
-    return true;
   };
 
   const autoInsertRecentGameResults = async () => {
@@ -2199,16 +2255,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
         const endRound = currentRound - 1;
 
         for (let r = startRound; r <= endRound; r++) {
-          const docId = `${g.key}_${r}`;
+          // Calculate precise target stable date in KST for this specific historical round
+          const intervalMin = g.key === 'speedladder1' ? 1 : g.key.includes('5') ? 5 : g.key.includes('3') ? 3 : 5;
+          const roundTime = new Date(secureNow.getTime() - (currentRound - r) * intervalMin * 60 * 1000);
+          const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
+          const dateString = roundKst.toISOString().split('T')[0];
+          const dateCompact = dateString.replace(/-/g, '');
+          const docId = `${g.key}_${dateCompact}_${r}`;
+
           if (!existingIds.has(docId)) {
             let resultStr = '';
             let details: any = {};
-
-            // Calculate precise target stable date in KST for this specific historical round
-            const intervalMin = g.key === 'speedladder1' ? 1 : g.key.includes('5') ? 5 : g.key.includes('3') ? 3 : 5;
-            const roundTime = new Date(secureNow.getTime() - (currentRound - r) * intervalMin * 60 * 1000);
-            const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
-            const dateString = roundKst.toISOString().split('T')[0];
 
             if (mode === 'api') {
               // powerball5
