@@ -1915,10 +1915,11 @@ function isMatchActive(dateTimeStr: string): boolean {
             </div>
           </div>
 
-          {/* Selections Section */}
-          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 flex-1 min-h-[100px]">
-            {selectedFolders.length === 0 ? (
-              <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl shrink-0">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-1 flex flex-col">
+            {/* Selections Section */}
+            <div className="space-y-2 shrink-0">
+              {selectedFolders.length === 0 ? (
+                <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
                 <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
                 <p className="text-xs font-black">선택된 경기 폴더가 없습니다.</p>
                 <p className="text-[10px] text-gray-500 leading-tight">경기 배당 버튼을 클릭하여<br />정지/조합 배팅에 추가하십시오.</p>
@@ -2064,6 +2065,7 @@ function isMatchActive(dateTimeStr: string): boolean {
               </>
             )}
           </button>
+          </div>
         </div>
 
         {isMobile && selectedFolders.length > 0 && !mobileBetSlipOpen && (

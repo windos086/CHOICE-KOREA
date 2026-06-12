@@ -4131,9 +4131,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
         }}
         className={`${
           isMobileCtx 
-            ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[72vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+            ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[80vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
             : 'xl:w-[325px] w-full shrink-0 xl:sticky lg:sticky top-6 order-2'
-        } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[694px] lg:max-h-[694px] xl:h-[694px] overflow-y-auto`}
+        } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[80vh] lg:max-h-[694px] xl:h-[694px] lg:overflow-y-auto`}
       >
         <div className="space-y-4 flex flex-col flex-1">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
@@ -5073,7 +5073,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     onClick={() => { navigateTo('casino'); setIsMobileMenuOpen(false); }}
                     className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition"
                   >
-                    <span className="text-sm font-bold text-amber-500 font-extrabold flex flex-col items-center leading-tight">
+                    <span className="text-xs md:text-sm font-bold text-amber-500 font-extrabold flex flex-col items-center leading-tight whitespace-nowrap">
                       <span>카지노게임</span>
                     </span>
                     <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Cazino</span>
@@ -7697,7 +7697,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 isMobile 
                   ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[72vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
                   : 'xl:w-[325px] w-full shrink-0 xl:sticky top-6 order-2'
-              } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[694px] xl:h-[694px] overflow-y-auto`}>
+              } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[80vh] lg:max-h-[694px] xl:h-[694px] lg:overflow-y-auto`}>
               <div className="space-y-4 flex flex-col flex-1">
                 <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
                   <div className="flex items-center gap-2">
