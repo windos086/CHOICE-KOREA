@@ -10,6 +10,7 @@ import { TelegramBanner, VerticalTelegramBanner } from './components/TelegramBan
 import { VerticalDepositBanner } from './components/DepositBanner';
 import { VerticalWithdrawalBanner } from './components/WithdrawalBanner';
 import SportsContainer from './components/SportsContainer';
+import CasinoContainer from './components/CasinoContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
 import BGMControls from './components/BGMControls';
@@ -255,10 +256,116 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [selectedSport, setSelectedSport] = useState<'전체' | '축구' | '농구' | '야구' | '배구' | '아이스하키'>('전체');
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showMiniGameSubmenu, setShowMiniGameSubmenu] = useState(false);
+  const [showCasino, setShowCasino] = useState(false);
   const [mobileBetSlipOpen, setMobileBetSlipOpen] = useState(false);
   const miniGameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resolvingBetsRef = useRef<boolean>(false);
   const [activeMiniGameTab, setActiveMiniGameTab] = useState<string>('powerladder5');
+
+  // Multi-game manual deadline adjustments managed by administrators (in 1-second intervals, default is 0)
+  const [betCloseOffsets, setBetCloseOffsets] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('betCloseOffsets');
+    const defaults = {
+      powerball5: 0,
+      powerball3: 0,
+      powerladder5: 0,
+      powerladder3min: 0,
+      redpowerladder5: 0,
+      kenoladder5: 0,
+      baccaratA: 0,
+    };
+    if (saved) {
+      try {
+        return { ...defaults, ...JSON.parse(saved) };
+      } catch (e) {
+        return defaults;
+      }
+    }
+    return defaults;
+  });
+
+  const [betIntervals, setBetIntervals] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('betIntervals');
+    const defaults = {
+      baccaratA: 30, // Default 30
+    };
+    if (saved) {
+      try {
+        return { ...defaults, ...JSON.parse(saved) };
+      } catch (e) {
+        return defaults;
+      }
+    }
+    return defaults;
+  });
+
+  // Real-time Firestore synchronization for betCloseOffsets
+  useEffect(() => {
+    const docRef = doc(db, 'settings', 'betCloseOffsets');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setBetCloseOffsets(prev => ({
+          ...prev,
+          ...data,
+        }));
+      }
+    }, (err) => {
+      console.warn("Error listening to betCloseOffsets from Firestore:", err);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore synchronization for betIntervals
+  useEffect(() => {
+    const docRef = doc(db, 'settings', 'betIntervals');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setBetIntervals(prev => ({
+          ...prev,
+          ...data,
+        }));
+      }
+    }, (err) => {
+      console.warn("Error listening to betIntervals from Firestore:", err);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const updateBetCloseOffset = async (gameKey: string, newValue: number) => {
+    // 1. Update local state
+    setBetCloseOffsets(prev => {
+      const updated = { ...prev, [gameKey]: newValue };
+      localStorage.setItem('betCloseOffsets', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 2. Persist to Firestore
+    try {
+      const docRef = doc(db, 'settings', 'betCloseOffsets');
+      await setDoc(docRef, { [gameKey]: newValue }, { merge: true });
+    } catch (err) {
+      console.error("Failed to update betCloseOffset in Firestore:", err);
+    }
+  };
+
+  const updateBetInterval = async (gameKey: string, newValue: number) => {
+    // 1. Update local state
+    setBetIntervals(prev => {
+      const updated = { ...prev, [gameKey]: newValue };
+      localStorage.setItem('betIntervals', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 2. Persist to Firestore
+    try {
+      const docRef = doc(db, 'settings', 'betIntervals');
+      await setDoc(docRef, { [gameKey]: newValue }, { merge: true });
+    } catch (err) {
+      console.error("Failed to update betInterval in Firestore:", err);
+    }
+  };
   const [withdrawalPassword, setWithdrawalPassword] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [currentUserData, setCurrentUserData] = useState<any>(null);
@@ -516,8 +623,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Keno Ladder mobile view state & ref
+  const [kenoLadderScale, setKenoLadderScale] = useState(1);
+  const kenoContainerRef = useRef<HTMLDivElement>(null);
 
-  const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'pointshistory' | 'support' | 'mypage' | 'event' | 'notice' | 'tetherguide') => {
+  const navigateTo = (target: 'home' | 'sports' | 'minigame' | 'deposit' | 'withdrawal' | 'gameresult' | 'bethistory' | 'pointshistory' | 'support' | 'mypage' | 'event' | 'notice' | 'tetherguide' | 'casino') => {
     setShowSports(false);
     setSelectedSport('전체');
     setShowBetHistory(false);
@@ -533,6 +644,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     setShowMiniGame(false);
     setShowAdminPanel(false);
     setShowAttendanceChecker(false);
+    setShowCasino(false);
 
     if (target === 'sports') {
       setShowSports(true);
@@ -558,14 +670,33 @@ export default function MainPage({ onLogout }: MainPageProps) {
       setShowNoticeScreen(true);
     } else if (target === 'tetherguide') {
       setShowTetherGuide(true);
+    } else if (target === 'casino') {
+      setShowCasino(true);
     }
   };
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (kenoContainerRef.current) {
+        setKenoLadderScale(kenoContainerRef.current.clientWidth / 830);
+      }
+    };
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (activeMiniGameTab === 'kenoladder5') {
+      const timer = setTimeout(() => {
+        if (kenoContainerRef.current) {
+          setKenoLadderScale(kenoContainerRef.current.clientWidth / 830);
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [activeMiniGameTab, showMiniGame]);
 
   // States for Real-Time Betting System
   const [selectedOptions, setSelectedOptions] = useState<{ group: string; name: string; dividend: number; round: number; game: string; gameType: string }[]>([]);
@@ -649,14 +780,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
     // Total elapsed seconds of the day in KST
     const secondsInDay = totalSeconds % 86400;
     
-    // We adjust the boundaries so they match the actual iframe streams exactly:
-    // 5-minute games draw at R * 300 - 25 seconds of the KST day (offset = 25)
-    // 3-minute games draw at R * 180 - 20 seconds of the KST day (offset = 20)
-    // 1-minute games draw at R * 60 - 10 seconds of the KST day (offset = 10)
+    // Standard stream offsets to align rounds layout with live broadcasts reliably:
     let iframeOffset = tab.includes('5') ? 25 : tab.includes('3') ? 20 : 5;
     if (tab === 'redpowerladder5') {
-      iframeOffset = 178; // Red power ladder draws at MM:02:00 and MM:07:00, roughly 2m 58s earlier than Npowerball
+      iframeOffset = 178;
     }
+    if (tab === 'kenoladder5') {
+      iframeOffset = 171;
+    }
+    
     const adjustedSeconds = secondsInDay + iframeOffset;
     
     const interval = tab.includes('5') ? 5 : tab.includes('3') ? 3 : 1;
@@ -664,9 +796,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
     
     const currentRound = Math.floor(adjustedSeconds / intervalInSeconds) + 1;
     const secondsElapsed = adjustedSeconds % intervalInSeconds;
-    const secondsRemaining = intervalInSeconds - secondsElapsed;
     
-    return { currentRound, secondsRemaining, secondsElapsed };
+    // Raw seconds remaining to the physical draw event
+    const rawSecondsRemaining = intervalInSeconds - secondsElapsed;
+    
+    // Direct manual countdown adjustment seconds set by administrator (default is 0)
+    const betCloseOffset = betCloseOffsets[tab] !== undefined ? betCloseOffsets[tab] : 0;
+    
+    // The actual displayed betting deadline countdown.
+    // It hits 0 at the lock-out (10 seconds before draw plus the administrator's offset).
+    const secondsRemaining = rawSecondsRemaining - 10 + betCloseOffset;
+    
+    return { currentRound, secondsRemaining, secondsElapsed, rawSecondsRemaining };
   };
 
   const getSecondsRemaining = (tab: string) => {
@@ -684,7 +825,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       setSecondsLeft(getSecondsRemaining(activeMiniGameTab));
     }, 1000);
     return () => clearInterval(token);
-  }, [activeMiniGameTab, serverTimeOffset]);
+  }, [activeMiniGameTab, serverTimeOffset, betCloseOffsets]);
 
   // Dynamic background pending-bets auto-resolver & self-healing precision settlement synchronizer
   // [사용자 요구사항 반영] 배팅 자동정산은 "경기결과" 메뉴(gameResultsTTL 컬렉션)에 해당 회차가 업데이트로 등록된 직후에만 진행됩니다.
@@ -715,7 +856,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
 
-          if (['powerladder5', 'redpowerladder5', 'powerladder3min', 'speedladder1'].includes(gType)) {
+          if (['powerladder5', 'redpowerladder5', 'powerladder3min'].includes(gType)) {
             if (!details.start || !details.lines || !details.outcome) {
               return { isWinFolder: false, folderOutcome: '대기 중' };
             }
@@ -1020,8 +1161,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     for (const opt of selectedOptions) {
       const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
 
-      if (opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10)) {
-        alert(`선택된 [${opt.game} ${opt.round}회차]는 이미 마감되었거나 마감 10초 전(남은 시간: ${secondsRemaining}초)에 진입하여 배팅이 제한됩니다. 해당 폴더의 선택을 무효하고 다른 판을 선택해 주세요.`);
+      if (opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 0)) {
+        alert(`선택된 [${opt.game} ${opt.round}회차]는 이미 마감되었습니다 (남은 배팅 시간: ${secondsRemaining}초). 해당 폴더의 선택을 무효하고 다른 회차를 선택해 주세요.`);
         return;
       }
     }
@@ -1133,7 +1274,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // Generate current + 5 upcoming rounds dynamically based on clock
   const getUpcomingRounds = (type: string) => {
     const { currentRound } = getRoundAndSecondsRemaining(type);
-    const interval = type === 'speedladder1' ? 1 : type.includes('3') ? 3 : 5;
+    const interval = type.includes('3') ? 3 : 5;
     
     const list = [];
     for (let i = 0; i < 1; i++) {
@@ -1275,8 +1416,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const handleToggleOption = (group: string, name: string, dividend: number, round: number, game: string) => {
     const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(activeMiniGameTab);
 
-    if (round < currentRound || (round === currentRound && secondsRemaining <= 10)) {
-      alert(`해당 ${round}회차는 마감되었거나 마감 10초 전(남은 시간: ${secondsRemaining}초)이므로 배팅 선택이 불가능합니다. 다음 회차를 선택하여 배팅해 주세요.`);
+    if (round < currentRound || (round === currentRound && secondsRemaining <= 0)) {
+      alert(`해당 ${round}회차는 마감되었습니다 (남은 배팅 시간: ${secondsRemaining}초). 다음 회차가 시작되면 선택해 주세요.`);
       return;
     }
 
@@ -2484,7 +2625,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
         for (let r = startRound; r <= endRound; r++) {
           // Calculate precise target stable date in KST for this specific historical round
-          const intervalMin = g.key === 'speedladder1' ? 1 : g.key.includes('5') ? 5 : g.key.includes('3') ? 3 : 5;
+          const intervalMin = g.key.includes('5') ? 5 : g.key.includes('3') ? 3 : 5;
           const roundTime = new Date(secureNow.getTime() - (currentRound - r) * intervalMin * 60 * 1000);
           const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
           const dateString = roundKst.toISOString().split('T')[0];
@@ -2606,7 +2747,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             // Validate result data
             const isValidLadder = (currentGameType: string) => {
-              if (['speedladder1', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(currentGameType)) {
+              if (['powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(currentGameType)) {
                  return ['좌', '우'].includes(details.start) && ['3줄', '4줄'].includes(details.lines) && ['홀', '짝'].includes(details.outcome);
               }
               return true;
@@ -3773,25 +3914,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
               frameBorder="0"
               className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
             />
-          ) : activeMiniGameTab === 'speedladder1' ? (
-            <iframe 
-              key="speedladder1"
-              src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
-              width="100%"
-              height={isMobile ? "360" : "640"}
-              scrolling="no" 
-              frameBorder="0"
-              className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
-            />
           ) : activeMiniGameTab === 'kenoladder5' ? (
-            <iframe 
-              key="kenoladder5_video"
-              src="https://bepick.net/live/ntry_keladder"
-              width="100%"
-              scrolling="no" 
-              frameBorder="0"
-              className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/660] h-auto'} min-h-[320px]`}
-            />
+            renderKenoLadderIframe()
           ) : (
             <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
           )}
@@ -3799,6 +3923,38 @@ export default function MainPage({ onLogout }: MainPageProps) {
       </div>
     </div>
   );
+
+  const renderKenoLadderIframe = () => {
+    return (
+      <div 
+        ref={kenoContainerRef}
+        className="rounded-lg shadow-lg border border-neutral-800 w-full overflow-hidden relative bg-[#04060b]"
+        style={{ height: isMobile ? `${640 * kenoLadderScale}px` : 'auto', aspectRatio: isMobile ? undefined : '830/640' }}
+      >
+        <iframe 
+          key="kenoladder5_video"
+          src="https://bepick.net/live/ntry_keladder"
+          scrolling="no" 
+          frameBorder="0"
+          style={isMobile ? {
+            width: '830px',
+            height: '640px',
+            transform: `scale(${kenoLadderScale})`,
+            transformOrigin: 'top left',
+            border: '0',
+            position: 'absolute',
+            top: '0',
+            left: '0'
+          } : {
+            width: '100%',
+            height: '100%',
+            border: '0'
+          }}
+          className={isMobile ? "" : "w-full aspect-[830/640] h-auto"}
+        />
+      </div>
+    );
+  };
 
   const renderMinigameBoard = () => (
     <div key="board-widget" className="w-full bg-[#04060b] border border-red-600/30 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
@@ -3902,7 +4058,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   );
 
                 const { currentRound } = getRoundAndSecondsRemaining(activeMiniGameTab);
-                const isClosed = row.round < currentRound || (row.round === currentRound && secondsLeft <= 10);
+                const isClosed = row.round < currentRound || (row.round === currentRound && secondsLeft <= 0);
 
                 return (
                   <tr key={`${row.round}-${idx}`} className="hover:bg-neutral-900/40 transition-colors">
@@ -4058,8 +4214,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 font-mono space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-400">배팅 마감시간</span>
-              <span className={`text-xs font-black flex items-center gap-1.5 ${secondsLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
-                {secondsLeft <= 10 ? (
+              <span className={`text-xs font-black flex items-center gap-1.5 ${secondsLeft <= 0 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
+                {secondsLeft <= 0 ? (
                   <span className="bg-red-950 border border-red-800 text-red-400 px-1.5 py-0.5 rounded text-[9px] font-black mr-1 animate-pulse">
                     배팅 마감
                   </span>
@@ -4208,7 +4364,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               onClick={handlePlaceBet}
               disabled={selectedOptions.length === 0 || !betAmount || selectedOptions.some(opt => {
                 const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
-                return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+                return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 0);
               })}
               className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
             >
@@ -4216,14 +4372,82 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 '잔액이 부족합니다'
               ) : selectedOptions.some(opt => {
                 const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
-                return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+                return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 0);
               }) ? (
-                '배팅 마감 (10초 전 마감)'
+                '배팅 마감'
               ) : (
                 '배팅하기 (Place Stake)'
               )}
             </button>
           </div>
+
+          {/* Admin offset micro-adjuster panel rendered right inside the cart column if the user is an admin */}
+          {isAdmin && renderAdminTimeAdjuster()}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAdminTimeAdjuster = () => {
+    const gamesList = [
+      { key: 'powerball5', name: 'N파워볼(5분)', default: 25 },
+      { key: 'powerball3', name: 'N파워볼(3분)', default: 20 },
+      { key: 'powerladder5', name: 'N파워사다리(5분)', default: 25 },
+      { key: 'powerladder3min', name: 'N파워사다리(3분)', default: 20 },
+      { key: 'redpowerladder5', name: '레드사다리(5분)', default: 178 },
+      { key: 'kenoladder5', name: '키노사다리(5분)', default: 171 },
+    ];
+
+    return (
+      <div className="mt-4 pt-4 border-t border-neutral-800 space-y-3 flex-shrink-0">
+        <div className="flex items-center gap-1.5 pb-1 select-none">
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          <h4 className="text-xs font-extrabold text-rose-500 flex items-center gap-1">
+            관리자 마감 시간 조율 (1초 단위)
+          </h4>
+        </div>
+        
+        <p className="text-[10px] text-gray-400 leading-normal select-none">
+          실시간 영상 및 중계 지연 현상 조정용입니다. 값이 클수록 마감 시간이 뒤로 늘어나거나 회차 전환 타이밍이 조정됩니다.
+        </p>
+
+        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar">
+          {gamesList.map((g) => {
+            const current = betCloseOffsets[g.key] !== undefined ? betCloseOffsets[g.key] : g.default;
+            return (
+              <div key={g.key} className="bg-neutral-950 p-2 rounded-lg border border-neutral-850 flex flex-col gap-1.5 shadow-inner">
+                <div className="flex items-center justify-between text-[10px] select-none">
+                  <span className="font-extrabold text-neutral-300">{g.name}</span>
+                  <span className="font-mono font-black text-rose-400 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/30">
+                    오프셋: {current}초
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 select-none">
+                  <button
+                    onClick={() => updateBetCloseOffset(g.key, current - 1)}
+                    className="bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-[10px] font-black py-1 rounded border border-neutral-800 transition active:scale-95 cursor-pointer"
+                    title="-1초 조율"
+                  >
+                    -1초
+                  </button>
+                  <button
+                    onClick={() => updateBetCloseOffset(g.key, current + 1)}
+                    className="bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-[10px] font-black py-1 rounded border border-neutral-800 transition active:scale-95 cursor-pointer"
+                    title="+1초"
+                  >
+                    +1초
+                  </button>
+                  <button
+                    onClick={() => updateBetCloseOffset(g.key, g.default)}
+                    className="bg-neutral-950 hover:bg-neutral-900 text-neutral-500 text-[9px] font-bold py-1 rounded border border-neutral-900/50 transition active:scale-95 cursor-pointer"
+                    title="기본값 초기화"
+                  >
+                    초기화
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -4449,7 +4673,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </span>
                 </span>
               </button>
-              {['테더가이드', '스포츠', '미니게임', '폴리마켓', '경기결과', '베팅내역', '포인트내역', '입금신청', '출금신청', '이벤트', '공지사항'].map((item) => {
+              {['테더가이드', '스포츠', '미니게임', '카지노게임', '경기결과', '베팅내역', '포인트내역', '입금신청', '출금신청', '이벤트', '공지사항'].map((item) => {
                 if (item === '테더가이드') {
                   return (
                     <button 
@@ -4470,6 +4694,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       >
                         스포츠
                       </button>
+                  );
+                }
+                if (item === '카지노게임') {
+                  return (
+                    <button 
+                      key={item} 
+                      onClick={() => navigateTo('casino')}
+                      className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showCasino ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                    >
+                      카지노게임
+                    </button>
                   );
                 }
                 if (item === '미니게임') {
@@ -4881,16 +5116,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Sports+</span>
                   </button>
 
-                  {/* 폴리마켓 */}
+                  {/* 카지노게임 */}
                   <button
                     type="button"
-                    onClick={() => { alert('폴리마켓 기능은 준비중입니다.'); setIsMobileMenuOpen(false); }}
+                    onClick={() => { navigateTo('casino'); setIsMobileMenuOpen(false); }}
                     className="bg-[#141720]/85 hover:bg-neutral-800 py-3 text-center rounded-lg border border-red-900 flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-sm font-bold text-amber-500 font-extrabold flex flex-col items-center leading-tight">
-                      <span>폴리마켓</span>
+                      <span>카지노게임</span>
                     </span>
-                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Polymarket</span>
+                    <span className="text-[7.5px] text-amber-500 uppercase font-bold tracking-tight">Cazino</span>
                   </button>
 
 
@@ -7274,25 +7509,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       frameBorder="0"
                       className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[420px]' : 'aspect-[830/640] h-auto'} min-h-[320px]`}
                     />
-                  ) : activeMiniGameTab === 'speedladder1' ? (
-                    <iframe 
-                      key="speedladder1"
-                      src={isMobile ? "https://xn--950bo4em5v.co/minigame/ladder/speedladder/mobile" : "https://xn--950bo4em5v.co/minigame/ladder/speedladder/pc"}
-                      width="100%"
-                      height={isMobile ? "360" : "640"}
-                      scrolling="no" 
-                      frameBorder="0"
-                      className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
-                    />
                   ) : activeMiniGameTab === 'kenoladder5' ? (
-                    <iframe 
-                      key="kenoladder5"
-                      src="https://bepick.net/live/ntry_keladder"
-                      width="100%"
-                      scrolling="no" 
-                      frameBorder="0"
-                      className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/660] h-auto'} min-h-[320px]`}
-                    />
+                    renderKenoLadderIframe()
                   ) : (
                     <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
                   )}
@@ -7405,7 +7623,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                             const { currentRound } = getRoundAndSecondsRemaining(activeMiniGameTab);
                             const isCurrentRound = row.round === currentRound;
-                            const isClosed = row.round < currentRound || (row.round === currentRound && secondsLeft <= 10);
+                            const isClosed = row.round < currentRound || (row.round === currentRound && secondsLeft <= 0);
 
                             return (
                               <tr key={`${row.round}-${idx}`} className="hover:bg-neutral-900/40 transition-colors">
@@ -7559,8 +7777,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 font-mono space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">배팅 마감시간</span>
-                    <span className={`text-xs font-black flex items-center gap-1.5 ${secondsLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
-                      {secondsLeft <= 10 ? (
+                    <span className={`text-xs font-black flex items-center gap-1.5 ${secondsLeft <= 0 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
+                      {secondsLeft <= 0 ? (
                         <span className="bg-red-950 border border-red-800 text-red-400 px-1.5 py-0.5 rounded text-[9px] font-black mr-1 animate-pulse">
                           배팅 마감
                         </span>
@@ -7733,7 +7951,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     onClick={handlePlaceBet}
                     disabled={selectedOptions.length === 0 || !betAmount || selectedOptions.some(opt => {
                       const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
-                      return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+                      return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 0);
                     })}
                     className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
                   >
@@ -7741,9 +7959,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       '잔액이 부족합니다'
                     ) : selectedOptions.some(opt => {
                       const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
-                      return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+                      return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 0);
                     }) ? (
-                      '배팅 마감 (10초 전 마감)'
+                      '배팅 마감'
                     ) : (
                       '배팅하기 (Place Stake)'
                     )}
@@ -7771,6 +7989,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </>
           )}
         </div>
+      ) : showCasino ? (
+        <CasinoContainer 
+          currentUserData={currentUserData}
+          userBalance={userBalance}
+          setUserBalance={setUserBalance}
+          setUserPoints={setUserPoints}
+          betCloseOffsets={betCloseOffsets}
+          updateBetCloseOffset={updateBetCloseOffset}
+          betIntervals={betIntervals}
+          updateBetInterval={updateBetInterval}
+          isAdmin={isAdmin}
+        />
       ) : (
         <>
           {/* Main Feature Banner - High-End Luxury Cohesive VIP Cockpit Board */}
@@ -7903,13 +8133,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {[
                   { label: '스포츠', img: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=500' },
-                  { label: '카지노', img: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=500' },
+                  { label: '카지노게임', img: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=500' },
                   { label: '슬롯게임', img: 'https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=500' },
                   { label: '미니게임', img: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=500' },
                   { label: '경기결과', img: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=500' },
                   { label: '공지사항', img: 'https://images.unsplash.com/photo-1557200134-90327ee9fafa?q=80&w=500' }
                 ].map((cat, idx) => {
-                  const isDisabled = cat.label === '카지노' || cat.label === '슬롯게임';
+                  const isDisabled = cat.label === '슬롯게임';
                   return (
                     <motion.div 
                       whileHover={!isDisabled ? { y: -6, scale: 1.02 } : {}}
@@ -7918,6 +8148,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         if (isDisabled) return;
                         if (cat.label === '스포츠') {
                           navigateTo('sports');
+                        } else if (cat.label === '카지노게임') {
+                          navigateTo('casino');
                         } else if (cat.label === '미니게임') {
                           setActiveMiniGameTab('powerball5');
                           navigateTo('minigame');
