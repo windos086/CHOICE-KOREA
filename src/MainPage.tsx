@@ -13,7 +13,7 @@ import SportsContainer from './components/SportsContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
 import BGMControls from './components/BGMControls';
-import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout } from 'lucide-react';
+import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout, Dribbble, Workflow, Play, Tv, ChevronLeft, ChevronRight } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -60,6 +60,169 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   };
   console.warn('Firestore Error: ', JSON.stringify(errInfo));
   console.warn('Firestore operation handled gracefully:', error);
+}
+
+const defaultSportsHighlights = [
+  {
+    id: "choice_special_user",
+    title: "EPL 최고 클래스 경기력 & 환상적인 원더골 모음 하이라이트 스페셜",
+    embedId: "3y3NV_3Bkz8",
+    category: "축구",
+    duration: "13:42",
+    views: "1.8M",
+    tags: ["EPL 스페셜", "명경기"]
+  },
+  {
+    id: "user_video_2",
+    title: "손흥민 분노 폭발! 토트넘 역사에 길이 남을 미친 활약상 스페셜",
+    embedId: "a_z8KwYrY8s",
+    category: "축구",
+    duration: "11:20",
+    views: "2.1M",
+    tags: ["EPL", "손흥민"]
+  },
+  {
+    id: "user_video_3",
+    title: "세계 축구사를 바꾼 역사상 가장 짜릿했던 역전승 명경기 한눈에 보기",
+    embedId: "VaPfGMFe_4I",
+    category: "축구",
+    duration: "09:45",
+    views: "1.5M",
+    tags: ["명경기", "레전드"]
+  },
+  {
+    id: "user_video_4",
+    title: "예측불가 각본 없는 드라마! 역대급 짜릿한 버저비터 & 슈퍼 플레이",
+    embedId: "uGwqKZ7jJnU",
+    category: "스포츠",
+    duration: "12:15",
+    views: "980K",
+    tags: ["최고의순간", "슈퍼플레이"]
+  },
+  {
+    id: "user_video_5",
+    title: "관중 전원 기립! 야구 역사상 가장 환상적인 수비 & 홈런 스페셜",
+    embedId: "pxOYNRudATU",
+    category: "야구",
+    duration: "10:30",
+    views: "850K",
+    tags: ["야구", "홈런", "호수비"]
+  }
+];
+
+function SportsHighlightsSection({ videos }: { videos: any[] }) {
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, clientWidth } = scrollContainerRef.current;
+      const scrollAmount = clientWidth * 0.75;
+      const scrollTo = direction === 'left' 
+        ? scrollLeft - scrollAmount 
+        : scrollLeft + scrollAmount;
+      
+      scrollContainerRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <div className="-mt-[30px] block w-full bg-gradient-to-b from-[#0c0d12] to-[#06070a] border-2 border-red-600/50 rounded-xl md:rounded-2xl p-4 md:p-6 shadow-xl shadow-red-950/10 space-y-4 md:space-y-5 relative">
+      <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <Tv className="w-5 h-5 text-red-500 animate-pulse" />
+          </div>
+          <div>
+            <h3 className="text-base font-black text-white tracking-wider flex items-center gap-2">
+              스포츠 하이라이트
+            </h3>
+          </div>
+        </div>
+
+        {/* Carousel controls */}
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => scroll('left')}
+            className="w-8 h-8 bg-[#12141c] hover:bg-neutral-800 border border-neutral-800 text-gray-400 hover:text-white rounded-lg flex items-center justify-center transition-all active:scale-95 group/btn cursor-pointer"
+            title="이전 영상"
+          >
+            <ChevronLeft className="w-4 h-4 transition-transform group-hover/btn:-translate-x-[1px]" />
+          </button>
+          <button 
+            onClick={() => scroll('right')}
+            className="w-8 h-8 bg-[#12141c] hover:bg-neutral-800 border border-neutral-800 text-gray-400 hover:text-white rounded-lg flex items-center justify-center transition-all active:scale-95 group/btn cursor-pointer"
+            title="다음 영상"
+          >
+            <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-[1px]" />
+          </button>
+        </div>
+      </div>
+
+      {/* Slide Container */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      >
+        {videos.map((v, idx) => {
+          const isPlaying = activeVideoId === v.id;
+          return (
+            <div
+              key={v.id}
+              className="min-w-[280px] sm:min-w-[340px] md:min-w-[420px] lg:min-w-[460px] flex-shrink-0 bg-[#12141c] border border-neutral-800 hover:border-red-500/65 rounded-xl overflow-hidden shadow-xl transition-all duration-350 hover:scale-[1.02] hover:shadow-red-500/10 group snap-start"
+            >
+              <div className="relative aspect-video w-full bg-black overflow-hidden flex items-center justify-center">
+                {isPlaying ? (
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src={`https://www.youtube.com/embed/${v.embedId}?autoplay=1`}
+                    title={v.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0 cursor-pointer group flex items-center justify-center"
+                    onClick={() => setActiveVideoId(v.id)}
+                  >
+                    {/* Thumbnail Image */}
+                    <img
+                      src={`https://img.youtube.com/vi/${v.embedId}/hqdefault.jpg`}
+                      alt={v.title}
+                      className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    
+                    {/* Dark gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent opacity-90" />
+                    
+                    {/* Golden shimmer/sparkle overlay */}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(251,191,36,0.2),transparent_60%)] pointer-events-none group-hover:opacity-100 opacity-50 transition-opacity duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-amber-200/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1500ms] ease-in-out pointer-events-none z-10" />
+                    <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(251,191,36,0.15)] group-hover:shadow-[inset_0_0_30px_rgba(251,191,36,0.4)] transition-all duration-500 pointer-events-none" />
+
+                    {/* Play Button */}
+                    <div className="relative z-10 w-11 h-11 rounded-full bg-red-650 flex items-center justify-center text-white shadow-lg shadow-red-650/30 group-hover:scale-110 group-hover:bg-red-500 transition-all duration-300">
+                      <Play className="w-5 h-5 fill-current ml-0.5" />
+                    </div>
+
+                    {/* Duration badge */}
+                    <span className="absolute bottom-2 right-2 bg-black/85 text-[10px] font-mono font-bold text-gray-200 px-1.5 py-0.5 rounded">
+                      {v.duration}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 interface MainPageProps {
@@ -127,7 +290,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [gameResultSearch, setGameResultSearch] = useState('');
 
   // State for Admin Deposit & Withdrawal Requests panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames' | 'videos'>('users');
+  const [adminVideos, setAdminVideos] = useState<any[]>(defaultSportsHighlights);
+  const [newVideoTitle, setNewVideoTitle] = useState('');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
   const [adminDepositRequests, setAdminDepositRequests] = useState<any[]>([]);
   const [exchangeRate, setExchangeRate] = useState(1537); // Default
   const [newExchangeRate, setNewExchangeRate] = useState(''); // New state
@@ -1798,6 +1964,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
         const data = docSnap.data();
         if (data.usdtToKrwRate !== undefined) {
           setExchangeRate(data.usdtToKrwRate);
+        }
+        if (data.videos && Array.isArray(data.videos)) {
+          setAdminVideos(data.videos);
         }
         if (data.minigameLayout) {
           setMinigameLayout({
@@ -4077,10 +4246,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </button>
                 )}
                 <a
-                  href="https://t.me/choice_sports"
+                  href="https://t.me/Choice_root"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-[#121620] hover:bg-neutral-850 border border-neutral-800 text-white p-2 rounded-lg active:scale-95 transition-all shadow-md flex items-center justify-center cursor-pointer"
+                  className="bg-[#121620] hover:bg-neutral-850 border border-neutral-800 text-white p-2 rounded-lg active:scale-95 transition-all shadow-md flex items-center justify-center cursor-pointer animate-telegram-glow"
                 >
                   <Send className="w-4 h-4 text-sky-450 transform -rotate-12" />
                 </a>
@@ -7590,9 +7759,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
           </div>
 
           {/* Main Categories Section */}
-          <main className="flex-1 p-8 max-w-7xl w-full mx-auto space-y-10">
+          <main className="flex-1 px-4 sm:px-6 md:px-8 py-8 max-w-[1550px] w-full mx-auto space-y-10">
+            <SportsHighlightsSection videos={adminVideos} />
             <div>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-6 border-b border-neutral-800 pb-3">
                 <div className="flex items-center gap-3">
                   <span className="w-1.5 h-6 bg-red-500 rounded"></span>
                   <h2 className="text-2xl font-black text-white tracking-wider">주요 게임 장르</h2>
@@ -7740,6 +7910,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'settings' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Settings className="w-3 h-3 text-amber-500" /> 환율 설정
+                  </button>
+                  <button
+                    onClick={() => setAdminActiveTab('videos')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'videos' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Tv className="w-3 h-3 text-sky-400" /> 하이라이트 영상
                   </button>
                   <button
                     onClick={() => setAdminActiveTab('inquiries')}
@@ -8055,6 +8231,121 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </table>
                   </div>
                 </div>
+              ) : adminActiveTab === 'videos' ? (
+                <div className="space-y-6">
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">
+                    <h3 className="text-sm font-black text-white mb-2 flex items-center gap-1.5 border-b border-neutral-800 pb-2">
+                      <Tv className="w-4 h-4 text-sky-400" />
+                      유튜브 하이라이트 영상 관리 (최대 10개)
+                    </h3>
+                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                      <div className="flex-1 space-y-1">
+                        <label className="text-xs text-gray-400 font-bold block">유튜브 영상 URL (필수)</label>
+                        <input
+                          type="text"
+                          value={newVideoUrl}
+                          onChange={(e) => setNewVideoUrl(e.target.value)}
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          className="bg-black border border-neutral-700 text-white px-3 py-2 rounded text-sm w-full"
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <label className="text-xs text-gray-400 font-bold block">영상 제목 (선택)</label>
+                        <input
+                          type="text"
+                          value={newVideoTitle}
+                          onChange={(e) => setNewVideoTitle(e.target.value)}
+                          placeholder="입력 안할시 '스포츠 하이라이트'로 처리"
+                          className="bg-black border border-neutral-700 text-white px-3 py-2 rounded text-sm w-full"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+                          const match = newVideoUrl.match(regExp);
+                          const embedId = (match && match[7].length === 11) ? match[7] : false;
+                          
+                          if (!embedId) {
+                            alert("올바른 유튜브 URL을 입력해주세요.");
+                            return;
+                          }
+                          
+                          const newVideo = {
+                            id: `vid_${Date.now()}`,
+                            title: newVideoTitle || "스포츠 하이라이트",
+                            embedId: embedId,
+                            category: "스포츠",
+                            duration: "",
+                            views: "",
+                            tags: []
+                          };
+                          
+                          const updatedVideos = [newVideo, ...adminVideos].slice(0, 10);
+                          
+                          await setDoc(doc(db, 'appSettings', 'general'), { videos: updatedVideos }, { merge: true });
+                          setAdminVideos(updatedVideos);
+                          setNewVideoUrl('');
+                          setNewVideoTitle('');
+                          alert("새 영상이 등록되었습니다.");
+                        }}
+                        className="bg-red-650 hover:bg-red-500 text-white px-4 py-2 rounded text-sm font-bold transition whitespace-nowrap cursor-pointer h-[38px] flex items-center justify-center gap-1.5"
+                      >
+                        등록하기
+                      </button>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-neutral-800">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs min-w-[700px]">
+                          <thead>
+                            <tr className="bg-neutral-800 text-gray-400">
+                              <th className="p-3 whitespace-nowrap w-[20%]">썸네일</th>
+                              <th className="p-3 whitespace-nowrap w-[50%]">제목 / 링크</th>
+                              <th className="p-3 whitespace-nowrap w-[20%] text-center">아이디 (Embed)</th>
+                              <th className="p-3 whitespace-nowrap w-[10%] text-center">관리</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {adminVideos.map((vid, idx) => (
+                              <tr key={vid.id || idx} className="border-b border-neutral-800/50 hover:bg-neutral-850 transition">
+                                <td className="p-2 pl-3">
+                                  <img src={`https://img.youtube.com/vi/${vid.embedId}/mqdefault.jpg`} className="w-24 h-auto rounded" alt="thumb"/>
+                                </td>
+                                <td className="p-3">
+                                  <div className="font-bold text-gray-200 line-clamp-2 leading-relaxed">{vid.title}</div>
+                                  <a href={`https://youtube.com/watch?v=${vid.embedId}`} target="_blank" rel="noreferrer" className="text-[10px] text-sky-500 hover:underline mt-1 block">
+                                    https://youtube.com/watch?v={vid.embedId}
+                                  </a>
+                                </td>
+                                <td className="p-3 text-center font-mono text-gray-500">{vid.embedId}</td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    onClick={async () => {
+                                      if(!confirm('이 영상을 목록에서 삭제하시겠습니까?')) return;
+                                      const updatedVideos = adminVideos.filter((v) => v.id !== vid.id);
+                                      await setDoc(doc(db, 'appSettings', 'general'), { videos: updatedVideos }, { merge: true });
+                                      setAdminVideos(updatedVideos);
+                                    }}
+                                    className="px-2.5 py-1.5 bg-neutral-800 hover:bg-red-900/30 text-rose-500 rounded font-bold transition cursor-pointer inline-flex items-center gap-1"
+                                  >
+                                    <Trash2 className="w-3 h-3" /> 삭제
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                            {adminVideos.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="p-6 text-center text-neutral-500">
+                                  등록된 영상이 없습니다.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : adminActiveTab === 'settings' ? (
                 <div className="space-y-6">
                   {/* 환율 설정 블록 */}
@@ -8337,16 +8628,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <table className="w-full text-left text-xs text-gray-300">
                         <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
                           <tr>
-                            <th className="p-3 whitespace-nowrap">가입코드</th>
-                            <th className="p-3 whitespace-nowrap">아이디</th>
-                            <th className="p-3 whitespace-nowrap">비밀번호</th>
-                            <th className="p-3 whitespace-nowrap">닉네임</th>
-                            <th className="p-3 whitespace-nowrap">테더 지갑 주소</th>
-                            <th className="p-3 whitespace-nowrap">출금비밀번호</th>
-                            <th className="p-3 whitespace-nowrap">보유금액</th>
-                            <th className="p-3 whitespace-nowrap">포인트</th>
-                            <th className="p-3 whitespace-nowrap">추천 정보</th>
-                            <th className="p-3 text-center whitespace-nowrap">동작</th>
+                            <th className="px-3 py-2 whitespace-nowrap w-20 text-center">가입코드</th>
+                            <th className="px-3 py-2 whitespace-nowrap w-[220px]">회원 정보 (ID/PW/닉네임)</th>
+                            <th className="px-3 py-2 whitespace-nowrap w-[240px]">테더 지갑 / 출금비번</th>
+                            <th className="px-3 py-2 whitespace-nowrap min-w-[140px]">보유 자산</th>
+                            <th className="px-3 py-2 whitespace-nowrap w-[150px]">추천 정보</th>
+                            <th className="px-3 py-2 text-center whitespace-nowrap w-[190px]">관리 동작</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-800/10">
@@ -8360,134 +8647,165 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               const isEditing = editingUserId === user.id;
                               return (
                                 <tr key={user.id} className="hover:bg-neutral-850/40 transition">
-                                  <td className="p-3 font-mono text-amber-500 font-bold whitespace-nowrap">{user.joinCode || '5882'}</td>
-                                  <td className="p-3 font-bold text-white whitespace-nowrap">{user.username}</td>
-                                  <td className="p-3 whitespace-nowrap">
-                                    {isEditing ? (
-                                      <input 
-                                        type="text" 
-                                        value={editingPassword || ''}
-                                        onChange={(e) => setEditingPassword(e.target.value)}
-                                        className="bg-black border border-red-500/40 rounded px-2 py-1 text-white font-mono w-28 text-xs focus:outline-none"
-                                      />
-                                    ) : (
-                                      <span className="font-mono text-red-400/85">{user.password}</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 font-bold whitespace-nowrap text-sky-455">
-                                    {isEditing ? (
-                                      <input 
-                                        type="text" 
-                                        value={editingNickname || ''}
-                                        onChange={(e) => setEditingNickname(e.target.value)}
-                                        className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-24 text-xs focus:outline-none"
-                                      />
-                                    ) : (
-                                      <span className="text-sky-400">{user.nickname || '-'}</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 font-mono whitespace-nowrap">
-                                    {isEditing ? (
-                                      <input 
-                                        type="text" 
-                                        value={editingWallet || ''}
-                                        onChange={(e) => setEditingWallet(e.target.value)}
-                                        className="bg-black border border-red-500/40 rounded px-2 py-1 text-white w-full max-w-sm text-xs focus:outline-none"
-                                      />
-                                    ) : (
-                                      <div className="flex items-center gap-1.5 matches-wallet-container">
-                                        <span className="text-gray-300 text-[11px] font-mono whitespace-nowrap font-semibold select-all">
-                                          {user.tetherWalletAddress || '-'}
-                                        </span>
-                                        {user.tetherWalletAddress && (
-                                          <button
-                                            onClick={() => {
-                                              navigator.clipboard.writeText(user.tetherWalletAddress);
-                                              alert('지갑 주소가 복사되었습니다.');
-                                            }}
-                                            className="text-gray-500 hover:text-amber-400 p-1 rounded hover:bg-neutral-800 transition active:scale-90 cursor-pointer flex-shrink-0"
-                                            title="지갑주소 복사"
-                                          >
-                                            <Copy className="w-3.5 h-3.5" />
-                                          </button>
+                                  <td className="px-3 py-2 text-center align-top pt-3 font-mono text-amber-500 font-bold whitespace-nowrap text-xs">{user.joinCode || '5882'}</td>
+                                  
+                                  {/* 회원 정보 수직 그룹 */}
+                                  <td className="px-3 py-2 align-top">
+                                    <div className="flex flex-col gap-1.5 text-[11px]">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-8 text-neutral-500 font-bold">ID</span>
+                                        <span className="font-bold text-white tracking-wide">{user.username}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-8 text-neutral-500 font-bold">PW</span>
+                                        {isEditing ? (
+                                          <input 
+                                            type="text" 
+                                            value={editingPassword || ''}
+                                            onChange={(e) => setEditingPassword(e.target.value)}
+                                            className="bg-black border border-red-500/40 rounded px-1.5 py-0.5 text-white font-mono w-24 focus:outline-none"
+                                          />
+                                        ) : (
+                                          <span className="font-mono text-red-400/85">{user.password}</span>
                                         )}
                                       </div>
-                                    )}
-                                  </td>
-                                  <td className="p-3 font-mono text-amber-500/80 text-xs whitespace-nowrap">
-                                    {user.withdrawalPassword || '-'}
-                                  </td>
-                                  <td className="p-3 font-bold font-mono text-emerald-400 text-xs whitespace-nowrap">
-                                    {isEditing ? (
-                                      <input 
-                                        type="number" 
-                                        value={editingBalance ?? 0}
-                                        onChange={(e) => setEditingBalance(Number(e.target.value) || 0)}
-                                        className="bg-black border border-red-500/40 rounded px-2 py-0.5 text-white font-mono w-24 text-xs focus:outline-none"
-                                      />
-                                    ) : (
-                                      `${(user.balance !== undefined ? user.balance : 5000000).toLocaleString()}원`
-                                    )}
-                                  </td>
-                                  <td className="p-3 font-bold font-mono text-cyan-400 text-xs whitespace-nowrap">
-                                    {isEditing ? (
-                                      <input 
-                                        type="number" 
-                                        value={editingPoints ?? 0}
-                                        onChange={(e) => setEditingPoints(Number(e.target.value) || 0)}
-                                        className="bg-black border border-red-500/40 rounded px-2 py-0.5 text-white font-mono w-24 text-xs focus:outline-none"
-                                      />
-                                    ) : (
-                                      `${(user.points !== undefined ? user.points : 50000).toLocaleString()}P`
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-xs whitespace-nowrap border-r border-neutral-800/10">
-                                    <div className="flex flex-col gap-0.5 leading-normal">
-                                      <div className="text-[10px] text-gray-400 font-medium">내 추천코드: <span className="font-bold text-amber-500 font-sans">{user.referrerCode || '-'}</span></div>
-                                      <div className="text-[10px] text-gray-450 font-medium">상위 추천인: <span className="font-bold text-cyan-455 font-sans">{user.appliedReferrerCode || '없음'}</span></div>
-                                      <div className="text-[10px] text-gray-450 font-medium">추천 회원수: <span className="font-black text-emerald-450 font-sans">{adminUsers.filter(u => u.appliedReferrerCode === user.referrerCode).length}명</span></div>
-                                      <div className="mt-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-8 text-neutral-500 font-bold">닉네임</span>
                                         {isEditing ? (
-                                          <label className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[9px] text-amber-400 font-extrabold cursor-pointer select-none">
+                                          <input 
+                                            type="text" 
+                                            value={editingNickname || ''}
+                                            onChange={(e) => setEditingNickname(e.target.value)}
+                                            className="bg-black border border-red-500/40 rounded px-1.5 py-0.5 text-white w-24 focus:outline-none"
+                                          />
+                                        ) : (
+                                          <span className="text-sky-400 font-bold">{user.nickname || '-'}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* 지갑/보안 그룹 */}
+                                  <td className="px-3 py-2 align-top">
+                                    <div className="flex flex-col gap-2 text-[11px]">
+                                      <div className="flex flex-col gap-1">
+                                        <span className="text-neutral-500 font-bold">테더 지갑 주소</span>
+                                        {isEditing ? (
+                                          <input 
+                                            type="text" 
+                                            value={editingWallet || ''}
+                                            onChange={(e) => setEditingWallet(e.target.value)}
+                                            className="bg-black border border-red-500/40 rounded px-1.5 py-0.5 text-white w-full max-w-[200px] focus:outline-none font-mono"
+                                          />
+                                        ) : (
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-gray-300 font-mono font-semibold select-all truncate w-[160px]">
+                                              {user.tetherWalletAddress || '-'}
+                                            </span>
+                                            {user.tetherWalletAddress && (
+                                              <button
+                                                onClick={() => {
+                                                  navigator.clipboard.writeText(user.tetherWalletAddress);
+                                                  alert('지갑 주소가 복사되었습니다.');
+                                                }}
+                                                className="text-gray-500 hover:text-amber-400 p-0.5 rounded cursor-pointer"
+                                                title="복사"
+                                              >
+                                                <Copy className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 pt-0.5 border-t border-neutral-800">
+                                        <span className="text-neutral-500 font-bold">출금비번</span>
+                                        <span className="font-mono text-amber-500/80">{user.withdrawalPassword || '-'}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* 보유 자산 그룹 */}
+                                  <td className="px-3 py-2 align-top">
+                                    <div className="flex flex-col gap-2 text-[11px]">
+                                      <div className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded border border-neutral-800">
+                                        <span className="text-neutral-500 font-bold text-[10px]">보유금</span>
+                                        {isEditing ? (
+                                          <input 
+                                            type="number" 
+                                            value={editingBalance ?? 0}
+                                            onChange={(e) => setEditingBalance(Number(e.target.value) || 0)}
+                                            className="bg-black border border-red-500/40 rounded px-1.5 py-0.5 text-white font-mono w-20 text-right focus:outline-none"
+                                          />
+                                        ) : (
+                                          <span className="text-emerald-400 font-mono font-bold tracking-tight">{(user.balance ?? 5000000).toLocaleString()}<span className="text-[10px] text-emerald-500/50 font-sans ml-0.5">원</span></span>
+                                        )}
+                                      </div>
+                                      <div className="flex justify-between items-center bg-neutral-900 px-2 py-1.5 rounded border border-neutral-800">
+                                        <span className="text-neutral-500 font-bold text-[10px]">포인트</span>
+                                        {isEditing ? (
+                                          <input 
+                                            type="number" 
+                                            value={editingPoints ?? 0}
+                                            onChange={(e) => setEditingPoints(Number(e.target.value) || 0)}
+                                            className="bg-black border border-red-500/40 rounded px-1.5 py-0.5 text-white font-mono w-20 text-right focus:outline-none"
+                                          />
+                                        ) : (
+                                          <span className="text-cyan-400 font-mono font-bold tracking-tight">{(user.points ?? 50000).toLocaleString()}<span className="text-[10px] text-cyan-500/50 font-sans ml-0.5">P</span></span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* 추천 정보 그룹 */}
+                                  <td className="px-3 py-2 align-top border-r border-neutral-800/10">
+                                    <div className="flex flex-col gap-1 text-[10px] leading-tight mt-1">
+                                      <div className="text-gray-400 font-medium whitespace-nowrap">내코드 <span className="font-bold text-amber-500 font-sans ml-1 text-[11px]">{user.referrerCode || '-'}</span></div>
+                                      <div className="text-gray-500 font-medium whitespace-nowrap mt-0.5">상위 <span className="font-bold text-cyan-500 font-sans ml-1">{user.appliedReferrerCode || '없음'}</span></div>
+                                      <div className="text-gray-500 font-medium whitespace-nowrap mt-0.5">추천수 <span className="font-bold text-emerald-500 font-sans ml-1">{adminUsers.filter(u => u.appliedReferrerCode === user.referrerCode).length}명</span></div>
+                                      <div className="mt-1.5">
+                                        {isEditing ? (
+                                          <label className="inline-flex items-center justify-center gap-1.5 bg-neutral-900 border border-neutral-700/80 rounded px-1.5 py-1 text-[9px] text-amber-400 font-extrabold cursor-pointer select-none">
                                             <input 
                                               type="checkbox" 
                                               checked={editingIsPartner}
                                               onChange={(e) => setEditingIsPartner(e.target.checked)}
                                               className="accent-amber-550 cursor-pointer h-3 w-3"
                                             />
-                                            <span>총판 지정</span>
+                                            총판파트너
                                           </label>
                                         ) : (
                                           user.isPartner ? (
-                                            <span className="inline-block bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[9px] font-black tracking-wider px-2 py-0.5 rounded mt-0.5 animate-pulse">
-                                              ★ 총판 파트너
+                                            <span className="inline-block bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-black tracking-wider px-2 py-0.5 rounded shadow-[0_0_8px_rgba(245,158,11,0.2)] animate-pulse truncate max-w-[80px]">
+                                              총판 지정
                                             </span>
                                           ) : (
-                                            <span className="inline-block bg-neutral-800 text-gray-500 text-[9px] font-bold px-1.5 py-0.5 rounded mt-0.5">
-                                              일반 회원
+                                            <span className="inline-block bg-neutral-800 text-gray-500 text-[9px] font-bold px-1.5 py-0.5 rounded truncate max-w-[80px]">
+                                              일반
                                             </span>
                                           )
                                         )}
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="p-3 text-center">
-                                    <div className="flex items-center justify-center gap-1.5 flex-wrap max-w-[180px] mx-auto">
+
+                                  {/* 동작 (관리) */}
+                                  <td className="px-3 py-2 align-top text-center">
+                                    <div className="grid grid-cols-2 gap-1.5 max-w-[160px] mx-auto mt-0.5">
                                       {isEditing ? (
                                         <>
                                           <button 
                                             onClick={() => handleSaveEdit(user.id)}
-                                            className="w-[82px] h-7 bg-green-950 hover:bg-green-900 border border-green-800 text-green-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
+                                            className="h-8 bg-green-950/80 hover:bg-green-900 border border-green-800/80 text-green-400 rounded text-[10px] font-bold cursor-pointer transition flex flex-col items-center justify-center"
                                           >
-                                            <Save className="w-3.5 h-3.5 text-green-400" />
-                                            <span>저장</span>
+                                            <Save className="w-3 h-3 mb-0.5 text-green-400" />
+                                            저장
                                           </button>
                                           <button 
                                             onClick={() => setEditingUserId(null)}
-                                            className="w-[82px] h-7 bg-neutral-850 hover:bg-neutral-800 text-gray-300 border border-neutral-700 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
+                                            className="h-8 bg-neutral-850 hover:bg-neutral-800 text-gray-400 border border-neutral-700 rounded text-[10px] font-bold cursor-pointer transition flex flex-col items-center justify-center"
                                           >
-                                            <X className="w-3.5 h-3.5 text-gray-300" />
-                                            <span>취소</span>
+                                            <X className="w-3 h-3 mb-0.5 text-gray-400" />
+                                            취소
                                           </button>
                                         </>
                                       ) : (
@@ -8497,11 +8815,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                               setAdminSelectedUserForBets(user);
                                               setIsAdminBetsModalOpen(true);
                                             }}
-                                            className="w-[82px] h-7 bg-emerald-950 hover:bg-emerald-900/60 border border-emerald-900/50 text-emerald-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
-                                            title="이 회원의 실시간 배팅내역 확인"
+                                            className="h-8 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-900/30 text-emerald-400 rounded text-[10px] font-bold cursor-pointer transition flex flex-col items-center justify-center"
+                                            title="배팅로그 확인"
                                           >
-                                            <History className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span>배팅내역</span>
+                                            <History className="w-3 h-3 mb-0.5 opacity-80" />
+                                            내역
                                           </button>
                                           <button 
                                             onClick={() => {
@@ -8511,27 +8829,27 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                               setAdminNoteContent('');
                                               setIsAdminNoteModalOpen(true);
                                             }}
-                                            className="w-[82px] h-7 bg-amber-950 hover:bg-amber-900/60 border border-amber-900/50 text-amber-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
-                                            title="이 회원에게 개별 쪽지 발송"
+                                            className="h-8 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-900/30 text-amber-400 rounded text-[10px] font-bold cursor-pointer transition flex flex-col items-center justify-center"
+                                            title="쪽지 보내기"
                                           >
-                                            <Mail className="w-3.5 h-3.5 text-amber-400" />
-                                            <span>쪽지</span>
+                                            <Mail className="w-3 h-3 mb-0.5 opacity-80" />
+                                            쪽지
                                           </button>
                                           <button 
                                             onClick={() => handleStartEdit(user)}
-                                            className="w-[82px] h-7 bg-blue-950 hover:bg-blue-900/60 border border-blue-900/50 text-blue-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
-                                            title="수정"
+                                            className="h-8 bg-blue-950/40 hover:bg-blue-900/60 border border-blue-900/30 text-blue-400 rounded text-[10px] font-bold cursor-pointer transition flex flex-col items-center justify-center"
+                                            title="수정하기"
                                           >
-                                            <Edit className="w-3.5 h-3.5 text-blue-400" />
-                                            <span>수정</span>
+                                            <Edit className="w-3 h-3 mb-0.5 opacity-80" />
+                                            수정
                                           </button>
                                           <button 
                                             onClick={() => handleDeleteUser(user.id)}
-                                            className="w-[82px] h-7 bg-red-950/60 hover:bg-red-900/60 border border-red-900/50 text-red-400 rounded text-[11px] font-bold cursor-pointer transition flex items-center justify-center gap-1 text-nowrap"
-                                            title="삭제"
+                                            className="h-8 bg-red-950/30 hover:bg-red-900/50 border border-red-900/30 text-red-500/80 hover:text-red-400 rounded text-[10px] font-bold cursor-pointer transition flex flex-col items-center justify-center"
+                                            title="유저 삭제"
                                           >
-                                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                                            <span>삭제</span>
+                                            <Trash2 className="w-3 h-3 mb-0.5 opacity-80" />
+                                            삭제
                                           </button>
                                         </>
                                       )}
@@ -8542,8 +8860,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                             })}
                           {adminUsers.length === 0 && (
                             <tr>
-                              <td colSpan={10} className="p-8 text-center text-gray-500">
-                                가입된 회원이 존재하지 않습니다.
+                              <td colSpan={6} className="p-12 text-center text-gray-500 font-semibold items-center justify-center">
+                                가입된 회원이 없습니다.
                               </td>
                             </tr>
                           )}
@@ -8593,7 +8911,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-450 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Vote className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
+              <Dribbble className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               스포츠
@@ -8605,10 +8923,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
             onClick={() => {
               navigateTo('minigame');
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-450 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Coins className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+              <Workflow className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               미니게임
@@ -8621,10 +8939,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
               onClick={() => {
                 navigateTo('home');
               }}
-              className="w-13 h-13 bg-neutral-950 border-4 border-amber-500 rounded-full flex items-center justify-center shadow-[0_4px_18px_rgba(245,158,11,0.65)] cursor-pointer group transition-transform active:scale-90"
+              className="w-13 h-13 bg-neutral-950 border-4 border-amber-500 rounded-full flex items-center justify-center shadow-[0_4px_18px_rgba(245,158,11,0.65)] cursor-pointer group transition-transform active:scale-90 animate-gold-flash"
             >
-              <div className="w-full h-full rounded-full bg-gradient-to-b from-[#111215] to-[#040405] flex items-center justify-center">
-                <Home className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-all duration-300" />
+              <div className="w-full h-full rounded-full bg-gradient-to-b from-[#111215] to-[#040405] flex items-center justify-center relative overflow-hidden">
+                <Home className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-all duration-300 relative z-10" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-25deg] animate-gold-shine pointer-events-none" />
               </div>
             </button>
           </div>

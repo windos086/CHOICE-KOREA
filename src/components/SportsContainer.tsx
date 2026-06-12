@@ -1412,9 +1412,9 @@ function isMatchActive(dateTimeStr: string): boolean {
                                           : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-1.5">
-                                        {getTeamBadge(match.homeTeam)}
-                                        <span className={`truncate text-left flex-1 min-w-0 font-black text-[12px] tracking-tight ${
+                                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                        {!(match.sport === 'soccer' || match.sport === '축구') && getTeamBadge(match.homeTeam)}
+                                        <span className={`truncate text-left flex-1 min-w-0 font-bold text-[10px] tracking-tighter ${
                                           isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'
                                         }`}>
                                           {match.homeTeam}
@@ -1472,13 +1472,13 @@ function isMatchActive(dateTimeStr: string): boolean {
                                       }`}>
                                         {match.markets?.matchWinner?.away?.toFixed(2) || '1.00'}
                                       </span>
-                                    <div className="flex items-center gap-1.5 justify-end">
-                                        <span className={`truncate text-right flex-1 min-w-0 font-black text-[12px] tracking-tight ${
+                                    <div className="flex items-center gap-1.5 justify-end min-w-0 flex-1">
+                                        <span className={`truncate text-right flex-1 min-w-0 font-bold text-[10px] tracking-tighter ${
                                           isSelected(match.id, 'away') ? 'text-black' : 'text-neutral-200'
                                         }`}>
                                           {match.awayTeam}
                                         </span>
-                                        {getTeamBadge(match.awayTeam)}
+                                        {!(match.sport === 'soccer' || match.sport === '축구') && getTeamBadge(match.awayTeam)}
                                       </div>
                                     </button>
                                   </div>
@@ -1629,7 +1629,7 @@ function isMatchActive(dateTimeStr: string): boolean {
                                          : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950'
                                      }`}
                                    >
-                                     <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0">
+                                     <div className="flex items-center gap-1.5 md:gap-2.5 min-w-0 flex-1">
                                        {getTeamBadge(match.homeTeam)}
                                        <span className={`truncate font-black text-[11px] md:text-[13px] tracking-tight ${
                                          isSelected(match.id, 'home') ? 'text-black' : 'text-neutral-200'

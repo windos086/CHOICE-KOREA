@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 type Card = { suit: '♠' | '♥' | '♦' | '♣'; value: string; color: string };
 
-const SUITS = ['♠', '♥', '♦', '♣'];
+const SUITS: ('♠' | '♥' | '♦' | '♣')[] = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 const getRandomCard = (): Card => {

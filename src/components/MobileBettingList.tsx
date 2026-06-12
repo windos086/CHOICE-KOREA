@@ -69,7 +69,7 @@ export const MobileBettingList = ({
                     : 'text-neutral-200 hover:bg-[#1f222a]/50 bg-gradient-to-b from-neutral-900 to-neutral-950 border-r border-[#1b1e24]/60'
                 }`}
               >
-                <span className={`truncate text-left flex-1 min-w-0 mr-1 font-bold text-[12px] ${
+                <span className={`truncate text-left max-w-[60%] flex-1 min-w-0 mr-1 font-bold text-[12px] ${
                   isClosed ? 'text-neutral-600' : isLeftSelected ? 'text-white' : 'text-neutral-100'
                 }`}>
                   {row.left.label}{row.left.suffix || ''}
@@ -107,7 +107,7 @@ export const MobileBettingList = ({
                 }`}>
                   {row.right.dividend.toFixed(2)}
                 </span>
-                <span className={`truncate text-right flex-1 min-w-0 ml-1 font-bold text-[12px] ${
+                <span className={`truncate text-right max-w-[60%] flex-1 min-w-0 ml-1 font-bold text-[12px] ${
                   isClosed ? 'text-neutral-600' : isRightSelected ? 'text-white' : 'text-neutral-100'
                 }`}>
                   {row.right.label}{row.right.suffix || ''}

@@ -105,7 +105,8 @@ export function deduplicateLeagueName(name: string): string {
 
 export function cleanTeamName(name: string): string {
   if (!name) return '';
-  return name.replace(/\[[^\]]*\]/g, '').trim();
+  // Remove "라이브" prefix (case-insensitive and optional space) and content in brackets
+  return name.replace(/^라이브\s*/i, '').replace(/\[[^\]]*\]/g, '').trim();
 }
 
 export function normalizeDateString(dateTimeStr: string): string {
