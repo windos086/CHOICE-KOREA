@@ -303,6 +303,95 @@ async function startServer() {
     }
   });
 
+  // Helper for mapping Bepick Keno Ladder item format to the expected format
+  function mapBepickItem(item: any) {
+    if (!item) return null;
+    
+    // date is "20260612" in Bepick API, map it to "2026-06-12"
+    let formattedDate = "";
+    if (typeof item.date === 'string' && item.date.length === 8) {
+      formattedDate = `${item.date.slice(0, 4)}-${item.date.slice(4, 6)}-${item.date.slice(6, 8)}`;
+    } else {
+      formattedDate = String(item.date || "");
+    }
+    
+    // start_point: fd1 = 1 is LEFT, fd1 = 2 is RIGHT
+    const start_point = item.fd1 === 1 ? "LEFT" : "RIGHT";
+    
+    // line_count: fd2 = 1 is 3, fd2 = 2 is 4
+    const line_count = item.fd2 === 1 ? 3 : 4;
+    
+    // odd_even: fd3 = 1 is ODD, fd3 = 2 is EVEN
+    const odd_even = item.fd3 === 1 ? "ODD" : "EVEN";
+    
+    return {
+      date: formattedDate,
+      round: String(item.round),
+      start_point,
+      line_count,
+      odd_even,
+      date_round: item.round,
+      fixed_date_round: (item.date || "").replace(/-/g, '') + String(item.round).padStart(3, '0')
+    };
+  }
+
+  // Endpoints for Keno Ladder (엔트리 키노사다리)
+  app.get("/api/game-result/kenoladder", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    try {
+      const response = await fetch("https://api.bepick.io/game/ntry_keladder", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const result: any = await response.json();
+        if (result && result.success && Array.isArray(result.data) && result.data.length > 0) {
+          const firstItem = result.data[0];
+          const mapped = mapBepickItem(firstItem);
+          if (mapped) {
+            return res.json({
+              d: mapped.date,
+              r: mapped.date_round,
+              s: mapped.start_point,
+              l: mapped.line_count,
+              o: mapped.odd_even,
+              ...mapped
+            });
+          }
+        }
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from bepick ntry_keladder" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/game-result/kenoladder/recent", async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    try {
+      const response = await fetch("https://api.bepick.io/game/ntry_keladder", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (response.status === 200) {
+        const result: any = await response.json();
+        if (result && result.success && Array.isArray(result.data)) {
+          const mappedList = result.data.map(mapBepickItem).filter(Boolean);
+          return res.json(mappedList);
+        }
+      }
+      return res.status(response.status).json({ error: "Failed to fetch from bepick ntry_keladder recent" });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // Vite middleware setup
   let vite: any;
   if (process.env.NODE_ENV !== "production") {

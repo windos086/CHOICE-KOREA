@@ -591,7 +591,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     powerball3: 'api',
     powerladder5: 'api',
     powerladder3min: 'api',
-    redpowerladder5: 'api'
+    redpowerladder5: 'api',
+    kenoladder5: 'api'
   });
 
   const minigameModesRef = useRef(minigameModes);
@@ -787,11 +788,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
           
           // Only check minigame bets to avoid touching sports bets accidentally
           const isMinigame = bet.gameType && [
-            'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'
+            'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'
           ].includes(bet.gameType);
 
           const hasMinigameFolders = bet.folders && bet.folders.length > 0 && bet.folders.every((f: any) => [
-            'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'
+            'powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'
           ].includes(f.gameType));
 
           if (!isMinigame && !hasMinigameFolders) continue;
@@ -1039,7 +1040,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const formattedTotalDividend = Math.round(totalDividend * 100) / 100;
 
     const folders = selectedOptions.map(opt => {
-      const gameLabel = opt.gameType === 'powerladder5' ? 'N파워사다리(5분)' : opt.gameType === 'powerladder3min' ? 'N파워사다리(3분)' : opt.gameType === 'redpowerladder5' ? '레드파워사다리(5분)' : opt.gameType === 'powerball5' ? 'N파워볼(5분)' : opt.gameType === 'powerball3' ? 'N파워볼(3분)' : '알 수 없음';
+      const gameLabel = opt.gameType === 'powerladder5' ? 'N파워사다리(5분)' : opt.gameType === 'powerladder3min' ? 'N파워사다리(3분)' : opt.gameType === 'redpowerladder5' ? '레드파워사다리(5분)' : opt.gameType === 'powerball5' ? 'N파워볼(5분)' : opt.gameType === 'powerball3' ? 'N파워볼(3분)' : opt.gameType === 'kenoladder5' ? '엔트리 키노사다리' : '알 수 없음';
       return {
         game: `${gameLabel} [${opt.round}회차]`,
         gameType: opt.gameType,
@@ -1132,7 +1133,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   // Generate current + 5 upcoming rounds dynamically based on clock
   const getUpcomingRounds = (type: string) => {
     const { currentRound } = getRoundAndSecondsRemaining(type);
-    const interval = 5;
+    const interval = type === 'speedladder1' ? 1 : type.includes('3') ? 3 : 5;
     
     const list = [];
     for (let i = 0; i < 1; i++) {
@@ -1178,7 +1179,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
       'powerball3': 'N파워볼(3분)',
       'powerladder5': 'N파워사다리(5분)',
       'powerladder3min': 'N파워사다리(3분)',
-      'redpowerladder5': '레드파워사다리(5분)'
+      'redpowerladder5': '레드파워사다리(5분)',
+      'kenoladder5': '엔트리 키노사다리'
     };
 
     const gameLabel = gamesMap[activeMiniGameTab] || '게임';
@@ -1189,7 +1191,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
         return;
       }
 
-      const isLadderGame = ['powerladder5', 'redpowerladder5', 'powerladder3min'].includes(activeMiniGameTab);
+      const isLadderGame = ['powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(activeMiniGameTab);
       const isPowerballGame = ['powerball5', 'powerball3'].includes(activeMiniGameTab);
 
       if (isLadderGame) {
@@ -1496,7 +1498,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'];
+      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)', '엔트리 키노사다리'];
       const latestByGame: Record<string, any[]> = {};
       minigameNames.forEach(name => {
         latestByGame[name] = [];
@@ -1979,7 +1981,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
           const loadedModes = { ...data.minigameModes };
           // Enforce that only authorized real-time games can ever be set to 'api' mode
           Object.keys(loadedModes).forEach(key => {
-            const apiSupportedGames = ['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'];
+            const apiSupportedGames = ['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'];
             if (!apiSupportedGames.includes(key) && loadedModes[key] === 'api') {
               loadedModes[key] = 'manual';
             }
@@ -2077,6 +2079,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
       console.error("Error reading doc in getOfficialRoundResultOnly:", err);
     }
 
+    // Dynamically retrieve results and insert them to Firestore automatically
+    try {
+      const dbResult = await getOrInsertAuthoritativeRoundResult(gameType, roundNum, betCreatedAt);
+      if (dbResult) {
+        return dbResult;
+      }
+    } catch (err) {
+      console.error("Error dynamically retrieving/inserting result in getOfficialRoundResultOnly:", err);
+    }
+
     return null;
   };
 
@@ -2127,8 +2139,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return true;
   };
 
-  const getOrInsertAuthoritativeRoundResult = async (gameType: string, roundNum: number) => {
-    const dateCompact = getKstDateCompact();
+  const getOrInsertAuthoritativeRoundResult = async (gameType: string, roundNum: number, betCreatedAt?: any) => {
+    const dateCompact = getKstDateCompact(betCreatedAt);
     const docId = `${gameType}_${dateCompact}_${roundNum}`;
     
     let docRef = doc(db, 'gameResultsTTL', docId);
@@ -2143,7 +2155,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
     // Determine active game operation mode
     const activeMode = minigameModesRef.current[gameType] || 
-      (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(gameType) ? 'api' : 'manual');
+      (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(gameType) ? 'api' : 'manual');
 
     // If manual mode is active, prevent any automatic result generation to keep the round pending
     if (activeMode === 'manual') {
@@ -2156,17 +2168,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
       'powerball3': 'N파워볼(3분)',
       'powerladder5': 'N파워사다리(5분)',
       'powerladder3min': 'N파워사다리(3분)',
-      'redpowerladder5': '레드파워사다리(5분)'
+      'redpowerladder5': '레드파워사다리(5분)',
+      'kenoladder5': '엔트리 키노사다리'
     };
     const name = gamesMap[gameType] || gameType;
     
-    // Calculate precise target stable date in KST for this specific round based on scheduled timestamp
-    const secureNow = new Date(Date.now() + serverTimeOffset);
-    const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(gameType);
-    const intervalMin = gameType.includes('1') ? 1 : gameType.includes('5') ? 5 : gameType.includes('3') ? 3 : 5;
-    const roundTime = new Date(secureNow.getTime() - (currentRound - roundNum) * intervalMin * 60 * 1000);
-    const roundKst = new Date(roundTime.getTime() + (9 * 60 * 60 * 1000));
-    const dateString = roundKst.toISOString().split('T')[0];
+    // Construct exact dateString matching target dateCompact "YYYYMMDD" to "YYYY-MM-DD"
+    const dateString = `${dateCompact.slice(0, 4)}-${dateCompact.slice(4, 6)}-${dateCompact.slice(6, 8)}`;
 
     let resultStr = '';
     let details: any = {};
@@ -2325,6 +2333,47 @@ export default function MainPage({ onLogout }: MainPageProps) {
           console.error("Error fetching live powerladder3min results:", err);
         }
       }
+
+      // 6. Handle kenoladder5 (엔트리 키노사다리 5분)
+      if (gameType === 'kenoladder5') {
+        try {
+          const recentRes = await fetch('/api/game-result/kenoladder/recent');
+          if (recentRes.ok) {
+            const recentList = await recentRes.json();
+            if (Array.isArray(recentList)) {
+              const matchedItem = recentList.find(item => {
+                return isItemDateAndRoundMatch(item, roundNum, dateString);
+              });
+
+              if (matchedItem) {
+                // If fields are missing, try mapping from Bepick structure (fd1, fd2, fd3)
+                const startPoint = matchedItem.start_point || (matchedItem.fd1 == 1 ? 'LEFT' : 'RIGHT');
+                const lineCount = matchedItem.line_count || (matchedItem.fd2 == 1 ? '3' : '4');
+                const oddEven = matchedItem.odd_even || (matchedItem.fd3 == 1 ? 'ODD' : 'EVEN');
+
+                const isValidStart = ['LEFT', 'RIGHT'].includes(startPoint);
+                const isValidLines = ['3', '4', 3, 4].includes(lineCount);
+                const isValidOddEven = ['ODD', 'EVEN'].includes(oddEven);
+                
+                if (!isValidStart || !isValidLines || !isValidOddEven) {
+                  console.error(`[Data Error] Invalid data received for kenoladder5 Round ${roundNum}:`, matchedItem);
+                  return null;
+                }
+
+                const start = startPoint === 'LEFT' ? '좌' : '우';
+                const lines = lineCount === '3' || lineCount == 3 ? '3줄' : '4줄';
+                const outcome = oddEven === 'EVEN' ? '짝' : '홀';
+
+                resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+                details = { start, lines, outcome };
+                console.log(`Matched real-world recent list results for kenoladder5 Round ${roundNum}!`);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching live kenoladder5 results:", err);
+        }
+      }
     }
 
     if (!resultStr) {
@@ -2365,7 +2414,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
         { key: 'powerball3', name: 'N파워볼(3분)' },
         { key: 'powerladder5', name: 'N파워사다리(5분)' },
         { key: 'powerladder3min', name: 'N파워사다리(3분)' },
-        { key: 'redpowerladder5', name: '레드파워사다리(5분)' }
+        { key: 'redpowerladder5', name: '레드파워사다리(5분)' },
+        { key: 'kenoladder5', name: '엔트리 키노사다리' }
       ];
 
       let didAdd = false;
@@ -2381,11 +2431,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
       let liveRedPowerladderRecent: any[] = [];
       let livePowerladder3Data: any = null;
       let livePowerladder3Recent: any[] = [];
+      let liveKenoladderRecent: any[] = [];
       const liveDaridari3Data = null;
       const liveDaridari3Recent: any[] = [];
 
       try {
-        const [pbRes, pbRecRes, pb3Res, pb3RecRes, plRes, plRecRes, rplRes, rplRecRes, pl3Res, pl3RecRes] = await Promise.all([
+        const [pbRes, pbRecRes, pb3Res, pb3RecRes, plRes, plRecRes, rplRes, rplRecRes, pl3Res, pl3RecRes, klRecRes] = await Promise.all([
           fetch('/api/game-result/powerball').catch(() => null),
           fetch('/api/game-result/powerball/recent').catch(() => null),
           fetch('/api/game-result/powerball3').catch(() => null),
@@ -2395,7 +2446,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
           fetch('/api/game-result/redpowerladder').catch(() => null),
           fetch('/api/game-result/redpowerladder/recent').catch(() => null),
           fetch('/api/game-result/powerladder3min').catch(() => null),
-          fetch('/api/game-result/powerladder3min/recent').catch(() => null)
+          fetch('/api/game-result/powerladder3min/recent').catch(() => null),
+          fetch('/api/game-result/kenoladder/recent').catch(() => null)
         ]);
 
         if (pbRes && pbRes.ok) livePowerballData = await pbRes.json().catch(() => null);
@@ -2408,6 +2460,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
         if (rplRecRes && rplRecRes.ok) liveRedPowerladderRecent = await rplRecRes.json().catch(() => []);
         if (pl3Res && pl3Res.ok) livePowerladder3Data = await pl3Res.json().catch(() => null);
         if (pl3RecRes && pl3RecRes.ok) livePowerladder3Recent = await pl3RecRes.json().catch(() => []);
+        if (klRecRes && klRecRes.ok) liveKenoladderRecent = await klRecRes.json().catch(() => []);
       } catch (err) {
         console.error("Error pre-fetching live results during backfill:", err);
       }
@@ -2418,7 +2471,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       // Backfill Minigame Rounds (past 25 rounds)
       for (const g of games) {
         const mode = minigameModesRef.current[g.key] || 
-      (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(g.key) ? 'api' : 'manual');
+      (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(g.key) ? 'api' : 'manual');
         
         // If manual mode is active, strictly skip automatic backfill to keep these rounds waiting for manual registration
         if (mode === 'manual') {
@@ -2526,18 +2579,34 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   details = { start, lines, outcome };
                 }
               }
+
+              // kenoladder5
+              if (g.key === 'kenoladder5') {
+                const matchedItem = Array.isArray(liveKenoladderRecent) ? liveKenoladderRecent.find(item => {
+                  return isItemDateAndRoundMatch(item, r, dateString);
+                }) : null;
+
+                if (matchedItem && matchedItem.start_point && matchedItem.line_count && matchedItem.odd_even) {
+                  const start = matchedItem.start_point === 'LEFT' ? '좌' : '우';
+                  const lines = matchedItem.line_count === '3' || matchedItem.line_count == 3 ? '3줄' : '4줄';
+                  const outcome = matchedItem.odd_even === 'EVEN' ? '짝' : '홀';
+
+                  resultStr = `[출발] ${start} · [줄] ${lines} · [결과] ${outcome}`;
+                  details = { start, lines, outcome };
+                }
+              }
             }
 
             if (!resultStr) {
-              // [수학공식 자동생성 임시 차단] 실제 경기정보가 동기화되기 전까지는 수학공식이나 임시값으로 채워지는 것을 차단합니다.
-              // 오직 실제 API의 경기 결과가 성공적으로 동기화되거나 관리자가 수동으로 결과를 입력해야만 결과가 등록됩니다.
-              console.log(`[Auto-Result Blocked] Result for ${g.key} Round ${r} is not synchronized yet. Blocking mathematical formula fallback.`);
-              continue;
+               // [수학공식 자동생성 임시 차단] 실제 경기정보가 동기화되기 전까지는 수학공식이나 임시값으로 채워지는 것을 차단합니다.
+               // 오직 실제 API의 경기 결과가 성공적으로 동기화되거나 관리자가 수동으로 결과를 입력해야만 결과가 등록됩니다.
+               console.log(`[Auto-Result Blocked] Result for ${g.key} Round ${r} is not synchronized yet. Blocking mathematical formula fallback.`);
+               continue;
             }
 
             // Validate result data
             const isValidLadder = (currentGameType: string) => {
-              if (['speedladder1', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(currentGameType)) {
+              if (['speedladder1', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(currentGameType)) {
                  return ['좌', '우'].includes(details.start) && ['3줄', '4줄'].includes(details.lines) && ['홀', '짝'].includes(details.outcome);
               }
               return true;
@@ -2587,9 +2656,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const snap = await getDocs(query(
         collection(db, 'gameResultsTTL'),
         orderBy('createdAt', 'desc'),
-        limit(200)
+        limit(600)
       ));
-      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'];
+      const minigameNames = ['N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)', '엔트리 키노사다리'];
       
       // Group by gameName and keep up to 30 records for each gameName to maintain proper history
       const latestByGame: Record<string, any[]> = {};
@@ -2633,12 +2702,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
   useEffect(() => {
     if (showGameResultScreen || showBetHistory) {
-      if (isAdmin) {
-        autoInsertRecentGameResults();
-      }
+      autoInsertRecentGameResults();
       loadGameResults();
     }
-  }, [showGameResultScreen, showBetHistory, isAdmin]);
+  }, [showGameResultScreen, showBetHistory]);
 
   useEffect(() => {
     if (showWithdrawalScreen && currentUserData?.id) {
@@ -3204,7 +3271,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
       const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
       
       const isPowerball = res.gameName === 'N파워볼(5분)' || res.gameName === 'N파워볼(3분)';
-      const isLadder = res.gameName === 'N파워사다리(5분)' || res.gameName === 'N파워사다리(3분)' || res.gameName === '레드파워사다리(5분)';
+      const isLadder = res.gameName === 'N파워사다리(5분)' || res.gameName === 'N파워사다리(3분)' || res.gameName === '레드파워사다리(5분)' || res.gameName === '엔트리 키노사다리';
       
       if (isPowerball) {
         const details = res.details || {};
@@ -3608,11 +3675,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
              activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
              activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
              activeMiniGameTab === 'powerladder3min' ? '실시간 N파워사다리 (3분)' :
-             activeMiniGameTab === 'redpowerladder5' ? '실시간 레드파워사다리 (5분)' : ''}
+             activeMiniGameTab === 'redpowerladder5' ? '실시간 레드파워사다리 (5분)' :
+             activeMiniGameTab === 'kenoladder5' ? '실시간 엔트리 키노사다리' : ''}
           </span>
           {(() => {
             const mode = minigameModes[activeMiniGameTab] || 
-              (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(activeMiniGameTab) ? 'api' : 'manual');
+              (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(activeMiniGameTab) ? 'api' : 'manual');
             return (
               <span className={`text-[9px] md:text-[10px] px-1.5 py-0.5 rounded font-black tracking-wide border whitespace-nowrap ${
                 mode === 'api' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-900/40' : 
@@ -3642,7 +3710,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
             { key: 'powerball3', name: 'N파워볼(3분)' },
             { key: 'powerladder5', name: 'N파워사다리(5분)' },
             { key: 'powerladder3min', name: 'N파워사다리(3분)' },
-            { key: 'redpowerladder5', name: '레드파워사다리(5분)' }
+            { key: 'redpowerladder5', name: '레드파워사다리(5분)' },
+            { key: 'kenoladder5', name: '엔트리 키노사다리' }
           ].map(game => (
             <button 
               key={game.key}
@@ -3713,6 +3782,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
               scrolling="no" 
               frameBorder="0"
               className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+            />
+          ) : activeMiniGameTab === 'kenoladder5' ? (
+            <iframe 
+              key="kenoladder5_video"
+              src="https://bepick.net/live/ntry_keladder"
+              width="100%"
+              scrolling="no" 
+              frameBorder="0"
+              className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/660] h-auto'} min-h-[320px]`}
             />
           ) : (
             <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
@@ -4128,11 +4206,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
             {/* Core Submission Trigger */}
             <button
               onClick={handlePlaceBet}
-              disabled={selectedOptions.length === 0 || !betAmount}
+              disabled={selectedOptions.length === 0 || !betAmount || selectedOptions.some(opt => {
+                const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
+                return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+              })}
               className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
             >
               {betAmount > userBalance ? (
                 '잔액이 부족합니다'
+              ) : selectedOptions.some(opt => {
+                const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
+                return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+              }) ? (
+                '배팅 마감 (10초 전 마감)'
               ) : (
                 '배팅하기 (Place Stake)'
               )}
@@ -4435,6 +4521,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                             className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
                           >
                             레드파워사다리 (5분)
+                          </button>
+                          <button 
+                            onClick={() => { setActiveMiniGameTab('kenoladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                          >
+                            엔트리 키노사다리
                           </button>
                         </div>
                       )}
@@ -6749,7 +6841,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               className="flex overflow-x-auto md:flex-wrap items-center gap-1.5 mb-6 border-b border-neutral-800/80 pb-4 no-scrollbar -mx-5 px-5 md:mx-0 md:px-0 whitespace-nowrap scroll-smooth" 
               id="game-result-categories-container"
             >
-              {['전체', '축구', '농구', '야구', '배구', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)'].map(cat => {
+              {['전체', '축구', '농구', '야구', '배구', 'N파워볼(5분)', 'N파워볼(3분)', 'N파워사다리(5분)', 'N파워사다리(3분)', '레드파워사다리(5분)', '엔트리 키노사다리'].map(cat => {
                 const mapping: Record<string, { label: string; emoji: string }> = {
                   '전체': { label: '전체', emoji: '✨' },
                   '축구': { label: '축구', emoji: '⚽' },
@@ -6760,7 +6852,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   'N파워볼(3분)': { label: '파워볼 3분', emoji: '🔵' },
                   'N파워사다리(5분)': { label: '사다리 5분', emoji: '🪜' },
                   'N파워사다리(3분)': { label: '사다리 3분', emoji: '🪜' },
-                  '레드파워사다리(5분)': { label: '레드사다리', emoji: '🔴' }
+                  '레드파워사다리(5분)': { label: '레드사다리', emoji: '🔴' },
+                  '엔트리 키노사다리': { label: '키노사다리', emoji: '🎰' }
                 };
                 const info = mapping[cat] || { label: cat, emoji: '🎮' };
                 const isActive = gameResultFilter === cat;
@@ -7082,11 +7175,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                      activeMiniGameTab === 'powerball3' ? '실시간 N파워볼 (3분)' :
                      activeMiniGameTab === 'powerladder5' ? '실시간 N파워사다리 (5분)' :
                      activeMiniGameTab === 'powerladder3min' ? '실시간 N파워사다리 (3분)' :
-                     activeMiniGameTab === 'redpowerladder5' ? '실시간 레드파워사다리 (5분)' : ''}
+                     activeMiniGameTab === 'redpowerladder5' ? '실시간 레드파워사다리 (5분)' :
+                     activeMiniGameTab === 'kenoladder5' ? '실시간 엔트리 키노사다리' : ''}
                   </span>
                   {(() => {
                     const mode = minigameModes[activeMiniGameTab] || 
-                      (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min'].includes(activeMiniGameTab) ? 'api' : 'manual');
+                      (['powerball5', 'powerball3', 'powerladder5', 'redpowerladder5', 'powerladder3min', 'kenoladder5'].includes(activeMiniGameTab) ? 'api' : 'manual');
                     return (
                       <span className={`text-[9px] md:text-[10px] px-1.5 py-0.5 rounded font-black tracking-wide border whitespace-nowrap ${
                         mode === 'api' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-900/40' : 
@@ -7117,7 +7211,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               { key: 'powerball3', name: 'N파워볼(3분)' },
                               { key: 'powerladder5', name: 'N파워사다리(5분)' },
                               { key: 'powerladder3min', name: 'N파워사다리(3분)' },
-                              { key: 'redpowerladder5', name: '레드파워사다리(5분)' }
+                              { key: 'redpowerladder5', name: '레드파워사다리(5분)' },
+                              { key: 'kenoladder5', name: '엔트리 키노사다리' }
                           ].map(game => (
                               <button 
                                   key={game.key}
@@ -7188,6 +7283,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       scrolling="no" 
                       frameBorder="0"
                       className="rounded-lg shadow-lg border border-neutral-800 w-full max-w-full aspect-[830/640] h-auto min-h-[320px]"
+                    />
+                  ) : activeMiniGameTab === 'kenoladder5' ? (
+                    <iframe 
+                      key="kenoladder5"
+                      src="https://bepick.net/live/ntry_keladder"
+                      width="100%"
+                      scrolling="no" 
+                      frameBorder="0"
+                      className={`rounded-lg shadow-lg border border-neutral-800 w-full max-w-full ${isMobile ? 'h-[460px]' : 'aspect-[830/660] h-auto'} min-h-[320px]`}
                     />
                   ) : (
                     <div className="text-gray-400 p-4">게임을 선택해주세요.</div>
@@ -7627,11 +7731,19 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {/* Core Submission Trigger */}
                   <button
                     onClick={handlePlaceBet}
-                    disabled={selectedOptions.length === 0 || !betAmount}
+                    disabled={selectedOptions.length === 0 || !betAmount || selectedOptions.some(opt => {
+                      const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
+                      return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+                    })}
                     className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
                   >
                     {betAmount > userBalance ? (
                       '잔액이 부족합니다'
+                    ) : selectedOptions.some(opt => {
+                      const { currentRound, secondsRemaining } = getRoundAndSecondsRemaining(opt.gameType);
+                      return opt.round < currentRound || (opt.round === currentRound && secondsRemaining <= 10);
+                    }) ? (
+                      '배팅 마감 (10초 전 마감)'
                     ) : (
                       '배팅하기 (Place Stake)'
                     )}
