@@ -272,22 +272,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
       powerladder3min: 0,
       redpowerladder5: 0,
       kenoladder5: 0,
-      baccaratA: 0,
-    };
-    if (saved) {
-      try {
-        return { ...defaults, ...JSON.parse(saved) };
-      } catch (e) {
-        return defaults;
-      }
-    }
-    return defaults;
-  });
-
-  const [betIntervals, setBetIntervals] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem('betIntervals');
-    const defaults = {
-      baccaratA: 30, // Default 30
     };
     if (saved) {
       try {
@@ -316,23 +300,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
     return () => unsubscribe();
   }, []);
 
-  // Real-time Firestore synchronization for betIntervals
-  useEffect(() => {
-    const docRef = doc(db, 'settings', 'betIntervals');
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setBetIntervals(prev => ({
-          ...prev,
-          ...data,
-        }));
-      }
-    }, (err) => {
-      console.warn("Error listening to betIntervals from Firestore:", err);
-    });
-    return () => unsubscribe();
-  }, []);
-
   const updateBetCloseOffset = async (gameKey: string, newValue: number) => {
     // 1. Update local state
     setBetCloseOffsets(prev => {
@@ -347,23 +314,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
       await setDoc(docRef, { [gameKey]: newValue }, { merge: true });
     } catch (err) {
       console.error("Failed to update betCloseOffset in Firestore:", err);
-    }
-  };
-
-  const updateBetInterval = async (gameKey: string, newValue: number) => {
-    // 1. Update local state
-    setBetIntervals(prev => {
-      const updated = { ...prev, [gameKey]: newValue };
-      localStorage.setItem('betIntervals', JSON.stringify(updated));
-      return updated;
-    });
-
-    // 2. Persist to Firestore
-    try {
-      const docRef = doc(db, 'settings', 'betIntervals');
-      await setDoc(docRef, { [gameKey]: newValue }, { merge: true });
-    } catch (err) {
-      console.error("Failed to update betInterval in Firestore:", err);
     }
   };
   const [withdrawalPassword, setWithdrawalPassword] = useState('');
@@ -671,7 +621,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
     } else if (target === 'tetherguide') {
       setShowTetherGuide(true);
     } else if (target === 'casino') {
-      setShowCasino(true);
+      alert('카지노 게임은 현재 서비스 준비중입니다.');
+      return;
     }
   };
 
@@ -7997,8 +7948,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
           setUserPoints={setUserPoints}
           betCloseOffsets={betCloseOffsets}
           updateBetCloseOffset={updateBetCloseOffset}
-          betIntervals={betIntervals}
-          updateBetInterval={updateBetInterval}
           isAdmin={isAdmin}
         />
       ) : (
@@ -8139,7 +8088,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   { label: '경기결과', img: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=500' },
                   { label: '공지사항', img: 'https://images.unsplash.com/photo-1557200134-90327ee9fafa?q=80&w=500' }
                 ].map((cat, idx) => {
-                  const isDisabled = cat.label === '슬롯게임';
+                  const isDisabled = cat.label === '슬롯게임' || cat.label === '카지노게임';
                   return (
                     <motion.div 
                       whileHover={!isDisabled ? { y: -6, scale: 1.02 } : {}}

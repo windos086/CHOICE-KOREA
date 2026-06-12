@@ -16,11 +16,15 @@ export default function App() {
   }, []);
 
   return (
-    <BGMProvider>
-      <BGMPlayer />
+    <>
       {currentScreen === 'login' && <LoginScreen onNavigate={setCurrentScreen} />}
       {currentScreen === 'register' && <RegistrationScreen onNavigate={setCurrentScreen} />}
-      {currentScreen === 'main' && <MainPage onLogout={() => setCurrentScreen('login')} />}
-    </BGMProvider>
+      {currentScreen === 'main' && (
+        <BGMProvider>
+          <BGMPlayer />
+          <MainPage onLogout={() => setCurrentScreen('login')} />
+        </BGMProvider>
+      )}
+    </>
   );
 }
