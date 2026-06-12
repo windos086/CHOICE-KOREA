@@ -4180,9 +4180,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
           </div>
 
           {/* Selections Section */}
-          <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none">
+          <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none min-h-[100px]">
             {selectedOptions.length === 0 && (
-              <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
+              <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl shrink-0">
                 <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
                 <p className="text-xs font-black">선택된 배팅 옵션이 없습니다.</p>
                 <p className="text-[10px] text-gray-500 leading-tight">게임 배당 버튼을 클릭하여<br />배팅 카트에 추가하십시오.</p>
@@ -4203,7 +4203,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         const groupPrefix = opt.group === '일반볼홀짝' || opt.group === '일반볼언오버' || opt.group === '일반볼' ? '[일반볼] ' :
                                             opt.group === '파워볼홀짝' || opt.group === '파워볼언오버' || opt.group === '파워볼' ? '[파워볼] ' : '';
                         return (
-                          <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1.5 rounded border border-neutral-850/60 gap-1.5">
+                          <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1.5 rounded border border-neutral-850/60 gap-1.5 shrink-0">
                             <span className="text-neutral-250 font-bold truncate max-w-[170px]" title={`${opt.game} - ${groupPrefix}${opt.name}`}>
                               [{opt.round}회] {opt.game} - {groupPrefix}{opt.name}
                             </span>
@@ -7743,9 +7743,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
 
                 {/* Selections Section */}
-                <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none">
+                <div className="space-y-2 pr-1 no-scrollbar flex-1 overflow-y-auto max-h-[160px] md:max-h-none min-h-[100px]">
                   {selectedOptions.length === 0 ? (
-                    <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
+                    <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl shrink-0">
                       <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
                       <p className="text-xs font-black">선택된 배팅 옵션이 없습니다.</p>
                       <p className="text-[10px] text-gray-500 leading-tight">게임 배당 버튼을 클릭하여<br />배팅 카트에 추가하십시오.</p>
@@ -7757,15 +7757,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
                                             opt.group === '일반볼언오버' ? '일반볼 언더오버' :
                                             opt.group === '파워볼언오버' ? '파워볼 언더오버' : opt.group;
                       return (
-                        <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
+                        <div key={idx} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner shrink-0">
                           <button
                             onClick={() => setSelectedOptions(prev => prev.filter((_, i) => i !== idx))}
-                            className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
+                            className="absolute top-2 right-2 text-neutral-600 hover:text-red-400 font-bold transition text-xs px-2 py-1"
                             title="제거"
                           >
                             &times;
                           </button>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 pr-6">
                             <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
                               [{opt.round}회차] {opt.game}
                             </span>
@@ -7799,7 +7799,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               const groupPrefix = opt.group === '일반볼홀짝' || opt.group === '일반볼언오버' || opt.group === '일반볼' ? '[일반볼] ' :
                                                   opt.group === '파워볼홀짝' || opt.group === '파워볼언오버' || opt.group === '파워볼' ? '[파워볼] ' : '';
                               return (
-                                <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60">
+                                <div key={i} className="flex justify-between items-center text-[10px] bg-neutral-900 px-2 py-1 rounded border border-neutral-850/60 shrink-0">
                                   <span className="text-neutral-200 font-bold truncate max-w-[125px] md:max-w-[150px]">
                                     [{opt.round}회] {groupPrefix}{opt.name}
                                   </span>

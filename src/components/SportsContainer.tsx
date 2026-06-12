@@ -1916,24 +1916,24 @@ function isMatchActive(dateTimeStr: string): boolean {
           </div>
 
           {/* Selections Section */}
-          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 flex-1 min-h-[100px]">
             {selectedFolders.length === 0 ? (
-              <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
+              <div className="py-10 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl shrink-0">
                 <ShoppingCart className="w-8 h-8 text-neutral-600 mx-auto" />
                 <p className="text-xs font-black">선택된 경기 폴더가 없습니다.</p>
                 <p className="text-[10px] text-gray-500 leading-tight">경기 배당 버튼을 클릭하여<br />정지/조합 배팅에 추가하십시오.</p>
               </div>
             ) : (
               selectedFolders.map((item, index) => (
-                <div key={`${item.matchId}-${item.marketType}-${item.type}-${item.lineValue}`} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner">
+                <div key={`${item.matchId}-${item.marketType}-${item.type}-${item.lineValue}`} className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 flex flex-col gap-1.5 relative shadow-inner shrink-0">
                   <button
                     onClick={() => setSelectedFolders(prev => prev.filter((_, i) => i !== index))}
-                    className="absolute top-2 right-2 text-neutral-600 hover:text-white transition"
+                    className="absolute top-2 right-2 text-neutral-600 hover:text-red-400 font-bold transition text-xs px-2 py-1"
                     title="제거"
                   >
                     &times;
                   </button>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 pr-6">
                     <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase leading-none border border-amber-500/20">
                       {item.marketType === 'bonus' ? '서비스' : deduplicateLeagueName(item.match.league)}
                     </span>
@@ -1954,7 +1954,7 @@ function isMatchActive(dateTimeStr: string): boolean {
 
           {/* Parlay Multiplier Summary */}
           {selectedFolders.length > 0 && (
-            <div className="bg-neutral-950/80 p-3.5 rounded-xl border border-neutral-850 space-y-2 border-l-2 border-l-amber-500">
+            <div className="bg-neutral-950/80 p-3.5 rounded-xl border border-neutral-850 space-y-2 border-l-2 border-l-amber-500 shrink-0">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-neutral-400 font-extrabold">선택 총 폴더 카운터</span>
                 <span className="font-mono font-black bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800 text-amber-500">{selectedFolders.length}폴더</span>
@@ -1967,7 +1967,7 @@ function isMatchActive(dateTimeStr: string): boolean {
           )}
 
           {/* Betting Amount Entry */}
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 shrink-0">
             <div className="flex justify-between items-center text-xs">
               <span className="text-neutral-400 font-black">배팅금액 (원)</span>
               <span className="text-[10px] text-amber-500 font-bold font-mono">
@@ -1990,14 +1990,14 @@ function isMatchActive(dateTimeStr: string): boolean {
             </div>
 
             {/* Quick Multipliers Buttons Grid */}
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5 pt-1">
               {[10000, 30000, 50000, 100000, 500000, 1000000].map((amt) => (
                 <button
                   key={amt}
                   type="button"
                   disabled={isPlacingBet}
                   onClick={() => handleQuickAmount(amt)}
-                  className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 p-2 rounded-lg text-[10px] font-bold text-neutral-400 hover:text-white transition cursor-pointer select-none"
+                  className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 py-2.5 px-1 rounded-lg text-[10px] font-bold text-neutral-400 hover:text-white transition cursor-pointer select-none"
                 >
                   +{amt >= 1000000 ? `${amt / 1000000}M` : amt >= 10000 ? `${amt / 10000}만` : amt}
                 </button>
@@ -2006,7 +2006,7 @@ function isMatchActive(dateTimeStr: string): boolean {
                 type="button"
                 disabled={isPlacingBet}
                 onClick={handleSetMaxAmount}
-                className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 p-2 rounded-lg text-[10px] font-bold text-amber-500 hover:text-white transition cursor-pointer select-none"
+                className="bg-neutral-950 hover:bg-neutral-850 border border-neutral-850/80 hover:border-neutral-700 py-2.5 px-1 rounded-lg text-[10px] font-bold text-amber-500 hover:text-white transition cursor-pointer select-none"
               >
                 최대
               </button>
@@ -2014,7 +2014,7 @@ function isMatchActive(dateTimeStr: string): boolean {
                 type="button"
                 disabled={isPlacingBet}
                 onClick={() => setBetAmount(0)}
-                className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 p-2 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
+                className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 py-2.5 px-1 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
               >
                 초기화
               </button>
@@ -2022,7 +2022,7 @@ function isMatchActive(dateTimeStr: string): boolean {
           </div>
 
           {/* Expected Revenue Summary Block */}
-          <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850 shadow-inner space-y-1.5">
+          <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-850 shadow-inner space-y-1.5 shrink-0">
             <div className="flex justify-between items-center text-[11px]">
               <span className="text-neutral-500 font-extrabold">최종 수렴 배당</span>
               <span className="text-zinc-200 font-black font-mono">{formattedTotalOdds} 배</span>
@@ -2048,7 +2048,7 @@ function isMatchActive(dateTimeStr: string): boolean {
           <button
             onClick={handlePlaceSportsBet}
             disabled={isPlacingBet || selectedFolders.length === 0}
-            className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none"
+            className="w-full bg-gradient-to-r from-amber-500 hover:from-amber-400 to-amber-600 hover:to-amber-500 disabled:opacity-20 disabled:pointer-events-none text-black font-black text-sm p-4 rounded-xl shadow-lg transition-all active:scale-97 cursor-pointer hover:shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 select-none shrink-0"
           >
             {isPlacingBet ? (
               <>
