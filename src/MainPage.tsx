@@ -4812,10 +4812,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <span className="text-[7.5px] text-gray-400">Points</span>
                     </button>
 
-                  {/* 이벤트 (Attendance) */}
+                  {/* 이벤트 (Event) */}
                   <button
                     type="button"
-                    onClick={() => { setShowAttendanceChecker(true); setIsMobileMenuOpen(false); }}
+                    onClick={() => { navigateTo('event'); setIsMobileMenuOpen(false); }}
                     className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-emerald-400 block animate-pulse">이벤트</span>
@@ -4922,6 +4922,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   >
                     <span className="text-xs font-bold text-amber-400 block">경기결과</span>
                     <span className="text-[7.5px] text-amber-500">Results</span>
+                  </button>
+
+                  {/* 출석체크 */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowAttendanceChecker(true); setIsMobileMenuOpen(false); }}
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                  >
+                    <span className="text-xs font-bold text-green-400 block">출석체크</span>
+                    <span className="text-[7.5px] text-green-500">Attendance</span>
                   </button>
 
                   {/* 스포츠 */}
@@ -6601,7 +6611,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
 
                 {/* Submit application */}
-                <div className="mt-8 border-t border-neutral-800/80 pt-6 flex justify-center">
+                <div className="mt-8 border-t border-neutral-800/80 pt-6 flex flex-col items-center gap-6">
                   <button
                     onClick={handleWithdrawalSubmit}
                     disabled={isSubmitWithdrawal}
@@ -6610,6 +6620,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     {isSubmitWithdrawal ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                     보유머니 환전 신청하기
                   </button>
+                  <div className="max-w-lg text-center px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-red-500 font-bold text-xs sm:text-sm leading-relaxed tracking-wide break-keep">
+                      ⚠️ 주의사항<br/>대한민국 트레블룰 진행으로 받을 지갑의주소는 "꼭" 해외거래소지갑 또는 개입지갑이여야합니다. 회원님들께선 이점 유의하시어 환전 신청하시기바랍니다.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -8887,14 +8902,16 @@ export default function MainPage({ onLogout }: MainPageProps) {
         </div>
       )}
       {showAttendanceChecker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="relative w-full max-w-2xl bg-black border border-amber-500 rounded-xl p-6">
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 px-2 py-4 md:p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-3xl flex flex-col items-end mb-2">
             <button 
               onClick={() => {console.log("Closing modal; userId passed was:", currentUserData?.id); setShowAttendanceChecker(false);}}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              className="text-white/70 hover:text-white flex items-center gap-1.5 font-bold tracking-wide active:scale-95 transition-all bg-black/40 px-3 py-1.5 rounded-full"
             >
-              <X />
+              닫기 <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
+          </div>
+          <div className="relative w-full max-w-3xl border-t-0 rounded-2xl overflow-hidden">
             <AttendanceChecker userId={currentUserData?.id || ''} />
           </div>
         </div>
