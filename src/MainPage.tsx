@@ -415,7 +415,6 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedMatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('Matches fetched in MainPage:', fetchedMatches.length, fetchedMatches.filter(m => m.status === 'pending' && m.sport === 'baseball').length);
       setAllMatches(fetchedMatches);
     });
     return () => unsubscribe();
@@ -8124,10 +8123,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {/* Horizontal dividers & micro badges */}
                   <div className="grid grid-cols-4 gap-2 pt-3.5 border-t border-neutral-900/80">
                     {[
-                      { name: '축구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '축구').length, emoji: '⚽', route: 'soccer' },
-                      { name: '농구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '농구').length, emoji: '🏀', route: 'basketball' },
-                      { name: '야구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '야구').length, emoji: '⚾', route: 'baseball' },
-                      { name: '배구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '배구').length, emoji: '🏐', route: 'volleyball' },
+                      { name: '축구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '축구' && isMatchActive(m.dateTime)).length, emoji: '⚽', route: 'soccer' },
+                      { name: '농구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '농구' && isMatchActive(m.dateTime)).length, emoji: '🏀', route: 'basketball' },
+                      { name: '야구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '야구' && isMatchActive(m.dateTime)).length, emoji: '⚾', route: 'baseball' },
+                      { name: '배구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '배구' && isMatchActive(m.dateTime)).length, emoji: '🏐', route: 'volleyball' },
                     ].map((item, index) => (
                       <div 
                         key={index} 

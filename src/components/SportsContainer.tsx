@@ -7,7 +7,7 @@ import {
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { COUNTRY_FLAGS, findTeamLogo, findCountryFlag, findCountryFlagUrl, findLeagueLogo } from '../lib/teamLogos';
-import { getSportCategory } from '../lib/matchUtils';
+import { getSportCategory, isMatchActive } from '../lib/matchUtils';
 
 interface SportsContainerProps {
   currentUserData?: any;
@@ -560,8 +560,8 @@ function isMatchActive(dateTimeStr: string): boolean {
   });
 
   const sportFilteredMatches = activeSportTab === '전체'
-    ? sortedMatches
-    : sortedMatches.filter(m => getSportCategory(m) === activeSportTab);
+    ? sortedMatches.filter(m => isMatchActive(m.dateTime))
+    : sortedMatches.filter(m => getSportCategory(m) === activeSportTab && isMatchActive(m.dateTime));
 
   // 2. Extract unique leagues under the current selected sport category
   const leagues = ['전체', ...Array.from(new Set(sportFilteredMatches.map(m => deduplicateLeagueName(m.league)).filter(Boolean)))];
