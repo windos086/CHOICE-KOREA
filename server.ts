@@ -10,6 +10,9 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Shared API result cache to prevent over-fetching and save server bandwidth
+  const apiCache: Record<string, { timestamp: number; data: any }> = {};
+
   // Enable CORS robustly
   app.use(cors({
     origin: (origin, callback) => {
@@ -35,6 +38,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "powerball";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/result.json?t=" + Date.now(), {
         headers: {
@@ -43,6 +52,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co" });
@@ -56,6 +66,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "powerball_recent";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball5/recent.json?t=" + Date.now(), {
         headers: {
@@ -64,6 +80,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co recent" });
@@ -77,6 +94,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "powerball3";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/result.json?t=" + Date.now(), {
         headers: {
@@ -85,6 +108,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co powerball3" });
@@ -98,6 +122,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "powerball3_recent";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerball3/recent.json?t=" + Date.now(), {
         headers: {
@@ -106,6 +136,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co powerball3 recent" });
@@ -119,6 +150,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "powerladder";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/result.json?t=" + Date.now(), {
         headers: {
@@ -127,6 +164,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co" });
@@ -140,6 +178,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "powerladder_recent";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder5/recent.json?t=" + Date.now(), {
         headers: {
@@ -148,6 +192,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co powerladder recent" });
@@ -161,6 +206,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "redpowerladder";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/result.json?t=" + Date.now(), {
         headers: {
@@ -169,6 +220,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co red" });
@@ -182,6 +234,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "redpowerladder_recent";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/redball/powerladder/recent.json?t=" + Date.now(), {
         headers: {
@@ -190,6 +248,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co red recent" });
@@ -252,19 +311,26 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/recent.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
+        },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (response.status === 200) {
         const data = await response.json();
         return res.json(data);
       }
-      console.warn("External PowerLadder3min API fetch failed (status ${response.status}). Using local simulator.");
+      console.warn(`External PowerLadder3min API fetch failed (status ${response.status}). Using local simulator.`);
       return res.json(getSimulatedPowerladder3min());
     } catch (e: any) {
+      clearTimeout(timeoutId);
       console.warn("External PowerLadder3min API fetch failed. Using local simulator.", e.message);
       return res.json(getSimulatedPowerladder3min());
     }
@@ -275,12 +341,18 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/nball/powerladder3/result.json?t=" + Date.now(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
+        },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (response.status === 200) {
         const data = await response.json();
         return res.json(data);
@@ -288,6 +360,7 @@ async function startServer() {
       // Falling back to the first item of recent simulator
       return res.json(getSimulatedPowerladder3min()[0]);
     } catch (e: any) {
+      clearTimeout(timeoutId);
       return res.json(getSimulatedPowerladder3min()[0]);
     }
   });
@@ -298,6 +371,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "speedladder1";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/result.json?t=" + Date.now(), {
         headers: {
@@ -306,6 +385,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co speedladder1" });
@@ -319,6 +399,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "speedladder1_recent";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://xn--950bo4em5v.co/data/minigame/ladder/speedladder/recent.json?t=" + Date.now(), {
         headers: {
@@ -327,6 +413,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from co speedladder1 recent" });
@@ -340,6 +427,12 @@ async function startServer() {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    const cacheKey = "ladder";
+    if (apiCache[cacheKey] && Date.now() - apiCache[cacheKey].timestamp < 4000) {
+      return res.json(apiCache[cacheKey].data);
+    }
+
     try {
       const response = await fetch("https://www.ntry.com/data/json/games/keno_ladder/result.json?t=" + Date.now(), {
         headers: {
@@ -348,6 +441,7 @@ async function startServer() {
       });
       if (response.status === 200) {
         const data = await response.json();
+        apiCache[cacheKey] = { timestamp: Date.now(), data };
         return res.json(data);
       }
       return res.status(response.status).json({ error: "Failed to fetch from ntry" });
@@ -387,9 +481,6 @@ async function startServer() {
       fixed_date_round: (item.date || "").replace(/-/g, '') + String(item.round).padStart(3, '0')
     };
   }
-
-  // API result cache to prevent over-fetching
-  const apiCache: Record<string, { timestamp: number; data: any }> = {};
 
   // Endpoints for Keno Ladder (엔트리 키노사다리)
   app.get("/api/game-result/kenoladder", async (req, res) => {

@@ -5,6 +5,7 @@ import { db, auth } from './lib/firebase';
 import PointHistoryView from './components/PointHistoryView';
 import BetHistoryView from './components/BetHistoryView';
 import AttendanceChecker from './components/AttendanceChecker';
+
 import PartnerMenuView from './components/PartnerMenuView';
 import { TelegramBanner, VerticalTelegramBanner } from './components/TelegramBanner';
 import { VerticalDepositBanner } from './components/DepositBanner';
@@ -14,6 +15,7 @@ import CasinoContainer from './components/CasinoContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
 import BGMControls from './components/BGMControls';
+import { getSportCategory } from './lib/matchUtils';
 import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout, Dribbble, Workflow, Play, Tv, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 
 enum OperationType {
@@ -396,6 +398,17 @@ export default function MainPage({ onLogout }: MainPageProps) {
     rightColumn: ['cart'],
     flexDirection: 'lg:flex-row'
   });
+
+  const [allMatches, setAllMatches] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedMatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllMatches(fetchedMatches);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleLayoutDragStart = (e: React.DragEvent, item: string, sourceCol: 'left' | 'right', index: number) => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ item, sourceCol, index }));
@@ -2327,7 +2340,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
         } catch (err) {
-          console.error(`Error fetching live powerball results for ${gameType}:`, err);
+          console.warn(`Error fetching live powerball results for ${gameType}:`, err);
         }
       }
 
@@ -2364,7 +2377,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
         } catch (err) {
-          console.error("Error fetching live powerladder results:", err);
+          console.warn("Error fetching live powerladder results:", err);
         }
       }
 
@@ -2400,7 +2413,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
         } catch (err) {
-          console.error("Error fetching live redpowerladder results:", err);
+          console.warn("Error fetching live redpowerladder results:", err);
         }
       }
 
@@ -2437,7 +2450,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
         } catch (err) {
-          console.error("Error fetching live powerladder3min results:", err);
+          console.warn("Error fetching live powerladder3min results:", err);
         }
       }
 
@@ -2478,7 +2491,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             }
           }
         } catch (err) {
-          console.error("Error fetching live kenoladder5 results:", err);
+          console.warn("Error fetching live kenoladder5 results:", err);
         }
       }
     }
@@ -4146,7 +4159,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
         }}
         className={`${
           isMobileCtx 
-            ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[80vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+            ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[82vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
             : 'xl:w-[325px] w-full shrink-0 xl:sticky lg:sticky top-6 order-2'
         } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[80vh] lg:max-h-[694px] xl:h-[694px] lg:overflow-y-auto`}
       >
@@ -4176,7 +4189,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
           </div>
 
-          {/* 실시간 마감 시간 타이머 */}
+          {/* 실시간 마감 시간 타이머부터 배팅버튼까지 전체 스크롤 가능한 영역 적용 */}
+          <div className="flex-1 overflow-y-auto space-y-4 pr-0.5 no-scrollbar pb-1">
+            {/* 실시간 마감 시간 타이머 */}
           <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 font-mono space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-400">배팅 마감시간</span>
@@ -4349,6 +4364,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           {/* Admin offset micro-adjuster panel rendered right inside the cart column if the user is an admin */}
           {isAdmin && renderAdminTimeAdjuster()}
+          </div>
         </div>
       </div>
     );
@@ -7705,7 +7721,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               }}
               className={`${
                 isMobile 
-                  ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[72vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
+                  ? `fixed bottom-[54px] left-2 right-2 z-40 max-h-[82vh] overflow-hidden flex flex-col transition-all duration-300 ${mobileBetSlipOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}` 
                   : 'xl:w-[325px] w-full shrink-0 xl:sticky top-6 order-2'
               } bg-neutral-900 border border-neutral-800 rounded-2xl p-4 md:p-5 shadow-2xl z-30 py-4 flex flex-col h-auto max-h-[80vh] lg:max-h-[694px] xl:h-[694px] lg:overflow-y-auto`}>
               <div className="space-y-4 flex flex-col flex-1">
@@ -7734,7 +7750,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
                 </div>
 
-                {/* 실시간 마감 시간 타이머 */}
+                {/* 실시간 마감 시간 타이머부터 배팅버튼까지 전체 스크롤 가능한 영역 적용 */}
+                <div className="flex-1 overflow-y-auto space-y-4 pr-0.5 no-scrollbar pb-1">
+                  {/* 실시간 마감 시간 타이머 */}
                 <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 font-mono space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">배팅 마감시간</span>
@@ -7928,6 +7946,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     )}
                   </button>
                 </div>
+              </div>
             </div>
 
             {isMobile && selectedOptions.length > 0 && !mobileBetSlipOpen && (
@@ -8015,10 +8034,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {/* Horizontal dividers & micro badges */}
                   <div className="grid grid-cols-4 gap-2 pt-3.5 border-t border-neutral-900/80">
                     {[
-                      { name: '축구', count: 76, emoji: '⚽', route: 'soccer' },
-                      { name: '농구', count: 37, emoji: '🏀', route: 'basketball' },
-                      { name: '야구', count: 1, emoji: '⚾', route: 'baseball' },
-                      { name: '배구', count: 4, emoji: '🏐', route: 'volleyball' },
+                      { name: '축구', count: allMatches.filter(m => getSportCategory(m) === '축구').length, emoji: '⚽', route: 'soccer' },
+                      { name: '농구', count: allMatches.filter(m => getSportCategory(m) === '농구').length, emoji: '🏀', route: 'basketball' },
+                      { name: '야구', count: allMatches.filter(m => getSportCategory(m) === '야구').length, emoji: '⚾', route: 'baseball' },
+                      { name: '배구', count: allMatches.filter(m => getSportCategory(m) === '배구').length, emoji: '🏐', route: 'volleyball' },
                     ].map((item, index) => (
                       <div 
                         key={index} 
@@ -8026,7 +8045,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                           setSelectedSport(item.name as any);
                           navigateTo('sports');
                         }}
-                        className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-2 flex flex-col items-center justify-center gap-1 transition-transform hover:scale-[1.1] duration-200 cursor-pointer animate-pulse"
+                        className="bg-neutral-950/60 border border-neutral-900 rounded-xl p-2 flex flex-col items-center justify-center gap-1 transition-transform hover:scale-[1.1] duration-200 cursor-pointer"
                       >
                         <div className="relative w-10 h-10 flex items-center justify-center text-3xl">
                           <motion.div 
