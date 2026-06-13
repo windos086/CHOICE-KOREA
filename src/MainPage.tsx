@@ -4633,15 +4633,41 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 onClick={() => navigateTo('home')}
                 className="text-4xl font-extrabold tracking-normal cursor-pointer relative py-2.5 px-6 group select-none transition-all duration-300 hover:scale-105 active:scale-95 hidden md:block"
               >
+                {/* Left-to-right sweeping light shimmer */}
+                <motion.div 
+                  initial={{ x: "-180%" }}
+                  animate={{ x: "250%" }}
+                  transition={{ 
+                    duration: 3.0, 
+                    repeat: Infinity, 
+                    ease: "easeInOut",
+                    repeatDelay: 1.8
+                  }}
+                  className="absolute inset-y-0 w-48 bg-gradient-to-r from-transparent via-white/8 to-transparent skew-x-[-20deg] pointer-events-none mix-blend-overlay z-10"
+                />
                 <span className="inline-flex items-center font-sans ml-[-325px]">
                   <span className="relative inline-block mr-1">
                     {/* Floating aerospace LMT fighter jet or starburst logo */}
                     <motion.div 
-                      animate={{ y: [0, -4, 0], rotate: [0, -1, 1, 0] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute -top-[32.5px] left-1/2 -ml-4 w-8 h-8 text-sky-450 group-hover:text-sky-300 filter drop-shadow-[0_0_15px_rgba(56,189,248,0.85)]"
+                      key="logo-star-shooting"
+                      animate={{ 
+                        x: [350, 0, 0, 0, -50, 350],
+                        y: [-80, 0, 0, 0, 15, -80],
+                        scale: [0, 1.3, 1, 1.15, 0, 0],
+                        opacity: [0, 1, 1, 1, 0, 0],
+                        rotate: [135, 0, 0, 12, -45, 135],
+                      }}
+                      transition={{ 
+                        duration: 3.5, 
+                        repeat: Infinity, 
+                        ease: "easeInOut",
+                        times: [0, 0.25, 0.7, 0.85, 0.95, 1] 
+                      }}
+                      className="absolute -top-[32.5px] left-1/2 -ml-4 w-8 h-8 text-sky-400 group-hover:text-sky-300 filter drop-shadow-[0_0_18px_rgba(56,189,248,0.95)] animate-pulse"
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginTop: '16px' }}>
+                      {/* Meteor/Shooting star tail */}
+                      <span className="absolute top-[28px] left-[16px] w-24 h-[3px] bg-gradient-to-r from-sky-400 via-sky-500/50 to-transparent blur-[1px] rounded-full origin-left -rotate-[165deg] opacity-80 pointer-events-none" />
+                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" style={{ marginTop: '16px' }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L15 9H22L17 14L19 21L12 17L5 21L7 14L2 9H9L12 2Z" />
                       </svg>
                     </motion.div>
