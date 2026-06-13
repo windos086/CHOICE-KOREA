@@ -16,7 +16,7 @@ export default function AdultWarningBanner() {
       {/* Lockheed Martin Brand Logo centered */}
       <div className="flex items-center justify-center relative z-10 w-full px-1 sm:px-2">
         <img 
-          src="/public/lockheed_logo.png" 
+          src="/lockheed_logo.png" 
           alt="Lockheed Martin" 
           referrerPolicy="no-referrer"
           className="h-5 sm:h-8 md:h-10 w-auto object-contain filter brightness-200 contrast-150 saturate-120 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] transition-all duration-300 group-hover:scale-105"
