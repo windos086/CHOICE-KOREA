@@ -1413,12 +1413,17 @@ export default function AdminMatchRegistration() {
   };
 
   const handleDeleteAllMatches = async () => {
-    if (!window.confirm('정말로 모든 "대기 중인" 경기 데이터를 삭제하시겠습니까?')) return;
+    if (!window.confirm('정말로 모든 경기 및 경기 결과 데이터를 완전히 삭제하시겠습니까? 데이터가 모두 사라지며 복구되지 않습니다.')) return;
     try {
-      const snap = await getDocs(collection(db, 'matches'));
-      const pendingMatches = snap.docs.filter(d => d.data().status === 'pending');
-      await Promise.all(pendingMatches.map(d => deleteDoc(doc(db, 'matches', d.id))));
-      alert(`대기 중인 모든 경기 데이터(${pendingMatches.length}건)가 삭제되었습니다.`);
+      // 1. Delete all matches
+      const matchSnap = await getDocs(collection(db, 'matches'));
+      await Promise.all(matchSnap.docs.map(d => deleteDoc(doc(db, 'matches', d.id))));
+      
+      // 2. Delete all results
+      const resultSnap = await getDocs(collection(db, 'gameResultsTTL'));
+      await Promise.all(resultSnap.docs.map(d => deleteDoc(doc(db, 'gameResultsTTL', d.id))));
+      
+      alert('모든 경기 데이터 및 경기 결과가 삭제되었습니다.');
       fetchRegisteredMatches();
     } catch (e) {
       console.error(e);
