@@ -14,7 +14,7 @@ import CasinoContainer from './components/CasinoContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
 import { MobileBettingList } from './components/MobileBettingList';
 import BGMControls from './components/BGMControls';
-import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout, Dribbble, Workflow, Play, Tv, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout, Dribbble, Workflow, Play, Tv, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -128,15 +128,15 @@ function SportsHighlightsSection({ videos }: { videos: any[] }) {
   };
 
   return (
-    <div className="-mt-[30px] block w-full bg-gradient-to-b from-[#0c0d12] to-[#06070a] border-2 border-red-600/50 rounded-xl md:rounded-2xl p-4 md:p-6 shadow-xl shadow-red-950/10 space-y-4 md:space-y-5 relative">
+    <div className="-mt-[30px] block w-full bg-gradient-to-b from-[#0c0d12] to-[#06070a] border-2 border-sky-600/50 rounded-xl md:rounded-2xl p-4 md:p-6 shadow-xl shadow-sky-950/10 space-y-4 md:space-y-5 relative">
       <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
         <div className="flex items-center gap-2.5">
           <div className="relative">
             <span className="absolute -top-1 -right-1 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
             </span>
-            <Tv className="w-5 h-5 text-red-500 animate-pulse" />
+            <Tv className="w-5 h-5 text-sky-400 animate-pulse" />
           </div>
           <div>
             <h3 className="text-base font-black text-white tracking-wider flex items-center gap-2">
@@ -207,7 +207,7 @@ function SportsHighlightsSection({ videos }: { videos: any[] }) {
                     <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(251,191,36,0.15)] group-hover:shadow-[inset_0_0_30px_rgba(251,191,36,0.4)] transition-all duration-500 pointer-events-none" />
 
                     {/* Play Button */}
-                    <div className="relative z-10 w-11 h-11 rounded-full bg-red-650 flex items-center justify-center text-white shadow-lg shadow-red-650/30 group-hover:scale-110 group-hover:bg-red-500 transition-all duration-300">
+                    <div className="relative z-10 w-11 h-11 rounded-full bg-sky-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/30 group-hover:scale-110 group-hover:bg-sky-400 transition-all duration-300">
                       <Play className="w-5 h-5 fill-current ml-0.5" />
                     </div>
 
@@ -347,7 +347,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
   const [gameResultSearch, setGameResultSearch] = useState('');
 
   // State for Admin Deposit & Withdrawal Requests panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames' | 'videos'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'settings' | 'inquiries' | 'matches' | 'minigames' | 'videos' | 'activeUsers'>('users');
   const [adminVideos, setAdminVideos] = useState<any[]>(defaultSportsHighlights);
   const [newVideoTitle, setNewVideoTitle] = useState('');
   const [newVideoUrl, setNewVideoUrl] = useState('');
@@ -3908,12 +3908,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
   };
 
   const renderMinigameBoard = () => (
-    <div key="board-widget" className="w-full bg-[#04060b] border border-red-600/30 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
+    <div key="board-widget" className="w-full bg-[#04060b] border border-sky-500/25 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
       {/* 스포츠 경기 리스트 스타일의 배팅 옵션 셀렉터 - 가로 폭 전체 사용 */}
       <div className="space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-2 md:pb-3 gap-1 px-1">
           <h3 className="text-xs md:text-sm font-bold text-gray-200 flex items-center gap-1.5">
-            <span className="w-1 h-3.5 bg-red-600 rounded"></span>
+            <span className="w-1 h-3.5 bg-sky-500 rounded"></span>
             실시간 회차별 배팅 보드
           </h3>
           <span className="text-[10px] md:text-[11px] text-amber-500 font-semibold animate-pulse">
@@ -4464,23 +4464,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   className="pointer-events-auto flex items-center font-sans select-none active:scale-95 transition-all"
                 >
                   <span className="relative inline-flex items-center pb-0.5">
-                    {/* Small crown icon for mobile */}
+                    {/* Small aerospace star icon for mobile */}
                     <motion.div 
                       animate={{ y: [0, -2, 0], rotate: [0, -3, 3, 0], scale: [1, 1.02, 0.98, 1] }}
                       transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute -top-[11px] left-1/2 -ml-2 w-4 h-4 text-amber-400 filter drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]"
+                      className="absolute -top-[12px] left-1/2 -ml-2 w-4 h-4 text-sky-400 filter drop-shadow-[0_0_5px_rgba(56,189,248,0.8)]"
                     >
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2L15 9H22L17 14L19 21L12 17L5 21L7 14L2 9H9L12 2Z" />
                       </svg>
                     </motion.div>
-                    <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-xl tracking-wide">
-                      초이스
+                    <span className="font-extrabold bg-clip-text text-transparent bg-gradient-to-b from-sky-100 via-sky-400 to-sky-900 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)] text-lg tracking-wider font-sans">
+                      LMT 록히드마틴
                     </span>
                   </span>
-                  <span className="text-[6px] font-black text-amber-400/90 not-italic uppercase ml-2 border-l border-neutral-800 pl-2 tracking-[0.15em] self-center flex flex-col items-start gap-0 leading-none opacity-80">
-                    <span>SPORTS</span>
-                    <span className="text-gray-500 text-[5px] tracking-[0.2em] font-normal">& CASINO</span>
+                  <span className="text-[6px] font-black text-sky-450 not-italic uppercase ml-2 border-l border-neutral-800 pl-2 tracking-[0.15em] self-center flex flex-col items-start gap-0 leading-none opacity-80">
+                    <span>TACTICAL</span>
+                    <span className="text-gray-500 text-[5px] tracking-[0.2em] font-normal">& DEFENSE</span>
                   </span>
                 </button>
               </div>
@@ -4501,9 +4501,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => setShowAdminPanel(true)}
-                    className="flex items-center justify-center bg-gradient-to-r from-red-600 to-red-850 border border-red-500/40 text-white p-2 rounded-lg shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                    className="flex items-center justify-center bg-gradient-to-r from-sky-600 to-sky-850 border border-sky-500/40 text-white p-2 rounded-lg shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
                   >
-                    <Shield className="w-4 h-4" />
+                    <Shield className="w-4 h-4 text-sky-200" />
                   </button>
                 )}
                 <a
@@ -4517,7 +4517,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
             </div>
 
-            <div className="border-t border-red-600/50 my-1"></div>
+            <div className="border-t border-sky-950/60 my-1"></div>
 
             {/* Bottom info bar for mobile: simple tier & wallet holdings */}
             <div className="grid grid-cols-2 gap-2 text-[10px] font-sans pt-1 px-0 pb-1 mx-0 -mt-[15px]">
@@ -4578,9 +4578,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
               {isAdmin && (
                 <button
                   onClick={() => setShowAdminPanel(true)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-900 hover:from-red-500 hover:to-red-700 text-white font-extrabold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.6)] border border-red-500/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                  className="flex items-center gap-2 bg-gradient-to-r from-sky-600 via-sky-700 to-sky-900 hover:from-sky-500 hover:to-sky-700 text-white font-extrabold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(14,165,233,0.5)] border border-sky-500/40 text-xs transition-all cursor-pointer transform hover:scale-105 active:scale-95"
                 >
-                  <Shield className="w-4 h-4 animate-pulse text-red-100" />
+                  <Shield className="w-4 h-4 animate-pulse text-sky-100" />
                   어드민 관리자 메뉴
                 </button>
               )}
@@ -4588,7 +4588,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             
             {/* Navigation Menus (Centered) */}
-            <nav className="flex flex-wrap justify-center items-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300 pt-0 mt-0 -mb-10">
+            <nav className="flex flex-wrap justify-center items-center gap-x-4 gap-y-3 px-4 text-sm font-extrabold text-gray-300 pt-0 mt-0 -mb-10 w-full">
               {/* Logo */}
               <button 
                 onClick={() => navigateTo('home')}
@@ -4596,31 +4596,26 @@ export default function MainPage({ onLogout }: MainPageProps) {
               >
                 <span className="inline-flex items-center font-sans ml-[-325px]">
                   <span className="relative inline-block mr-1">
-                    {/* Dynamic 3D Sparkling Floating Crown */}
+                    {/* Floating aerospace LMT fighter jet or starburst logo */}
                     <motion.div 
-                      animate={{ y: [0, -6, 0], rotate: [0, -6, 6, 0], scale: [1, 1.05, 0.95, 1] }}
-                      transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute -top-[32px] left-1/2 -ml-4 w-8 h-8 text-amber-400 group-hover:text-yellow-300 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.95)]"
+                      animate={{ y: [0, -4, 0], rotate: [0, -1, 1, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute -top-[32.5px] left-1/2 -ml-4 w-8 h-8 text-sky-450 group-hover:text-sky-300 filter drop-shadow-[0_0_15px_rgba(56,189,248,0.85)]"
                     >
-                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ marginTop: '16px', paddingBottom: '0px', paddingRight: '0px', paddingLeft: '0px', marginRight: '0px', marginLeft: '0px' }}>
-                        {/* Highly polished crown silhouette */}
-                        <path d="M5 16l1-7 3 2 3-5 3 5 3-2 1 7H5z" />
-                        <circle cx="5" cy="9" r="1" className="fill-white animate-pulse" />
-                        <circle cx="12" cy="4" r="1.2" className="fill-white animate-pulse" />
-                        <circle cx="19" cy="9" r="1" className="fill-white animate-pulse" />
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginTop: '16px' }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L15 9H22L17 14L19 21L12 17L5 21L7 14L2 9H9L12 2Z" />
                       </svg>
                     </motion.div>
-                    {/* Luxury Deep Gothic Bold C with premium gradient & intense shadow */}
-                    <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-500 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-tight transition-transform group-hover:scale-105 block">
-                      C
+                    <span className="relative font-black bg-clip-text text-transparent bg-gradient-to-b from-sky-100 via-sky-400 to-sky-950 filter drop-shadow-[0_3px_6px_rgba(14,165,233,0.3)] text-3xl tracking-tight block uppercase">
+                      LMT
                     </span>
                   </span>
-                  <span className="font-black bg-clip-text text-transparent bg-gradient-to-b from-rose-200 via-red-505 to-red-950 filter drop-shadow-[0_5px_4px_rgba(0,0,0,0.95)] text-5xl tracking-wide transition-all group-hover:text-red-400">
-                    HOICE
+                  <span className="font-extrabold bg-clip-text text-transparent bg-gradient-to-b from-white via-gray-200 to-gray-450 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-xl tracking-tight uppercase ml-2 select-none group-hover:text-sky-300">
+                    LOCKHEED MARTIN
                   </span>
-                  <span className="text-[10px] font-black text-amber-400/90 not-italic uppercase ml-5 border-l border-neutral-800 pl-5 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
-                    <span>SPORTS</span>
-                    <span className="text-gray-400 text-[8px] tracking-[0.3em] font-normal">& CASINO</span>
+                  <span className="text-[10px] font-bold text-sky-450 not-italic uppercase ml-4 border-l border-neutral-800 pl-4 tracking-[0.25em] self-center flex flex-col items-start gap-0.5 leading-none">
+                    <span>TACTICAL</span>
+                    <span className="text-gray-400 text-[8px] tracking-[0.3em] font-light">SIMULATION</span>
                   </span>
                 </span>
               </button>
@@ -4630,7 +4625,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('tetherguide')}
-                      className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showTetherGuide ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                      className={`hover:text-sky-400 transition-colors uppercase tracking-tight relative pb-1 ${showTetherGuide ? 'text-sky-400 font-extrabold border-b-2 border-sky-400' : 'hover:border-b-2 hover:border-sky-500'}`}
                     >
                       테더가이드
                     </button>
@@ -4641,7 +4636,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <button 
                         key={item}
                         onClick={() => navigateTo('sports')}
-                        className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showSports ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                        className={`hover:text-sky-400 transition-colors uppercase tracking-tight relative pb-1 ${showSports ? 'text-sky-400 font-extrabold border-b-2 border-sky-400' : 'hover:border-b-2 hover:border-sky-500'}`}
                       >
                         스포츠
                       </button>
@@ -4652,7 +4647,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('casino')}
-                      className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showCasino ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                      className={`hover:text-sky-400 transition-colors uppercase tracking-tight relative pb-1 ${showCasino ? 'text-sky-400 font-extrabold border-b-2 border-sky-400' : 'hover:border-b-2 hover:border-sky-500'}`}
                     >
                       카지노게임
                     </button>
@@ -4668,7 +4663,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     >
                       <button 
                         onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                        className={`hover:text-amber-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-amber-400 font-extrabold border-b-2 border-amber-400' : 'hover:border-b-2 hover:border-amber-500'}`}
+                        className={`hover:text-sky-400 transition-colors uppercase tracking-tight relative pb-1 ${showMiniGame ? 'text-sky-400 font-extrabold border-b-2 border-sky-400' : 'hover:border-b-2 hover:border-sky-500'}`}
                       >
                         미니게임
                       </button>
@@ -4680,37 +4675,37 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         >
                           <button 
                             onClick={() => { setActiveMiniGameTab('powerball5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-amber-400 font-extrabold animate-pulse"
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-sky-400 font-extrabold animate-pulse"
                           >
                             N파워볼 (5분)
                           </button>
                           <button 
                             onClick={() => { setActiveMiniGameTab('powerball3'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-amber-400 font-extrabold animate-pulse"
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-sky-400 font-extrabold animate-pulse"
                           >
                             N파워볼 (3분)
                           </button>
                           <button 
                             onClick={() => { setActiveMiniGameTab('powerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-neutral-450 hover:text-white"
                           >
                             N파워사다리 (5분)
                           </button>
                           <button 
                             onClick={() => { setActiveMiniGameTab('powerladder3min'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-neutral-450 hover:text-white"
                           >
                             N파워사다리 (3분)
                           </button>
                           <button 
                             onClick={() => { setActiveMiniGameTab('redpowerladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-neutral-450 hover:text-white"
                           >
                             레드파워사다리 (5분)
                           </button>
                           <button 
                             onClick={() => { setActiveMiniGameTab('kenoladder5'); navigateTo('minigame'); setShowMiniGameSubmenu(false); }}
-                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap"
+                            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs transition rounded whitespace-nowrap text-neutral-450 hover:text-white"
                           >
                             엔트리 키노사다리
                           </button>
@@ -4724,7 +4719,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('deposit')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showDepositScreen ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       입금신청
                     </button>
@@ -4736,7 +4731,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('withdrawal')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showWithdrawalScreen ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       출금신청
                     </button>
@@ -4748,7 +4743,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('gameresult')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showGameResultScreen ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       경기결과
                     </button>
@@ -4760,7 +4755,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('bethistory')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showBetHistory ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       베팅내역
                     </button>
@@ -4772,7 +4767,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('pointshistory')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showPointsHistory ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showPointsHistory ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       포인트내역
                     </button>
@@ -4784,7 +4779,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('event')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showEventScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-400'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showEventScreen ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       이벤트
                     </button>
@@ -4796,7 +4791,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <button 
                       key={item} 
                       onClick={() => navigateTo('notice')}
-                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showNoticeScreen ? 'text-amber-400 font-bold border-b border-amber-400 pb-0.5' : 'hover:text-amber-405'}`}
+                      className={`transition-colors cursor-pointer uppercase tracking-tight ${showNoticeScreen ? 'text-sky-400 font-bold border-b border-sky-400 pb-0.5' : 'hover:text-sky-400'}`}
                     >
                       공지사항
                     </button>
@@ -5186,7 +5181,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { navigateTo('notice'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-sky-950 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-teal-400 block animate-pulse">공지사항</span>
                     <span className="text-[7.5px] text-teal-500">Notice</span>
@@ -5196,7 +5191,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { navigateTo('gameresult'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-sky-950 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-amber-400 block">경기결과</span>
                     <span className="text-[7.5px] text-amber-500">Results</span>
@@ -5206,7 +5201,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { setShowAttendanceChecker(true); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-sky-950 cursor-pointer active:scale-95 transition"
                   >
                     <span className="text-xs font-bold text-green-400 block">출석체크</span>
                     <span className="text-[7.5px] text-green-500">Attendance</span>
@@ -5216,7 +5211,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <button
                     type="button"
                     onClick={() => { navigateTo('sports'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
+                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-sky-950 cursor-pointer active:scale-95 transition hidden md:flex flex-col items-center justify-center"
                   >
                     <span className="text-xs font-bold text-gray-200 block">스포츠</span>
                     <span className="text-[7.5px] text-gray-400">Sports</span>
@@ -5229,9 +5224,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
             {/* Bottom Section of drawer / logout */}
             <div className="p-4 border-t border-neutral-900 bg-[#050608] space-y-3">
               {/* KST Clock */}
-              <div className="flex items-center justify-between text-xs font-mono text-rose-400 bg-neutral-950 px-3 py-2 rounded-lg border border-neutral-850">
+              <div className="flex items-center justify-between text-xs font-mono text-sky-400 bg-neutral-950 px-3 py-2 rounded-lg border border-neutral-850">
                 <span className="text-[9px] text-gray-400 flex items-center gap-1 uppercase">
-                  <span className="w-1 h-1 bg-red-500 rounded-full animate-ping"></span>
+                  <span className="w-1 h-1 bg-sky-400 rounded-full animate-ping"></span>
                   KST Clock
                 </span>
                 <span className="font-bold">{kstClock || '동기화 중...'}</span>
@@ -5241,7 +5236,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <button
                 type="button"
                 onClick={() => { handleLogoutClick(); setIsMobileMenuOpen(false); }}
-                className="w-full bg-[#1c1212] border border-red-950 hover:bg-red-950 hover:text-white text-rose-300 font-extrabold text-xs py-2.5 rounded-lg transition active:scale-95 text-center cursor-pointer"
+                className="w-full bg-[#0c121d] border border-sky-950 hover:bg-sky-900 hover:text-white text-sky-300 font-extrabold text-xs py-2.5 rounded-lg transition active:scale-95 text-center cursor-pointer"
               >
                 안전 로그아웃 (Secure Logout)
               </button>
@@ -5688,14 +5683,14 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></div>
                   <h3 className="text-base font-black text-emerald-400 tracking-tight flex items-center gap-1.5">
-                    🚨 [첫째도 안전, 둘째도 안전] CHOICE 보안 안심 거래 시스템 안내
+                    🚨 [첫째도 안전, 둘째도 안전] LMT 보안 안심 거래 시스템 안내
                   </h3>
                 </div>
                 <span className="text-[10px] font-black text-rose-455 bg-rose-500/10 px-2.5 py-1 rounded border border-rose-500/20 animate-pulse tracking-wide">보안 안전 최우선 필독</span>
               </div>
               
               <p className="text-xs md:text-sm text-gray-300 leading-relaxed font-medium">
-                초이스는 회원님들의 신뢰와 개인정보, 자금 보안을 세계 최고 수준으로 유지하기 위해 <strong className="text-emerald-400 font-extrabold underline decoration-emerald-500">USDT 테더(TRC-20) 시스템</strong>만을 전격 채택하여 운영하고 있습니다. 
+                록히드마틴(Lockheed Martin)은 회원님들의 신뢰와 개인정보, 자금 보안을 세계 최고 수준으로 유지하기 위해 <strong className="text-emerald-400 font-extrabold underline decoration-emerald-500">USDT 테더(TRC-20) 시스템</strong>만을 전격 채택하여 운영하고 있습니다. 
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -5713,7 +5708,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     <Check className="w-3.5 h-3.5 text-emerald-400" /> 다소 번거로운 가이드라인 이용 당부
                   </div>
                   <p className="text-[11px] text-gray-400 leading-normal">
-                    해외 가상자산 전송 방식이 처음에는 생소하고 번거롭게 느껴지실 수 있으나, CHOICE는 익명성과 거래 무결성을 동시에 잡는 가장 완벽한 VIP 전용 플랫폼이므로 양해와 지속적인 테더 지갑 활용을 진심으로 당부드립니다.
+                    해외 가상자산 전송 방식이 처음에는 생소하고 번거롭게 느껴지실 수 있으나, 록히드마틴(LMT)은 익명성과 거래 무결성을 동시에 잡는 가장 완벽한 VIP 전용 플랫폼이므로 양해와 지속적인 테더 지갑 활용을 진심으로 당부드립니다.
                   </p>
                 </div>
               </div>
@@ -5740,7 +5735,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <span className="font-extrabold text-amber-500">최소 충전 한도 20 USDT</span>: 충전 전송 시 20 USDT 이상의 금액으로만 매칭 심사가 정상 진행됩니다. (<strong className="text-rose-400">20 USDT 미만</strong>은 소멸/반려 처리)
                 </li>
                 <li className="list-item">
-                  <span className="font-extrabold text-rose-455">지갑주소 오 입력 경고</span>: 지갑 주소 오기재 내지 네트워크 불일치로 발생한 잘못된 매체 전송으로 인한 분실 건은 CHOICE측에서 기술적으로 책임지지 않으니 발송 전 최종 검증을 기하셔야 합니다.
+                  <span className="font-extrabold text-rose-455">지갑주소 오 입력 경고</span>: 지갑 주소 오기재 내지 네트워크 불일치로 발생한 잘못된 매체 전송으로 인한 분실 건은 LMT측에서 기술적으로 책임지지 않으니 발송 전 최종 검증을 기하셔야 합니다.
                 </li>
               </ul>
             </div>
@@ -5869,15 +5864,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </div>
               <h4 className="text-sm font-black text-white">다양하고 풍부한 건의사항 접수</h4>
               <p className="text-xs text-gray-450 leading-relaxed">
-                초이스는 회원님들과 늘 실시간 호흡하는 글로벌 모의 스포츠 솔루션을 꿈꿉니다. 스포츠 통계, 베팅 연출, 편리한 마이페이지 기능 제안 등 어떠한 건의사항이라도 편하게 제안해주시면 적극적으로 개발에 반영해 드립니다.
+                록히드마틴(LMT)은 회원님들과 늘 실시간 호흡하는 글로벌 모의 스포츠 솔루션을 꿈꿉니다. 스포츠 통계, 베팅 연출, 편리한 마이페이지 기능 제안 등 어떠한 건의사항이라도 편하게 제안해주시면 적극적으로 개발에 반영해 드립니다.
               </p>
             </div>
 
           </div>
 
           {/* Footer Warm Message */}
-          <div className="bg-[#110d0d] border border-rose-950 rounded-xl p-5 text-center space-y-1.5 max-w-2xl mx-auto">
-            <p className="text-xs font-black text-rose-300 tracking-tight">전세계 베터들의 자수정처럼 단단한 동반자 CHOICE SPORTS & CASINO</p>
+          <div className="bg-[#0b101d] border border-sky-950 rounded-xl p-5 text-center space-y-1.5 max-w-2xl mx-auto">
+            <p className="text-xs font-black text-sky-300 tracking-tight">전세계 베터들의 자수정처럼 단단한 동반자 LMT TACTICAL & DEFENSE SYSTEMS</p>
             <p className="text-[11px] text-gray-500 font-medium">회원 성원을 바탕으로 항상 전진하겠습니다. 회원님들의 큰 행운과 건승을 기원합니다. 진심으로 감사드립니다.</p>
           </div>
         </div>
@@ -5905,31 +5900,31 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <div className="mb-6 border-b border-neutral-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <Gift className="w-6 h-6 text-amber-500" />
-                CHOICE 이벤트 <span className="text-amber-500 text-xs font-black tracking-wider uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">CHOICE PREMIUM EVENTS</span>
+                <Gift className="w-6 h-6 text-sky-400" />
+                LMT 특별 혜택 <span className="text-sky-400 text-xs font-black tracking-wider uppercase bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">LMT PREMIUM BENEFITS</span>
               </h2>
-              <p className="text-xs text-gray-400 mt-1">초이스에서 선사하는 압도적인 혜택과 다채로운 이벤트를 만나보세요.</p>
+              <p className="text-xs text-gray-400 mt-1">록히드마틴(LMT)에서 선사하는 압도적인 혜택과 다채로운 지원을 만나보세요.</p>
             </div>
           </div>
 
           {/* Luxury Event Banner Panel (Custom Golden Shimmer Graphic Card) */}
-          <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-neutral-950 via-[#16120d] to-neutral-950 p-6 md:p-10 shadow-[0_0_50px_rgba(245,158,11,0.08)] mb-8">
+          <div className="relative overflow-hidden rounded-2xl border border-sky-500/30 bg-gradient-to-br from-neutral-950 via-[#0d1526] to-neutral-950 p-6 md:p-10 shadow-[0_0_50px_rgba(14,165,233,0.08)] mb-8">
             {/* Ambient gold glow beam */}
-            <div className="absolute top-0 right-[15%] w-[400px] h-[400px] bg-amber-500/10 rounded-full blur-[140px] pointer-events-none -translate-y-1/2"></div>
-            <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] bg-red-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+            <div className="absolute top-0 right-[15%] w-[400px] h-[400px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none -translate-y-1/2"></div>
+            <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] bg-sky-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
             <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
               {/* Text column */}
               <div className="md:col-span-7 space-y-6">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black tracking-wider uppercase animate-pulse">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  CHOICE INFINITE BONUS
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-[10px] font-black tracking-wider uppercase animate-pulse">
+                  <Sparkles className="w-3 h-3 text-sky-400" />
+                  LMT INFINITE BONUS
                 </div>
 
                 <div className="space-y-4">
                   <span className="block text-gray-300 text-sm font-bold tracking-tight">회원 특별 혜택 업그레이드</span>
-                  <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 tracking-tight leading-tight">
-                    초이스 특별 혜택<br />더블 무한 보너스!
+                  <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-400 to-sky-600 tracking-tight leading-tight">
+                    록히드마틴 특별 혜택<br />더블 무한 보너스!
                   </h1>
                 </div>
 
@@ -6024,7 +6019,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <div className="space-y-3.5 text-xs text-gray-300">
                 <div className="flex justify-between border-b border-neutral-850 pb-2">
                   <span className="text-gray-400 font-medium">대상 회원</span>
-                  <span className="font-bold text-gray-100">초이스 모든 실배터 회원</span>
+                  <span className="font-bold text-gray-100">록히드마틴 모든 실배터 회원</span>
                 </div>
                 <div className="flex justify-between border-b border-neutral-850 pb-2">
                   <span className="text-gray-400 font-medium">매 충전 보너스</span>
@@ -6125,7 +6120,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   <div className="space-y-2">
                     <h4 className="text-sm font-black text-emerald-105">평생 베팅 롤링 적립 서비스 (Lifetime Commission)</h4>
                     <p className="text-xs text-gray-400 leading-relaxed">
-                      추천 연동되어 가입한 파트너가 초이스에서 제공하는 모든 스포츠 매치 및 실시간 미니게임 등의 시뮬레이터 베팅(롤링)에 참여할 때마다, <strong className="text-emerald-400 font-extrabold">승패 결과와 완전히 무관하게</strong> 실시간 베팅액 기준의 패시브 포인트가 영구적으로 평생 무료 적립됩니다.
+                      추천 연동되어 가입한 파트너가 LMT에서 제공하는 모든 스포츠 매치 및 실시간 미니게임 등의 시뮬레이터 베팅(롤링)에 참여할 때마다, <strong className="text-emerald-400 font-extrabold">승패 결과와 완전히 무관하게</strong> 실시간 베팅액 기준의 패시브 포인트가 영구적으로 평생 무료 적립됩니다.
                     </p>
                   </div>
 
@@ -6659,12 +6654,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
                 <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">1테더 환전율 (TRC-20 Rate)</div>
                 <div className="space-y-2">
-                  <div className="text-[11px] text-gray-400">CHOICE 입금 고정 환율</div>
+                  <div className="text-[11px] text-gray-400">LMT 입금 고정 환율</div>
                   <div className="text-xl font-black text-amber-400 tracking-wide font-mono">
                     1 USDT <span className="text-xs text-gray-500 font-normal">➔</span> {exchangeRate.toLocaleString()} 원
                   </div>
                   <p className="text-[10px] text-gray-500 leading-normal">
-                    * 테더(USDT)는 미국 달러(USD)에 1:1 패깅된 유력 연계 통화로, 초이스 플랫폼은 안전 고정 환율을 채택하여 송금 시 시세 손해 없이 고액의 금액이라도 전액 안심 보장됩니다.
+                    * 테더(USDT)는 미국 달러(USD)에 1:1 패깅된 유력 연계 통화로, 록히드마틴 플랫폼은 안전 고정 환율을 채택하여 송금 시 시세 손해 없이 고액의 금액이라도 전액 안심 보장됩니다.
                   </p>
                 </div>
               </div>
@@ -6913,12 +6908,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
               <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
                 <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">1테더 환전율 (TRC-20 Rate)</div>
                 <div className="space-y-2">
-                  <div className="text-[11px] text-gray-400">CHOICE 환전 고정 환율</div>
+                  <div className="text-[11px] text-gray-400">LMT 환전 고정 환율</div>
                   <div className="text-xl font-black text-amber-400 tracking-wide font-mono">
                     1 USDT <span className="text-xs text-gray-500 font-normal">➔</span> {exchangeRate.toLocaleString()} 원
                   </div>
                   <p className="text-[10px] text-gray-500 leading-normal">
-                    * 테더(USDT)는 미국 달러(USD)에 1:1 패깅된 유력 연계 통화로, 초이스 플랫폼은 안전 고정 환율을 채택하여 송금 시 시세 손해 없이 고액의 금액이라도 전액 안심 보장됩니다.
+                    * 테더(USDT)는 미국 달러(USD)에 1:1 패깅된 유력 연계 통화로, 록히드마틴 플랫폼은 안전 고정 환율을 채택하여 송금 시 시세 손해 없이 고액의 금액이라도 전액 안심 보장됩니다.
                   </p>
                 </div>
               </div>
@@ -7353,8 +7348,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
             <div className="flex-1 min-w-0 xl:max-w-[830px] w-full flex flex-col gap-4 lg:gap-6 order-1">
               
               {/* 왼쪽 영역: 영상 프레임 (빨간색 테두리와 검정색 배경의 프레임) */}
-              <div className="w-full bg-black border border-red-600/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
-              <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-red-950/80 flex items-center justify-between gap-1.5">
+              <div className="w-full bg-black border border-sky-500/50 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="bg-neutral-950 px-3 py-2.5 md:p-4 border-b border-sky-950/80 flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
                   <span className="text-white font-black text-xs md:text-base tracking-wider truncate">
                     {activeMiniGameTab === 'powerball5' ? '실시간 N파워볼 (5분)' : 
@@ -7470,13 +7465,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div> {/* 영상 프레임 닫기 */}
 
             {/* 실시간 배팅 판넬 */}
-            <div className="w-full bg-[#04060b] border border-red-600/30 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
+            <div className="w-full bg-[#04060b] border border-sky-500/25 p-2 md:p-6 space-y-4 md:space-y-6 rounded-2xl shadow-2xl relative">
                 
                 {/* 스포츠 경기 리스트 스타일의 배팅 옵션 셀렉터 - 가로 폭 전체 사용 */}
                 <div className="space-y-3">
                   <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-2 md:pb-3 gap-1 px-1">
                     <h3 className="text-xs md:text-sm font-bold text-gray-200 flex items-center gap-1.5">
-                      <span className="w-1 h-3.5 bg-red-600 rounded"></span>
+                      <span className="w-1 h-3.5 bg-sky-500 rounded"></span>
                       실시간 회차별 배팅 보드
                     </h3>
                     <span className="text-[10px] md:text-[11px] text-amber-500 font-semibold animate-pulse">
@@ -7921,15 +7916,15 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
 
             {isMobile && selectedOptions.length > 0 && !mobileBetSlipOpen && (
-              <div className="fixed bottom-[54px] left-0 right-0 z-50 px-3.5 py-2.5 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 flex items-center justify-between border-t border-amber-500/30 shadow-[0_-8px_25px_rgba(0,0,0,0.85)]">
+              <div className="fixed bottom-[54px] left-0 right-0 z-50 px-3.5 py-2.5 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 flex items-center justify-between border-t border-sky-500/30 shadow-[0_-8px_25px_rgba(0,0,0,0.85)]">
                 <button
                   onClick={() => setMobileBetSlipOpen(!mobileBetSlipOpen)}
-                  className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-amber-500 to-amber-650 hover:from-amber-450 hover:to-amber-550 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(245,158,11,0.3)] cursor-pointer border-0"
+                  className="w-full flex items-center justify-between font-black text-xs text-white uppercase tracking-wider py-3 bg-gradient-to-r from-sky-650 to-sky-750 hover:from-sky-550 hover:to-sky-650 active:scale-95 transition-all rounded-xl px-5 shadow-[0_4px_12px_rgba(14,165,233,0.3)] cursor-pointer border-0"
                 >
                   <span className="flex items-center gap-2">
                     🎰 배팅 슬립 열기 ▼
                   </span>
-                  <span className="bg-white text-amber-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
+                  <span className="bg-white text-sky-950 px-2.5 py-0.5 rounded-full font-black text-[11px] font-mono shrink-0 select-none">
                     {selectedOptions.length}개 선택됨
                   </span>
                 </button>
@@ -7957,35 +7952,35 @@ export default function MainPage({ onLogout }: MainPageProps) {
             {/* Integrated Glow Backdrops */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 bg-gradient-to-tr from-red-950/10 via-amber-950/10 to-transparent rounded-[100px] blur-[140px] pointer-events-none z-0"></div>
 
-            {/* Premium Gold/Red Dual Slotted Dashboard Panel */}
+            {/* Premium Lockheed Tactical Aerospace Panel */}
             <div 
-              className="relative z-10 w-full rounded-3xl border border-red-500/15 p-6 md:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden"
+              className="relative z-10 w-full rounded-3xl border border-sky-500/20 p-6 md:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden"
               style={{
                 backgroundImage: "linear-gradient(to bottom, rgba(12, 13, 18, 0.5), rgba(6, 7, 10, 0.5), rgba(3, 3, 4, 0.7)), url('/고화질.jpg')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                filter: 'sepia(0.3) saturate(2) brightness(1.1) drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))',
+                filter: 'saturate(1.2) brightness(1.15) drop-shadow(0 0 12px rgba(14, 165, 233, 0.25))',
               }}
             >
               {/* Subtle tech grid motif lines */}
               <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
               
-              {/* Gold Shimmer Overlay */}
-              <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-yellow-200/20 to-transparent skew-x-[-25deg] animate-gold-shine" />
+              {/* Sky Blue Shimmer Overlay */}
+              <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-sky-305/10 to-transparent skew-x-[-25deg] animate-gold-shine" />
               
-              {/* Corner decorative golden metal brackets */}
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-amber-500/20 rounded-tl-xl pointer-events-none"></div>
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-amber-500/20 rounded-tr-xl pointer-events-none"></div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-amber-500/20 rounded-bl-xl pointer-events-none"></div>
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-amber-500/20 rounded-br-xl pointer-events-none"></div>
+              {/* Corner decorative tactical sky brackets */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-sky-500/30 rounded-tl-xl pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-sky-500/30 rounded-tr-xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-sky-500/30 rounded-bl-xl pointer-events-none"></div>
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-sky-500/30 rounded-br-xl pointer-events-none"></div>
 
               <div className="flex flex-col xl:flex-row items-center justify-between gap-10 relative z-10">
                 
                 {/* Left Content Column - Embossed & Elegantly Spaced */}
                 <div className="flex-1 space-y-6 text-center xl:text-left max-w-xl">
-                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-950/80 via-black to-red-950/40 border border-red-500/30 px-3.5 py-1.5 rounded-xl text-[10px] font-black text-rose-300 tracking-wider uppercase animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.15)]">
-                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-                    CHOICE EXOTICS CLUB
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-950/80 via-black to-sky-950/40 border border-sky-500/30 px-3.5 py-1.5 rounded-xl text-[10px] font-black text-sky-400 tracking-wider uppercase animate-pulse shadow-[0_0_15px_rgba(14,165,233,0.15)]">
+                    <span className="w-1.5 h-1.5 bg-sky-400 rounded-full shadow-[0_0_8px_rgba(14,165,233,0.8)]"></span>
+                    LOCKHEED MARTIN TACTICAL SYSTEMS
                   </div>
                   
                   <div className="space-y-3">
@@ -7993,12 +7988,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       initial={{ x: -25, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ duration: 0.7 }}
-                      className="text-4xl md:text-5xl lg:text-[54px] font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-rose-100 to-amber-200 tracking-tight drop-shadow-[0_4px_10px_rgba(0,0,0,0.95)] leading-[1.1] italic uppercase"
+                      className="text-4xl md:text-5xl lg:text-[54px] font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-sky-105 to-sky-450 tracking-tight drop-shadow-[0_4px_10px_rgba(0,0,0,0.95)] leading-[1.1] italic uppercase"
                     >
-                      CHOICE VIP
+                      LMT TACTICAL VIP
                     </motion.h1>
-                    <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2.5 text-xs font-black tracking-widest text-amber-400">
-                      <span>HIGH-STAKES SPORTS & CASINO</span>
+                    <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2.5 text-xs font-black tracking-widest text-sky-400">
+                      <span>HIGH-STAKES SPORTS & MULTI-DOMAIN SIMULATIONS</span>
                     </div>
                   </div>
 
@@ -8034,8 +8029,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </div>
                 </div>
                 {/* Laser separation Line for Desktop layout */}
-                <div className="hidden xl:block w-[1px] h-64 bg-gradient-to-b from-transparent via-red-950/60 to-transparent relative self-center">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse"></div>
+                <div className="hidden xl:block w-[1px] h-64 bg-gradient-to-b from-transparent via-sky-950/60 to-transparent relative self-center">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sky-400 rounded-full shadow-[0_0_10px_rgba(14,165,233,0.8)] animate-pulse"></div>
                 </div>
 
                 {/* Right Side - Immersive Integrated Casino & Sports Premium Tri-Showcase */}
@@ -8070,7 +8065,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             <div>
               <div className="flex items-center justify-between mb-6 border-b border-neutral-800 pb-3">
                 <div className="flex items-center gap-3">
-                  <span className="w-1.5 h-6 bg-red-500 rounded"></span>
+                  <span className="w-1.5 h-6 bg-sky-500 rounded"></span>
                   <h2 className="text-2xl font-black text-white tracking-wider">주요 게임 장르</h2>
                 </div>
                 <div className="flex md:hidden items-center gap-2 text-white">
@@ -8111,11 +8106,11 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       className={`relative h-40 bg-gray-900 border rounded overflow-hidden shadow-lg group ${
                         isDisabled 
                           ? 'cursor-default opacity-50 grayscale border-gray-800' 
-                          : 'cursor-pointer border-amber-500/50 shadow-[0_0_15px_rgba(255,215,0,0.3)]'
+                          : 'cursor-pointer border-sky-500/50 shadow-[0_0_15px_rgba(14,165,233,0.25)]'
                       }`}
                     >
                       {!isDisabled && (
-                        <div className="absolute inset-0 z-20 bg-gradient-to-r from-transparent via-yellow-200/20 to-transparent skew-x-[-25deg] animate-gold-shine" />
+                        <div className="absolute inset-0 z-20 bg-gradient-to-r from-transparent via-sky-300/20 to-transparent skew-x-[-25deg] animate-gold-shine" />
                       )}
                       <div 
                         className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-cover bg-center"
@@ -8123,7 +8118,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
                       <div className="absolute bottom-4 left-4 z-10">
-                        <p className={`text-lg font-black tracking-wide text-white transition-colors ${!isDisabled ? 'group-hover:text-amber-400' : ''}`}>{cat.label}</p>
+                        <p className={`text-lg font-black tracking-wide text-white transition-colors ${!isDisabled ? 'group-hover:text-sky-400 font-extrabold' : ''}`}>{cat.label}</p>
                       </div>
                     </motion.div>
                   );
@@ -8144,8 +8139,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
           {/* Footer */}
           <footer className="bg-black/80 py-8 border-t border-gray-900 text-center text-xs text-gray-600">
-            <p className="tracking-wide">초이스 상담을 원하시는 회원님은 고객문의를 통해 문의해주세요.</p>
-            <p className="mt-2 text-[10px] text-gray-700">Copyright 2017 © CHOICE Corp. All Rights Reserved.</p>
+            <p className="tracking-wide">록히드마틴 상담을 원하시는 회원님은 고객문의를 통해 문의해주세요.</p>
+            <p className="mt-2 text-[10px] text-gray-700">Copyright 2026 © Lockheed Martin Corp. (LMT) Tactical Systems. All Rights Reserved.</p>
           </footer>
         </>
       )}
@@ -8168,13 +8163,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-neutral-900 border border-red-600/50 rounded-lg shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden max-h-screen"
+            className="bg-neutral-900 border border-sky-500/50 rounded-lg shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden max-h-screen"
           >
             {/* Modal Header */}
-            <div className="bg-neutral-950 p-4 border-b border-red-950/80 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-red-500 font-extrabold tracking-wider">
-                <Shield className="w-5 h-5 animate-pulse" />
-                <span>CHOICE - 운영진 어드민 패널 (Admin Control Console)</span>
+            <div className="bg-neutral-950 p-4 border-b border-sky-950/80 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sky-400 font-extrabold tracking-wider">
+                <Shield className="w-5 h-5 animate-pulse text-sky-400" />
+                <span>LMT - 운영진 어드민 패널 (Admin Control Console)</span>
               </div>
               <button 
                 onClick={() => setShowAdminPanel(false)}
@@ -8185,13 +8180,13 @@ export default function MainPage({ onLogout }: MainPageProps) {
             </div>
 
             {/* Modal Info Stats Alert Bar */}
-            <div className="bg-red-950/10 border-b border-red-900/20 px-6 py-3 flex items-center justify-between text-xs text-gray-400 font-bold">
+            <div className="bg-sky-950/10 border-b border-sky-900/20 px-6 py-3 flex items-center justify-between text-xs text-gray-400 font-bold">
               <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1"><Database className="w-3.5 h-3.5 text-red-450 animate-pulse" /> 실시간 Firestore 연동</span>
+                <span className="flex items-center gap-1"><Database className="w-3.5 h-3.5 text-sky-400 animate-pulse" /> 실시간 Firestore 연동</span>
                 <div className="flex bg-neutral-900 rounded-md p-1 border border-neutral-800">
                   <button
                     onClick={() => setAdminActiveTab('users')}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'users' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'users' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Users className="w-3 h-3" /> 회원정보 관리 ({adminUsers.length}명)
                   </button>
@@ -8200,7 +8195,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       setAdminActiveTab('deposits');
                       loadAllDepositRequests();
                     }}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'deposits' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'deposits' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Coins className="w-3 h-3" /> 입금신청 승인대기 ({adminDepositRequests.filter(r => r.status === 'pending').length}건)
                   </button>
@@ -8209,31 +8204,37 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       setAdminActiveTab('withdrawals');
                       loadAllWithdrawalRequests();
                     }}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'withdrawals' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'withdrawals' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Coins className="w-3 h-3 rotate-180 text-amber-500" /> 출금신청 승인대기 ({adminWithdrawalRequests.filter(r => r.status === 'pending').length}건)
                   </button>
                   <button
+                    onClick={() => setAdminActiveTab('activeUsers')}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'activeUsers' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    <Activity className="w-3 h-3" /> 실시간 접속자 ({adminUsers.filter(u => u.lastActive > Date.now() - 300000).length}명)
+                  </button>
+                  <button
                     onClick={() => setAdminActiveTab('settings')}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'settings' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'settings' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Settings className="w-3 h-3 text-amber-500" /> 환율 설정
                   </button>
                   <button
                     onClick={() => setAdminActiveTab('videos')}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'videos' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'videos' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Tv className="w-3 h-3 text-sky-400" /> 하이라이트 영상
                   </button>
                   <button
                     onClick={() => setAdminActiveTab('inquiries')}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'inquiries' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'inquiries' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Shield className="w-3 h-3 text-red-400" /> 1:1 문의관리 ({adminInquiries.length}건)
                   </button>
                   <button
                     onClick={() => setAdminActiveTab('matches')}
-                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'matches' ? 'bg-red-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-3 py-1 rounded text-[11px] transition cursor-pointer font-bold flex items-center gap-1 ${adminActiveTab === 'matches' ? 'bg-sky-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                   >
                     <Edit className="w-3 h-3 text-white" /> 경기 등록 / 정산
                   </button>
@@ -8419,6 +8420,36 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       </table>
                     </div>
                   )}
+                </div>
+              ) : adminActiveTab === 'activeUsers' ? (
+                <div className="space-y-4">
+                  <div className="bg-neutral-800 p-4 rounded text-xs text-gray-300">
+                    최근 5분 이내에 활동한 회원 목록입니다.
+                  </div>
+                  <div className="overflow-x-auto border border-neutral-800 rounded bg-black/30">
+                    <table className="w-full text-center text-xs text-gray-300">
+                       <thead className="bg-neutral-950 text-gray-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
+                         <tr>
+                           <th className="p-3">닉네임</th>
+                           <th className="p-3">아이디</th>
+                           <th className="p-3">마지막 활동</th>
+                           <th className="p-3">IP 주소</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-neutral-800/60 font-mono">
+                         {adminUsers.filter(u => u.lastActive > Date.now() - 300000).map(u => (
+                           <tr key={u.id} className="hover:bg-neutral-850/30 transition text-xs">
+                             <td className="p-3">{u.nickname}</td>
+                             <td className="p-3">{u.username}</td>
+                             <td className="p-3">
+                               {new Date(u.lastActive).toLocaleTimeString()}
+                             </td>
+                             <td className="p-3">{u.lastIp || '정보없음'}</td>
+                           </tr>
+                         ))}
+                       </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : adminActiveTab === 'matches' ? (
                 <AdminMatchRegistration />
@@ -9218,10 +9249,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
             onClick={() => {
               navigateTo('sports');
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-450 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-sky-400 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Dribbble className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
+              <Dribbble className="w-5 h-5 text-gray-400 group-hover:text-sky-400" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               스포츠
@@ -9233,10 +9264,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
             onClick={() => {
               navigateTo('minigame');
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-450 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-sky-400 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Workflow className="w-5 h-5 text-gray-400 group-hover:text-amber-450" />
+              <Workflow className="w-5 h-5 text-gray-400 group-hover:text-sky-400" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               미니게임
@@ -9249,10 +9280,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
               onClick={() => {
                 navigateTo('home');
               }}
-              className="w-13 h-13 bg-neutral-950 border-4 border-amber-500 rounded-full flex items-center justify-center shadow-[0_4px_18px_rgba(245,158,11,0.65)] cursor-pointer group transition-transform active:scale-90 animate-gold-flash"
+              className="w-13 h-13 bg-neutral-950 border-4 border-sky-500 rounded-full flex items-center justify-center shadow-[0_4px_18px_rgba(14,165,233,0.65)] cursor-pointer group transition-transform active:scale-90 animate-gold-flash"
             >
               <div className="w-full h-full rounded-full bg-gradient-to-b from-[#111215] to-[#040405] flex items-center justify-center relative overflow-hidden">
-                <Home className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-all duration-300 relative z-10" />
+                <Home className="w-5 h-5 text-sky-400 group-hover:text-sky-300 transition-all duration-300 relative z-10" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-25deg] animate-gold-shine pointer-events-none" />
               </div>
             </button>
@@ -9263,10 +9294,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
             onClick={() => {
               navigateTo('bethistory');
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-sky-400 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Receipt className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+              <Receipt className="w-5 h-5 text-gray-400 group-hover:text-sky-400" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               베팅내역
@@ -9278,10 +9309,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
             onClick={() => {
               navigateTo('pointshistory');
             }}
-            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-amber-400 transition-colors cursor-pointer group"
+            className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 py-1 text-[#a0a5b1] hover:text-sky-400 transition-colors cursor-pointer group"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-neutral-800 transition-colors">
-              <Coins className="w-5 h-5 text-gray-400 group-hover:text-amber-400" />
+              <Coins className="w-5 h-5 text-gray-400 group-hover:text-sky-400" />
             </div>
             <span className="text-[10px] font-black tracking-tight shrink-0 select-none">
               포인트내역
@@ -9386,7 +9417,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                               setInquiryContent(`안녕하십니까. VIP 추천인 파트너 코드를 정식 신청하고자 합니다.\n\n[예상 지인 유입수]: 10명 내외\n[주요 홍보 방식/도메인]: 단체 텔레그램방 및 지인 입소문 홍보\n\n확인 후 코드 심사 승인 및 신속 발급 부탁드리겠습니다.`);
                               navigateTo('support');
                             }}
-                            className="w-full bg-gradient-to-r from-red-950 to-red-900 hover:from-red-900 hover:to-red-850 text-white font-black text-xs py-2 rounded-lg transition active:scale-95 cursor-pointer shadow-md border border-neutral-800"
+                            className="w-full bg-gradient-to-r from-sky-950 to-sky-900 hover:from-sky-900 hover:to-sky-850 text-sky-200 font-black text-xs py-2 rounded-lg transition active:scale-95 cursor-pointer shadow-md border border-sky-900/50"
                           >
                             💬 1:1 고객센터 발급신청
                           </button>
@@ -9578,9 +9609,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 </div>
                 <div>
                   <h3 className="text-sm md:text-base font-black text-white flex items-center gap-2 whitespace-nowrap">
-                    📥 CHOICE 개인 쪽지함 <span className="text-amber-500 font-mono text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">{unreadCount} 미확인</span>
+                    📥 LMT 개인 쪽지함 <span className="text-sky-400 font-mono text-xs px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20">{unreadCount} 미확인</span>
                   </h3>
-                  <p className="text-[11px] text-gray-400">초이스 운영진이 발송한 중요 공지 및 개별 혜택 소식을 실시간 확인하세요.</p>
+                  <p className="text-[11px] text-gray-400">록히드마틴 운영진이 발송한 중요 공지 및 개별 혜택 소식을 실시간 확인하세요.</p>
                 </div>
               </div>
               <button
@@ -9731,7 +9762,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
             {/* Modal Bottom Banner */}
             <div className="p-4 border-t border-neutral-800 bg-neutral-950 text-center text-[10.5px] text-gray-500">
-              초이스는 투명하고 믿을 수 있는 양질의 시뮬레이터 이용을 위해 24시간 실시간 고객지원 및 쪽지 문의 서비스를 제공합니다.
+              록히드마틴은 투명하고 믿을 수 있는 양질의 시뮬레이터 이용을 위해 24시간 실시간 고객지원 및 쪽지 문의 서비스를 제공합니다.
             </div>
 
           </div>
@@ -9741,12 +9772,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
       {/* 어드민 쪽지 발송 모달 (Admin Send Note Modal) */}
       {isAdminNoteModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[10000] p-4 text-white font-sans animate-in fade-in duration-200">
-          <div className="bg-[#0b0c10] border-2 border-red-500/20 max-w-lg w-full rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(239,68,68,0.15)] flex flex-col animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0b0c10] border-2 border-sky-500/20 max-w-lg w-full rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(14,165,233,0.15)] flex flex-col animate-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
             <div className="px-5 py-4 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-red-650/10 border border-red-500/30 flex items-center justify-center text-red-500">
+                <div className="w-8 h-8 rounded-lg bg-sky-650/10 border border-sky-500/30 flex items-center justify-center text-sky-500">
                   <Send className="w-4 h-4 text-red-500" />
                 </div>
                 <div>
@@ -9827,7 +9858,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
               </button>
               <button
                 onClick={handleSendAdminNote}
-                className="px-5 py-2 bg-gradient-to-r from-red-750 to-red-650 hover:from-red-700 hover:to-red-600 text-white rounded-lg transition shadow-lg shadow-red-950/40 cursor-pointer flex items-center gap-1"
+                className="px-5 py-2 bg-gradient-to-r from-sky-700 to-sky-650 hover:from-sky-600 hover:to-sky-550 text-white rounded-lg transition shadow-lg shadow-sky-950/40 cursor-pointer flex items-center gap-1"
               >
                 <Send className="w-3.5 h-3.5" /> 쪽지 발송하기
               </button>

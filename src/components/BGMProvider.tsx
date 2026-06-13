@@ -11,7 +11,7 @@ export const BGMProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = 0.3;
+      audioRef.current.volume = 0.05;
       audioRef.current.src = playlist[currentTrackIndex];
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {

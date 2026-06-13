@@ -1343,7 +1343,7 @@ function isMatchActive(dateTimeStr: string): boolean {
                 <>
                   {sortedGroups.map(([leagueName, leagueMatches]) => (
                     <div key={leagueName} className="space-y-3 mb-6">
-                      <div className="bg-gradient-to-r from-red-600 to-rose-700 border border-red-500/30 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-md">
+                      <div className="bg-gradient-to-r from-sky-950 via-[#0e1726] to-sky-900/70 border border-sky-500/30 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs md:text-sm shadow-[0_0_15px_rgba(14,165,233,0.12)]">
                         <span className="font-extrabold tracking-tight text-white flex items-center gap-1.5">
                           <button
                             onClick={(e) => {
@@ -2015,7 +2015,7 @@ function isMatchActive(dateTimeStr: string): boolean {
                 type="button"
                 disabled={isPlacingBet}
                 onClick={() => setBetAmount(0)}
-                className="bg-neutral-950 hover:bg-[#201010] border border-red-950 hover:border-red-900 py-2.5 px-1 rounded-lg text-[10px] font-bold text-red-400 transition cursor-pointer select-none"
+                className="bg-neutral-950 hover:bg-[#0c1322] border border-[#1e293b] hover:border-sky-600 py-2.5 px-1 rounded-lg text-[10px] font-bold text-gray-400 hover:text-sky-400 transition cursor-pointer select-none"
               >
                 초기화
               </button>

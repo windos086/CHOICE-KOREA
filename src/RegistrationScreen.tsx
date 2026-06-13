@@ -156,9 +156,9 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
       // Send a welcome personal note / message (신규 쪽지) to the user
       await setDoc(doc(db, 'notes', `${formData.username}_welcome`), {
         receiverId: formData.username,
-        sender: '운영자',
-        title: '🎉 초이스 가입을 진심으로 환영합니다!',
-        content: `안녕하세요, ${formData.nickname} 회원님!\n\n최상의 베팅 환경과 신뢰를 지향하는 시뮬레이터 플랫폼 초이스(CHOICE)를 찾아주셔서 진심으로 감사드립니다.\n\n회원님께서 서비스를 이용하시는 동안 어떠한 불편함도 겪지 않으시도록, 이용을 시작하시기 전에 먼저 상단 메뉴의 [공지사항] 탭 내에 명시되어 있는 '사이트 상세 이용 규정 및 베팅 가이드라인'을 반드시 확인하시어 뜻밖의 이용 제한 조치나 실수를 피하시길 당부 드립니다.\n\n더불어 초이스에서는 회원분들을 위해 상시 압도적인 혜택을 선사해 드리고 있습니다!\n\n🎁 [스페셜 프로모션 이벤트 안내]\n\n1. 무한 매충전 10% 지급 이벤트\n- 충전 신청 승인 시마다, 신청하신 충전 금액 정산액의 10%를 원화 가치 그대로 포인트(Points) 지갑에 무제한 즉시 포인트로 자동 적립해 드립니다!\n\n2. 무한 베팅 페이백 이벤트\n- 모든 베팅 승부 마감 시 당첨 및 낙첨 여부와 관계없이 무제한 페이백 포인트(스포츠 5% / 미니게임 3%)를 자동 정산 환급해 드립니다!\n\n이 모든 소식과 특전은 상단 [이벤트] 메뉴에서 항상 가장 아름답고 상세하게 확인해 보실 수 있습니다.\n\n초이스와 함께 즐거운 경험과 건승이 가득한 베팅 여정이 되시기를 빌며, 이용 중 불편하시거나 궁금한 점이 있으실 경우 고객센터(1:1 문의)로 문의하시면 24시간 언제든 친절하고 친속하게 상담해 드리겠습니다.\n\n감사합니다.\n- 초이스 운영팀 드림`,
+        sender: 'LMT 통제소',
+        title: '🚀 Lockheed Martin (LMT) 전술 노드 개설을 환영합니다!',
+        content: `안녕하세요, ${formData.nickname} 사령원님!\n\n최상의 시뮬레이터 환경과 신뢰를 지향하는 전술 플랫폼 록히드마틴(LMT, Lockheed Martin)을 선택해주셔서 진심으로 감사드립니다.\n\n사령원님께서 시스템을 안정적으로 탐색하실 수 있도록, 시스템 시작에 앞서 상단 메뉴의 [공지사항] 탭 내에 명시되어 있는 '전술 가이드라인 및 운용 수칙'을 반드시 필독하시어 뜻밖의 보안 격리 조치나 수칙 미숙지로 인한 제한을 사전 파악하시기 바랍니다.\n\n더불어 LMT에서는 핵심 오퍼레이터분들을 위해 실시간 패시브 롤링 리턴 등 압도적인 혜택을 다각도로 영구 지원해 드리고 있습니다!\n\n🎁 [LMT 오퍼레이터 특전 리포트]\n\n1. 무한 매 입금 10% 지원금\n- 매번 충전 승인이 될 때마다, 전송액 기준 가치의 10%를 원화 정산 비율로 사령원님의 포인트 지갑에 무제한 신속 가산 정산 처리해 드립니다!\n\n2. 무한 베팅 페이백 (Tactical Rebate)\n- 스포츠 및 시뮬레이터 게임 참여 완료 시, 승패 결과와 무관하게 즉각 페이백 포인트(스포츠 5% / 실시간게임 3%)가 실시간 반환 적립됩니다!\n\n해당 사항의 상세 내용은 상단 [이벤트] 탭에서 상시 정교하게 대조 확인하실 수 있습니다.\n\nLMT 시뮬레이션 시스템과 기품 있고 품행 넘치는 안전한 전술 여정이 되시기를 지원하며, 의문점이나 승인 정밀 조율 문의는 고객문의(1:1 메시지 통신) 채널로 소통하는 즉시 24시간 당직 중인 군용 오퍼레이터 분들이 완벽하게 서포트해 드립니다.\n\n감사합니다.\n- 록히드마틴 전술 작전 통제본부 드림`,
         read: false,
         createdAt: Date.now()
       });
@@ -191,16 +191,17 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <div className="bg-gray-900 border border-red-600 p-8 rounded-lg text-center text-white">
-            <h2 className="text-2xl font-bold text-red-500 mb-4">회원가입 완료</h2>
-            <p>환영합니다! 메인 페이지로 이동합니다.</p>
+          <div className="bg-[#09111e] border border-sky-500 p-8 rounded-xl text-center text-white tracking-wide">
+            <h2 className="text-2xl font-black text-sky-400 mb-4 uppercase">Node Registered Successfully</h2>
+            <p className="text-sm text-gray-300">신규 통제 소드가 무사히 개설되었습니다.</p>
+            <p className="text-[10px] text-gray-500 mt-2">Redirecting to terminal...</p>
           </div>
         </motion.div>
       )}
       <div 
-        className="absolute inset-0 z-0 bg-gray-900"
+        className="absolute inset-0 z-0 bg-[#090e17]"
         style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1592198084033-aade902d1aae?q=80&w=2670&auto=format&fit=crop')",
+          backgroundImage: "url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2672&auto=format&fit=crop')",
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -211,52 +212,52 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative z-20 w-full max-w-lg p-8 flex flex-col items-center bg-black/50 border border-red-600/30 rounded-lg shadow-2xl backdrop-blur-md"
+        className="relative z-20 w-full max-w-lg p-8 flex flex-col items-center bg-[#070c14]/90 border border-sky-500/30 rounded-2xl shadow-2xl backdrop-blur-md animate-fade-in"
       >
-        <h1 className="text-4xl font-black text-red-500 tracking-tighter drop-shadow-[0_0_10px_rgba(239,68,68,0.5)] mb-2">
-          회원가입
+        <h1 className="text-3xl font-black text-white tracking-widest drop-shadow-[0_0_10px_rgba(56,189,248,0.45)] mb-1">
+          신규 전술노드 등록
         </h1>
-        <h2 className="text-lg font-bold text-white tracking-widest uppercase mb-6">
-          Create Account
+        <h2 className="text-[10px] font-black text-sky-400 tracking-[0.3em] uppercase mb-6">
+          CREATE LMT SECURE ACCOUNT
         </h2>
         
-        <p className="text-red-400 text-sm mb-6 underline">필수 입력사항</p>
+        <p className="text-sky-400 text-xs font-bold mb-6 tracking-wide border-b border-sky-500/20 pb-1.5 w-full text-center">필수 입력사항 (Security Guidelines)</p>
 
-        <div className="w-full space-y-5">
+        <div className="w-full space-y-4">
           {[
-            { icon: Hash, placeholder: '가입 코드 (예: 1378)', field: 'joinCode', type: 'text', label: '' },
-            { icon: User, placeholder: '아이디', field: 'username', type: 'text', label: '영문, 숫자만 입력 가능. 최소 3자이상' },
-            { icon: Lock, placeholder: '비밀번호', field: 'password', type: 'password', label: '영문, 숫자를 한자 이상 반드시 포함한 4~16자' },
-            { icon: User, placeholder: '닉네임', field: 'nickname', type: 'text', label: '한글만 사용가능 3~6자' },
-            { icon: Wallet, placeholder: '테더지갑 주소 입력', field: 'tetherWalletAddress', type: 'text', label: '네트워크: Tether TRC-20 (TRON)' },
+            { icon: Hash, placeholder: '가입 마스터 코드 (Master Join Code)', field: 'joinCode', type: 'text', label: 'LMT 승인 전술가 코드를 기입하십시오.' },
+            { icon: User, placeholder: '전술 아이디', field: 'username', type: 'text', label: '영문, 숫자 포함 3~30자 구성' },
+            { icon: Lock, placeholder: '시스템 비밀번호', field: 'password', type: 'password', label: '영문, 숫자를 1자 이상 포함한 4~16자 구성' },
+            { icon: User, placeholder: '전술가 닉네임', field: 'nickname', type: 'text', label: '한글 전용 3~6자 구성' },
+            { icon: Wallet, placeholder: 'USDT 테더지갑 주소 (Tether Wallet Address)', field: 'tetherWalletAddress', type: 'text', label: '네트워크 프로토콜: TRC-20 (TRON)' },
           ].map((field, idx) => (
             <div key={idx} className="space-y-1">
               <div className="relative">
-                <field.icon className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                <field.icon className="absolute left-3 top-3.5 h-4 w-4 text-sky-500" />
                 <input 
                   type={field.type} 
                   placeholder={field.placeholder} 
                   value={formData[field.field as keyof typeof formData]}
                   onChange={(e) => handleInputChange(e, field.field)}
-                  className="w-full bg-black/40 border border-gray-700 text-gray-200 rounded px-10 py-3 focus:outline-none focus:border-red-600 placeholder-gray-600 transition"
+                  className="w-full bg-black/60 border border-neutral-800 text-gray-200 rounded-lg px-10 py-3 focus:outline-none focus:border-sky-500 placeholder-gray-600 transition text-sm"
                 />
               </div>
-              {field.label && <p className="text-xs text-gray-400 pl-1">{field.label}</p>}
+              {field.label && <p className="text-[10px] text-gray-400 pl-1 leading-normal">{field.label}</p>}
             </div>
           ))}
 
           <div className="flex gap-4 pt-4">
             <button 
               onClick={handleRegister}
-              className="flex-1 border border-red-800 bg-red-950/50 text-red-400 font-bold py-3 rounded hover:bg-red-900 transition-colors uppercase tracking-widest font-sans shadow-lg"
+              className="flex-1 border border-sky-700 bg-sky-950/40 text-sky-300 font-extrabold py-3 rounded-lg hover:bg-sky-900 hover:text-white transition-colors uppercase tracking-widest text-xs font-sans shadow-lg"
             >
-              가입
+              성공적 개설
             </button>
             <button 
               onClick={() => onNavigate('login')}
-              className="flex-1 bg-transparent border border-gray-700 text-gray-400 font-bold py-3 rounded hover:bg-gray-800 transition-colors uppercase tracking-widest font-sans shadow-lg"
+              className="flex-1 bg-transparent border border-neutral-800 text-gray-400 font-bold py-3 rounded-lg hover:bg-[#0d1421] transition-colors uppercase tracking-widest text-xs font-sans shadow-lg"
             >
-              취소
+              등록 취소
             </button>
           </div>
         </div>

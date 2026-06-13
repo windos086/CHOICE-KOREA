@@ -1,6 +1,6 @@
 {
-  "name": "초이스",
-  "description": "A new website application",
+  "name": "록히드마틴",
+  "description": "Lockheed Martin Tactical Simulation Platform",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
