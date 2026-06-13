@@ -124,7 +124,12 @@ export function deduplicateLeagueName(name: string): string {
 
 export function cleanTeamName(name: string): string {
   if (!name) return '';
-  return name.replace(/\[[^\]]*\]/g, '').trim();
+  let cleaned = name.replace(/\[[^\]]*\]/g, '').trim();
+  
+  // Strip trailing numbers (and spaces/dashes between them) that represent scoring boards (like "밀워키 6 0 0", "신시내티 0 0 0 0 0 0")
+  cleaned = cleaned.replace(/\s+([\d\-]+\s+)*\d+$/, '').trim();
+  
+  return cleaned;
 }
 
 function getLeagueHeaderLabel(leagueName: string, sampleMatch?: any) {

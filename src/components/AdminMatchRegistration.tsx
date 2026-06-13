@@ -106,7 +106,12 @@ export function deduplicateLeagueName(name: string): string {
 export function cleanTeamName(name: string): string {
   if (!name) return '';
   // Remove "라이브" prefix (case-insensitive and optional space) and content in brackets
-  return name.replace(/^라이브\s*/i, '').replace(/\[[^\]]*\]/g, '').trim();
+  let cleaned = name.replace(/^라이브\s*/i, '').replace(/\[[^\]]*\]/g, '').trim();
+  
+  // Strip trailing numbers (and spaces/dashes between them) that represent scoring boards (like "밀워키 6 0 0", "신시내티 0 0 0 0 0 0")
+  cleaned = cleaned.replace(/\s+([\d\-]+\s+)*\d+$/, '').trim();
+  
+  return cleaned;
 }
 
 export function normalizeDateString(dateTimeStr: string): string {
