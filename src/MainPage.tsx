@@ -233,6 +233,14 @@ interface MainPageProps {
 }
 
 export default function MainPage({ onLogout }: MainPageProps) {
+  // Focus Mode style application
+  useEffect(() => {
+    const element = document.querySelector('div#root:nth-of-type(1) > div:nth-of-type(2) > header:nth-of-type(1) > div:nth-of-type(4)') as HTMLElement;
+    if (element) {
+      element.style.marginLeft = '-130px';
+    }
+  }, []);
+
   const [nickname, setNickname] = useState('회원');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
