@@ -42,6 +42,15 @@ export default function App() {
     document.title = '록히드마틴';
   }, []);
 
+  // Right-click disabling for simple security enhancement
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => document.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
+
   return (
     <>
       {currentScreen === 'login' && <LoginScreen onNavigate={setCurrentScreen} />}
