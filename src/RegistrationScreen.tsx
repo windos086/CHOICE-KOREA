@@ -136,6 +136,8 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         tetherWalletAddress: formData.tetherWalletAddress,
         balance: 0,
         points: 0,
+        bets: [],
+        pointsHistory: [],
         appliedReferrerCode: resolvedReferrerCode,
         createdAt: new Date().toISOString()
       };
@@ -149,6 +151,8 @@ export default function RegistrationScreen({ onNavigate }: RegistrationScreenPro
         tetherWalletAddress: formData.tetherWalletAddress,
         balance: 0,
         points: 0,
+        bets: [],
+        pointsHistory: [],
         appliedReferrerCode: resolvedReferrerCode,
         createdAt: serverTimestamp()
       });

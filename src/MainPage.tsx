@@ -1489,7 +1489,18 @@ export default function MainPage({ onLogout }: MainPageProps) {
             localStorage.setItem('userReferrerCode', cleanRef);
           }
           
-          const expandedData = { id: docIdToUse, ...data, balance: bal, points: pts };
+          // Use Firestore lists if available, otherwise fall back to cached local lists to prevent loss on refresh
+          const finalBets = data.bets !== undefined ? data.bets : (userObj?.bets || []);
+          const finalPointsHistory = data.pointsHistory !== undefined ? data.pointsHistory : (userObj?.pointsHistory || []);
+
+          const expandedData = { 
+            id: docIdToUse, 
+            ...data, 
+            balance: bal, 
+            points: pts,
+            bets: finalBets,
+            pointsHistory: finalPointsHistory
+          };
           setCurrentUserData(expandedData);
           
           const latestUserLoc = localStorage.getItem('currentUser');
@@ -1501,7 +1512,9 @@ export default function MainPage({ onLogout }: MainPageProps) {
                 id: docIdToUse,
                 ...data,
                 balance: bal,
-                points: pts
+                points: pts,
+                bets: finalBets,
+                pointsHistory: finalPointsHistory
               }));
             } catch (jsonErr) {
               console.warn("Failed to update cache JSON:", jsonErr);
@@ -1548,7 +1561,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
             console.warn("User document not found directly at docId:", docId, "trying query fallback and auto-ensuring");
             setupQueryListener();
             
-            // Auto-heal: Ensure user document exists in Firestore so they are registered/trackable
+            // Auto-heal: Ensure user document exists in Firestore and persist all existing histories (to prevent lost data on database redeployments or namespace change)
             console.log("Auto-ensuring user document in Firestore for:", userObj.username);
             setDoc(userDocRef, {
               joinCode: userObj.joinCode || '5882',
@@ -1558,6 +1571,8 @@ export default function MainPage({ onLogout }: MainPageProps) {
               tetherWalletAddress: userObj.tetherWalletAddress || '',
               balance: userObj.balance !== undefined ? userObj.balance : 5000000,
               points: userObj.points !== undefined ? userObj.points : 50000,
+              bets: userObj.bets || [],
+              pointsHistory: userObj.pointsHistory || [],
               createdAt: new Date().toISOString()
             }).catch(err => console.warn("Auto-ensuring user creation failed:", err));
           }
