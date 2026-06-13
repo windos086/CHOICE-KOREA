@@ -67,8 +67,8 @@ export const VerticalDepositBanner: React.FC<{ onClick: () => void }> = ({ onCli
 
           <div className="flex flex-col items-center gap-1.5">
             {/* Elegant 3D Title */}
-            <h2 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-b from-[#ffffff] via-[#fed7aa] to-[#f59e0b] filter drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] italic uppercase tracking-tight text-center leading-none">
-              충전 신청
+            <h2 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-b from-[#ffffff] via-[#fed7aa] to-[#f59e0b] filter drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] italic uppercase tracking-tight text-center leading-none pr-2">
+              충전 신청&nbsp;
             </h2>
             <p className="text-[10px] font-black text-gray-400 tracking-[0.2em] font-mono text-center uppercase leading-none">
               DEPOSIT REQUEST

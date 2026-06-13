@@ -169,7 +169,9 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
       const matchedSports = getBetSports(bet);
       return matchedSports.includes(selectedCategory);
     } else {
-      return bet.game && bet.game.includes(selectedCategory);
+      const hasDirectGame = bet.game && bet.game.includes(selectedCategory);
+      const hasFolderGame = bet.folders && bet.folders.some((f: any) => f.game && f.game.includes(selectedCategory));
+      return hasDirectGame || hasFolderGame;
     }
   });
 
@@ -234,7 +236,8 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
     'N파워볼(3분)', 
     'N파워사다리(5분)', 
     'N파워사다리(3분)', 
-    '레드파워사다리(5분)'
+    '레드파워사다리(5분)',
+    '엔트리 키노사다리'
   ];
 
   const categoryMapping: Record<string, { label: string; emoji: string }> = {
@@ -247,7 +250,8 @@ export default function BetHistoryView({ currentUserData, sportsResults }: BetHi
     'N파워볼(3분)': { label: '파워볼 3분', emoji: '🔵' },
     'N파워사다리(5분)': { label: '사다리 5분', emoji: '🪜' },
     'N파워사다리(3분)': { label: '사다리 3분', emoji: '🪜' },
-    '레드파워사다리(5분)': { label: '레드사다리', emoji: '🔴' }
+    '레드파워사다리(5분)': { label: '레드사다리', emoji: '🔴' },
+    '엔트리 키노사다리': { label: '키노사다리', emoji: '🪜' }
   };
 
   // Helper to map option choices to Home (Left) vs Away (Right) column

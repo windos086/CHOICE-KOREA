@@ -20,3 +20,16 @@ export function getSportCategory(match: any): '축구' | '농구' | '야구' | '
   }
   return '축구';
 }
+
+export function isMatchActive(dateTimeStr: string): boolean {
+  if (!dateTimeStr) return true;
+  const now = new Date();
+  const match = dateTimeStr.trim().match(/^(\d{2})[\.\-](\d{2})\s+(\d{2}):(\d{2})/);
+  if (!match) return true;
+  const month = parseInt(match[1], 10) - 1;
+  const day = parseInt(match[2], 10);
+  const hour = parseInt(match[3], 10);
+  const minute = parseInt(match[4], 10);
+  const matchDate = new Date(now.getFullYear(), month, day, hour, minute);
+  return matchDate > now;
+}

@@ -13,9 +13,11 @@ import { VerticalWithdrawalBanner } from './components/WithdrawalBanner';
 import SportsContainer from './components/SportsContainer';
 import CasinoContainer from './components/CasinoContainer';
 import AdminMatchRegistration from './components/AdminMatchRegistration';
+import LiveLineupBanner from './components/LiveLineupBanner';
+import AdultWarningBanner from './components/AdultWarningBanner';
 import { MobileBettingList } from './components/MobileBettingList';
 import BGMControls from './components/BGMControls';
-import { getSportCategory } from './lib/matchUtils';
+import { getSportCategory, isMatchActive } from './lib/matchUtils';
 import { Shield, ShieldCheck, Users, Database, X, RefreshCw, Edit, Save, Trash2, Search, Check, AlertCircle, Copy, Coins, History, Lock, Settings, Gamepad2, Vote, Receipt, Home, Menu, RotateCw, Send, Mail, ShoppingCart, Zap, Gift, Sparkles, TrendingUp, Info, Layout, Dribbble, Workflow, Play, Tv, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 
 enum OperationType {
@@ -4578,7 +4580,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </button>
                 )}
                 <a
-                  href="https://t.me/Choice_root"
+                  href="https://t.me/LMT_Main"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-[#121620] hover:bg-neutral-850 border border-neutral-800 text-white p-2 rounded-lg active:scale-95 transition-all shadow-md flex items-center justify-center cursor-pointer animate-telegram-glow"
@@ -4716,18 +4718,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   </span>
                 </span>
               </button>
-              {['테더가이드', '스포츠', '미니게임', '카지노게임', '경기결과', '베팅내역', '포인트내역', '입금신청', '출금신청', '이벤트', '공지사항'].map((item) => {
-                if (item === '테더가이드') {
-                  return (
-                    <button 
-                      key={item} 
-                      onClick={() => navigateTo('tetherguide')}
-                      className={`hover:text-sky-400 transition-colors uppercase tracking-tight relative pb-1 ${showTetherGuide ? 'text-sky-400 font-extrabold border-b-2 border-sky-400' : 'hover:border-b-2 hover:border-sky-500'}`}
-                    >
-                      테더가이드
-                    </button>
-                  );
-                }
+              {['스포츠', '미니게임', '카지노게임', '경기결과', '베팅내역', '포인트내역', '입금신청', '출금신청', '이벤트', '공지사항'].map((item) => {
                 if (item === '스포츠') {
                   return (
                       <button 
@@ -4899,7 +4890,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   return (
                     <a 
                       key={item} 
-                      href="https://telegram.me/Choice_root"
+                      href="https://telegram.me/LMT_Main"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-sky-400 font-bold hover:text-sky-300 transition-colors uppercase tracking-tight relative pb-1 hover:border-b-2 hover:border-sky-400 cursor-pointer"
@@ -5254,15 +5245,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
                     </button>
                   )}
 
-                  {/* 테더 가이드 */}
-                  <button
-                    type="button"
-                    onClick={() => { navigateTo('tetherguide'); setIsMobileMenuOpen(false); }}
-                    className="bg-[#141720]/85 hover:bg-neutral-800 py-2.5 text-center rounded-lg border border-red-900 cursor-pointer active:scale-95 transition"
-                  >
-                    <span className="text-xs font-bold text-emerald-400 block">테더가이드</span>
-                    <span className="text-[7.5px] text-emerald-500">USDT Guide</span>
-                  </button>
+
 
                   {/* 베팅내역 */}
                   <button
@@ -8099,10 +8082,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {/* Horizontal dividers & micro badges */}
                   <div className="grid grid-cols-4 gap-2 pt-3.5 border-t border-neutral-900/80">
                     {[
-                      { name: '축구', count: allMatches.filter(m => getSportCategory(m) === '축구').length, emoji: '⚽', route: 'soccer' },
-                      { name: '농구', count: allMatches.filter(m => getSportCategory(m) === '농구').length, emoji: '🏀', route: 'basketball' },
-                      { name: '야구', count: allMatches.filter(m => getSportCategory(m) === '야구').length, emoji: '⚾', route: 'baseball' },
-                      { name: '배구', count: allMatches.filter(m => getSportCategory(m) === '배구').length, emoji: '🏐', route: 'volleyball' },
+                      { name: '축구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '축구' && isMatchActive(m.dateTime)).length, emoji: '⚽', route: 'soccer' },
+                      { name: '농구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '농구' && isMatchActive(m.dateTime)).length, emoji: '🏀', route: 'basketball' },
+                      { name: '야구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '야구' && isMatchActive(m.dateTime)).length, emoji: '⚾', route: 'baseball' },
+                      { name: '배구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '배구' && isMatchActive(m.dateTime)).length, emoji: '🏐', route: 'volleyball' },
                     ].map((item, index) => (
                       <div 
                         key={index} 
@@ -8125,6 +8108,12 @@ export default function MainPage({ onLogout }: MainPageProps) {
                         <div className="text-[9px] text-gray-300 font-bold">{item.name}</div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* High-Tech Tactical Widget Banners - Perfectly structured directly below categories */}
+                  <div className="flex flex-row items-center justify-center xl:justify-start gap-4 pt-4 border-t border-neutral-900/50 w-full">
+                    <LiveLineupBanner />
+                    <AdultWarningBanner />
                   </div>
                 </div>
                 {/* Laser separation Line for Desktop layout */}

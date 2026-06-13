@@ -6,7 +6,7 @@ import { motion } from 'motion/react';
 export const TelegramBanner: React.FC = () => {
   return (
     <a
-      href="https://t.me/Choice_root"
+      href="https://t.me/LMT_Main"
       target="_blank"
       rel="noopener noreferrer"
       className="block relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-black via-[#1c1200] to-black border border-[#ffd700]/30 hover:border-[#ffd700]/80 transition-all cursor-pointer shadow-[0_0_15px_rgba(255,215,0,0.15)] group select-none"
@@ -41,7 +41,7 @@ export const TelegramBanner: React.FC = () => {
              </div>
           </div>
           <div className="text-white font-black text-xs font-mono tracking-tight mt-1 bg-black/50 px-1 rounded drop-shadow">
-             @Choice_root
+             @LMT_Main
           </div>
         </div>
       </div>
@@ -71,7 +71,7 @@ export const DesktopTelegramBanner: React.FC = () => {
       />
 
       <a
-        href="https://t.me/Choice_root"
+        href="https://t.me/LMT_Main"
         target="_blank"
         rel="noopener noreferrer"
         className="block relative w-full h-[155px] bg-gradient-to-r from-black via-[#141006] to-black rounded-[14px] overflow-hidden cursor-pointer"
@@ -167,7 +167,7 @@ export const DesktopTelegramBanner: React.FC = () => {
 
               {/* Telegram ID Display tag - styled matching reference image */}
               <div className="mt-2.5 bg-black/80 border border-amber-500/40 text-amber-300 font-extrabold text-xs tracking-wide px-4 py-1.5 rounded-full font-mono shadow-[0_2px_5px_rgba(0,0,0,0.5)] z-20 hover:border-amber-450 hover:text-white transition-colors">
-                @Choice_root
+                @LMT_Main
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@ export const VerticalTelegramBanner: React.FC = () => {
       }}></div>
 
       <a
-        href="https://t.me/Choice_root"
+        href="https://t.me/LMT_Main"
         target="_blank"
         rel="noopener noreferrer"
         className="absolute inset-0 z-10 flex flex-col justify-between p-5"
@@ -254,8 +254,8 @@ export const VerticalTelegramBanner: React.FC = () => {
 
           <div className="flex flex-col items-center gap-1.5">
             {/* Elegant 3D Title */}
-            <h2 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-b from-[#ffffff] via-[#fed7aa] to-[#f59e0b] filter drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] italic uppercase tracking-tight text-center leading-none">
-              텔레그램 고객센터
+            <h2 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-b from-[#ffffff] via-[#fed7aa] to-[#f59e0b] filter drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] italic uppercase tracking-tight text-center leading-none pr-2">
+              텔레그램 고객센터&nbsp;
             </h2>
             <p className="text-[10px] font-black text-gray-400 tracking-[0.2em] font-mono text-center uppercase leading-none">
               Telegram Official Customer Support
@@ -264,7 +264,7 @@ export const VerticalTelegramBanner: React.FC = () => {
 
           {/* Plaque wrapped Username Handle */}
           <div className="bg-black/95 border border-amber-500/40 text-amber-300 font-extrabold text-xs tracking-wider px-5 py-2 rounded-full font-mono shadow-[0_4px_12px_rgba(0,0,0,0.7)] group-hover:border-amber-400 group-hover:text-white transition-all transform group-hover:scale-105">
-            @Choice_root
+            @LMT_Main
           </div>
         </div>
 

@@ -48,6 +48,10 @@ body {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-4px); }
   }
+  @keyframes fastPulse {
+    0%, 100% { opacity: 1; filter: brightness(1.2) drop-shadow(0 0 8px currentColor); }
+    50% { opacity: 0.35; filter: brightness(0.7); }
+  }
 
   .animate-marquee {
     animation: marquee 25s linear infinite;
@@ -69,6 +73,9 @@ body {
   }
   .animate-bounce-short {
     animation: bounceShort 1.4s ease-in-out infinite;
+  }
+  .animate-fast-pulse {
+    animation: fastPulse 0.5s infinite ease-in-out;
   }
 
   .no-scrollbar::-webkit-scrollbar {
