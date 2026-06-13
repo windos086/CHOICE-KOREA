@@ -1407,7 +1407,7 @@ function isMatchActive(dateTimeStr: string): boolean {
 
                                     {/* Column 2: Center (Draw/VS) */}
                                     <div className="w-14 items-center justify-center text-center shrink-0 border-l border-r border-[#1b1e24]/60 bg-[#07080b] flex z-10">
-                                      {match.status !== 'pending' ? (
+                                      {match.status !== 'pending' && !(getSportCategory(match) === '야구' || getSportCategory(match) === '배구' || getSportCategory(match) === '농구') ? (
                                         <div className="flex flex-col items-center justify-center select-none py-1">
                                           <span className="font-mono text-xs font-black text-amber-500 whitespace-nowrap">
                                             {match.homeScore !== undefined ? match.homeScore : '?'} : {match.awayScore !== undefined ? match.awayScore : '?'}
@@ -1624,7 +1624,7 @@ function isMatchActive(dateTimeStr: string): boolean {
 
                                    {/* Column 3: Draw Column */}
                                    <div className="w-[75px] md:w-[90px] border-l border-r border-[#1b1e24] bg-[#0c0e11]/40 flex items-center justify-center text-center shrink-0">
-                                     {match.status !== 'pending' ? (
+                                     {match.status !== 'pending' && !(getSportCategory(match) === '야구' || getSportCategory(match) === '배구' || getSportCategory(match) === '농구') ? (
                                        <div className="flex flex-col items-center justify-center select-none">
                                          <span className="text-[9px] font-bold text-neutral-505 leading-none mb-0.5">SCORE</span>
                                          <span className="font-mono text-xs md:text-sm font-black text-amber-500 whitespace-nowrap">
