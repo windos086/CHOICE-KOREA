@@ -415,6 +415,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
     const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedMatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('Matches fetched in MainPage:', fetchedMatches.length, fetchedMatches.filter(m => m.status === 'pending' && m.sport === 'baseball').length);
       setAllMatches(fetchedMatches);
     });
     return () => unsubscribe();
@@ -2830,6 +2831,22 @@ export default function MainPage({ onLogout }: MainPageProps) {
     }
   };
 
+  const handleDeleteGameResult = async (matchId: string) => {
+    if (!window.confirm('이 경기를 완전히 삭제하시겠습니까? 데이터가 복구되지 않으며 관련 배팅 내역의 불일치가 발생할 수 있으니 주의하세요.')) {
+      return;
+    }
+    try {
+      setIsLoadingGameResults(true);
+      await deleteDoc(doc(db, 'matches', matchId));
+      alert('경기가 정상적으로 삭제되었습니다.');
+      await loadGameResults();
+    } catch (e: any) {
+      alert('경기 삭제 중 오류가 발생했습니다: ' + e.message);
+    } finally {
+      setIsLoadingGameResults(false);
+    }
+  };
+
   useEffect(() => {
     if (showGameResultScreen || showBetHistory) {
       autoInsertRecentGameResults();
@@ -3665,6 +3682,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
       sportsRowsList.push({
         id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_matchWinner`,
+        matchId: match.id,
         dateStr: fullDateStr,
         timeStr: timeVal || '00:00',
         gameName: sportName,
@@ -3707,6 +3725,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
         sportsRowsList.push({
           id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_handicap`,
+          matchId: match.id,
           dateStr: fullDateStr,
           timeStr: timeVal || '00:00',
           gameName: sportName,
@@ -3744,6 +3763,7 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
         sportsRowsList.push({
           id: `${match.id || match.homeTeam + '_' + match.awayTeam + '_' + match.dateTime}_overUnder`,
+          matchId: match.id,
           dateStr: fullDateStr,
           timeStr: timeVal || '00:00',
           gameName: sportName,
@@ -7154,13 +7174,24 @@ export default function MainPage({ onLogout }: MainPageProps) {
                       <div key={row.id} className="bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 text-xs">
                         <div className="flex justify-between items-center mb-3">
                           <span className="text-gray-400 font-mono text-[11px]">{row.dateStr} {row.timeStr}</span>
-                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${
-                            row.statusText === '결과대기'
-                              ? 'text-amber-500 bg-amber-950/30 border-amber-900/60 animate-pulse'
-                              : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/60'
-                          }`}>
-                            {row.statusText}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${
+                              row.statusText === '결과대기'
+                                ? 'text-amber-500 bg-amber-950/30 border-amber-900/60 animate-pulse'
+                                : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/60'
+                            }`}>
+                              {row.statusText}
+                            </span>
+                            {isAdmin && row.matchId && (
+                              <button
+                                onClick={() => handleDeleteGameResult(row.matchId)}
+                                className="p-1.5 bg-red-950/20 hover:bg-red-950/40 border border-red-900/40 rounded text-red-500 hover:text-red-400 transition"
+                                title="경기 직접 삭제"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="font-bold text-white text-sm">{row.league}</span>
@@ -7293,12 +7324,23 @@ export default function MainPage({ onLogout }: MainPageProps) {
 
                             {/* 결과 */}
                             <td className="p-3 text-center align-middle pr-6 py-4">
-                              <div className={`inline-block border px-3 py-1 text-[11px] rounded font-bold tracking-tight select-none shadow-[0_2px_4px_rgba(245,158,11,0.05)] ${
-                                row.statusText === '결과대기'
-                                  ? 'text-amber-500 bg-amber-950/30 border-amber-900/60 animate-pulse'
-                                  : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/60'
-                              }`}>
-                                {row.statusText}
+                              <div className="flex items-center justify-center gap-2">
+                                <div className={`inline-block border px-3 py-1 text-[11px] rounded font-bold tracking-tight select-none shadow-[0_2px_4px_rgba(245,158,11,0.05)] ${
+                                  row.statusText === '결과대기'
+                                    ? 'text-amber-500 bg-amber-950/30 border-amber-900/60 animate-pulse'
+                                    : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/60'
+                                }`}>
+                                  {row.statusText}
+                                </div>
+                                {isAdmin && row.matchId && (
+                                  <button
+                                    onClick={() => handleDeleteGameResult(row.matchId)}
+                                    className="p-1.5 bg-red-950/10 hover:bg-red-950/30 border border-red-900/40 rounded text-red-500 hover:text-red-400 transition cursor-pointer"
+                                    title="경기 직접 삭제"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -8082,10 +8124,10 @@ export default function MainPage({ onLogout }: MainPageProps) {
                   {/* Horizontal dividers & micro badges */}
                   <div className="grid grid-cols-4 gap-2 pt-3.5 border-t border-neutral-900/80">
                     {[
-                      { name: '축구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '축구' && isMatchActive(m.dateTime)).length, emoji: '⚽', route: 'soccer' },
-                      { name: '농구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '농구' && isMatchActive(m.dateTime)).length, emoji: '🏀', route: 'basketball' },
-                      { name: '야구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '야구' && isMatchActive(m.dateTime)).length, emoji: '⚾', route: 'baseball' },
-                      { name: '배구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '배구' && isMatchActive(m.dateTime)).length, emoji: '🏐', route: 'volleyball' },
+                      { name: '축구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '축구').length, emoji: '⚽', route: 'soccer' },
+                      { name: '농구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '농구').length, emoji: '🏀', route: 'basketball' },
+                      { name: '야구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '야구').length, emoji: '⚾', route: 'baseball' },
+                      { name: '배구', count: allMatches.filter(m => m.status === 'pending' && getSportCategory(m) === '배구').length, emoji: '🏐', route: 'volleyball' },
                     ].map((item, index) => (
                       <div 
                         key={index} 

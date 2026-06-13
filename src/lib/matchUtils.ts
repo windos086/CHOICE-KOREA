@@ -1,9 +1,10 @@
 export function getSportCategory(match: any): '축구' | '농구' | '야구' | '배구' | '아이스하키' {
-  if (match.sport === 'soccer' || match.sport === '축구') return '축구';
-  if (match.sport === 'basketball' || match.sport === '농구') return '농구';
-  if (match.sport === 'baseball' || match.sport === '야구') return '야구';
-  if (match.sport === 'volleyball' || match.sport === '배구') return '배구';
-  if (match.sport === 'hockey' || match.sport === '아이스하키') return '아이스하키';
+  const sport = (match.sport || '').toLowerCase();
+  if (sport === 'soccer' || sport === '축구') return '축구';
+  if (sport === 'basketball' || sport === '농구') return '농구';
+  if (sport === 'baseball' || sport === '야구') return '야구';
+  if (sport === 'volleyball' || sport === '배구') return '배구';
+  if (sport === 'hockey' || sport === '아이스하키') return '아이스하키';
 
   const name = ((match.league || '') + ' ' + (match.homeTeam || '') + ' ' + (match.awayTeam || '') + ' ' + (match.sport || '')).toLowerCase();
   if (name.includes('농구') || name.includes('nba') || name.includes('kbl') || name.includes('wkbl') || name.includes('basketball')) {

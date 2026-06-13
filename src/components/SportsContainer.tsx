@@ -551,7 +551,7 @@ function isMatchActive(dateTimeStr: string): boolean {
 }
 
 // 1. Filter matches based on the selected major sport tab, and sort favorites first
-  const sortedMatches = [...matches].filter(m => isMatchActive(m.dateTime)).sort((a, b) => {
+  const sortedMatches = [...matches].sort((a, b) => {
     const aFav = favorites.includes(a.id);
     const bFav = favorites.includes(b.id);
     if (aFav && !bFav) return -1;
@@ -640,6 +640,10 @@ function isMatchActive(dateTimeStr: string): boolean {
 
   // Toggle selection of a specific bet option
   const handleSelectOption = (match: any, type: 'home' | 'draw' | 'away', odds: number) => {
+    if (!isMatchActive(match.dateTime)) {
+      alert('경기 시작 시간이 지나 배팅이 마감된 경기입니다.');
+      return;
+    }
     if (!odds || odds <= 0) return;
 
     // Find existing selection with same matchId AND same marketType
@@ -759,6 +763,10 @@ function isMatchActive(dateTimeStr: string): boolean {
   };
 
   const handleSelectHandicap = (match: any, handi: any, type: 'home' | 'away') => {
+    if (!isMatchActive(match.dateTime)) {
+      alert('경기 시작 시간이 지나 배팅이 마감된 경기입니다.');
+      return;
+    }
     // Find existing selection with same matchId AND same marketType
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'handicap');
     const baseLineValue = formatHandicapDisplay(
@@ -812,6 +820,10 @@ function isMatchActive(dateTimeStr: string): boolean {
   };
 
   const handleSelectOverUnder = (match: any, ou: any, type: 'over' | 'under') => {
+    if (!isMatchActive(match.dateTime)) {
+      alert('경기 시작 시간이 지나 배팅이 마감된 경기입니다.');
+      return;
+    }
     const existingSameMatchIndex = selectedFolders.findIndex(f => f.matchId === match.id && f.marketType === 'overUnder');
     const cleanedLineValue = cleanLineValue(ou.value || '2.5');
 
@@ -1108,8 +1120,8 @@ function isMatchActive(dateTimeStr: string): boolean {
           { id: '아이스하키', name: '아이스하키', emoji: '🏒' }
         ].map((sport) => {
           const count = sport.id === '전체'
-            ? matches.filter(m => m.status === 'pending' && isMatchActive(m.dateTime)).length
-            : matches.filter(m => m.status === 'pending' && getSportCategory(m) === sport.id && isMatchActive(m.dateTime)).length;
+            ? matches.filter(m => m.status === 'pending').length
+            : matches.filter(m => m.status === 'pending' && getSportCategory(m) === sport.id).length;
 
           const isActive = activeSportTab === sport.id;
           const isBall = ['⚽', '🏀', '⚾', '🏐'].includes(sport.emoji);
@@ -1372,9 +1384,15 @@ function isMatchActive(dateTimeStr: string): boolean {
                                    </div>
                                    <div className="flex items-center gap-1.5">
                                      {match.status === 'pending' ? (
-                                       <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-black tracking-tight uppercase select-none">
-                                         베팅 가능
-                                       </span>
+                                       isMatchActive(match.dateTime) ? (
+                                         <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-black tracking-tight uppercase select-none">
+                                           베팅 가능
+                                         </span>
+                                       ) : (
+                                         <span className="text-[9px] bg-neutral-850 text-neutral-400 border border-neutral-700/60 px-2 py-0.5 rounded font-black tracking-tight uppercase select-none">
+                                           베팅 마감
+                                         </span>
+                                       )
                                      ) : (
                                        <span className="text-[9px] bg-red-950/20 text-red-400 border border-red-900/40 px-2 py-0.5 rounded font-black select-none">
                                          경기 종료
